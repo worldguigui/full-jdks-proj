@@ -196,7 +196,55 @@ public final class XmlWorldLoader {
             agents.add(new WorldDefinition.AgentDef(id, attr(e, "name"), role, at, trait, skill));
         }
 
-        return new WorldDefinition(name, epoch, locations, links, ships, agents, seed);
+        // 资源经济参数
+        List<ResourceDef> resources = new ArrayList<>();
+        for (Element e : children(child(root, "resources"), "resource")) {
+            String resName = attr(e, "name");
+            BigDecimal base = new BigDecimal(attr(e, "basePrice"));
+            if (base.signum() <= 0) {
+                throw new ConfigException("资源 " + resName + " 的 basePrice 必须 > 0");
+            }
+            BigDecimal target = new BigDecimal(attr(e, "target"));
+            if (target.signum() <= 0) {
+                throw new ConfigException("资源 " + resName + " 的 target 必须 > 0");
+            }
+            double elasticity = e.hasAttribute("elasticity")
+                    ? Double.parseDouble(attr(e, "elasticity")) : 1.0;
+            if (elasticity <= 0) {
+                throw new ConfigException("资源 " + resName + " 的 elasticity 必须 > 0");
+            }
+            resources.add(new ResourceDef(resName, base, target, elasticity));
+        }
+
+        // 配方
+        List<RecipeDef> recipes = new ArrayList<>();
+        Set<String> recipeIds = new LinkedHashSet<>();
+        for (Element e : children(child(root, "recipes"), "recipe")) {
+            String rid = attr(e, "id");
+            if (!recipeIds.add(rid)) {
+                throw new ConfigException("配方 id 重复: " + rid);
+            }
+            int ticks = Integer.parseInt(attr(e, "ticks"));
+            if (ticks <= 0) {
+                throw new ConfigException("配方 " + rid + " 的 ticks 必须 > 0");
+            }
+            long at = Long.parseLong(attr(e, "at"));
+            if (!ids.contains(at)) {
+                throw new ConfigException("配方 " + rid + " 的地点不存在: " + at);
+            }
+            Map<String, BigDecimal> inputs = readAmounts(e, "in");
+            Map<String, BigDecimal> outputs = readAmounts(e, "out");
+            if (inputs.isEmpty() || outputs.isEmpty()) {
+                throw new ConfigException("配方 " + rid + " 必须同时有输入与输出");
+            }
+            recipes.add(new RecipeDef(rid, attr(e, "name"), ticks, at, inputs, outputs));
+        }
+
+        BigDecimal credits = root.hasAttribute("playerCredits")
+                ? new BigDecimal(attr(root, "playerCredits")) : BigDecimal.ZERO;
+
+        return new WorldDefinition(name, epoch, locations, links, ships, agents,
+                new WorldDefinition.EconomyDef(resources, recipes, credits), seed);
     }
 
     private static Schema loadSchema() throws Exception {
@@ -268,6 +316,20 @@ public final class XmlWorldLoader {
             throw new ConfigException("每日产出不得为负: " + perDay);
         }
         return new WorldDefinition.ProductionDef(attr(p, "resource"), perDay);
+    }
+
+    /** 读取 <in>/<out> 资源数量列表。 */
+    private static Map<String, BigDecimal> readAmounts(Element parent, String tag) {
+        Map<String, BigDecimal> out = new LinkedHashMap<>();
+        for (Element item : children(parent, tag)) {
+            String res = attr(item, "resource");
+            BigDecimal amount = new BigDecimal(attr(item, "amount"));
+            if (amount.signum() <= 0) {
+                throw new ConfigException("配方资源数量必须 > 0: " + res + "=" + amount);
+            }
+            out.merge(res, amount, BigDecimal::add);
+        }
+        return out;
     }
 
     private static Map<String, BigDecimal> readCargo(Element ship) {

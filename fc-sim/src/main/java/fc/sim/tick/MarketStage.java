@@ -10,6 +10,16 @@ import fc.world.WorldState;
  */
 public final class MarketStage implements TickStage {
 
+    private final fc.sim.spi.MarketSystem market;
+
+    public MarketStage() {
+        this(null);
+    }
+
+    public MarketStage(fc.sim.spi.MarketSystem market) {
+        this.market = market;
+    }
+
     @Override
     public String name() {
         return "9-market";
@@ -17,6 +27,8 @@ public final class MarketStage implements TickStage {
 
     @Override
     public void apply(WorldState state, TickContext ctx) {
-        // M3 接管：供需 → 价格 → 交易结算
+        if (market != null) {
+            market.onTick(state, ctx);
+        }
     }
 }

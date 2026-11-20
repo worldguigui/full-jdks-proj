@@ -106,6 +106,19 @@ Frontier Chronicle（边境纪事）：Java SE 21 全量标准 API 星际远征 
 - CLI 新增 `crew`；next 附带回合报告；事件渲染带人名地名。
 - 测试 24 个通过。报告 `docs/phase5/m2-report.md`。下一步 M3（经济贸易）。
 
+## 阶段五 M3（2026-11-21 已完成）
+- 经济：PriceModel（幂函数定价，夹 0.3×~5×，买×1.05 卖×0.95）、Economy（价格不落库）、ProductionSystemImpl（配方扣输入/发产出）、MarketSystemImpl（工资+欠薪扣士气）、TradeService（部分成交+守恒）。
+- SPI 解耦：fc-sim 定义 ProductionSystem/MarketSystem 接口，fc-economy 实现，TickPipeline.m3 注入。
+- 配置：world.xml 5 资源 / 4 配方 / playerCredits；13 地点初始 credits。
+- CLI：market / trade buy|sell|quote；help 改为跑商开局。
+- 测试 35 个通过。报告 `docs/phase5/m3-report.md`。下一步 M4（势力+科技）。
+
+## 阶段五批次口径（2026-11-21 更正）
+- **批次依据**：`docs/phase2/game-design.md` §17（M0–M6 表）；细节 §8.2/§8.3/§9/§11/§12。
+- **单一事实来源**：`docs/phase5/batch-plan.md`（§17 原文 + 执行状态 + 差距）。开工前登记范围，收尾逐条打勾。
+- **实际状态**：M0/M1 达成；M2 部分（缺势力 AI、待决决策、风暴下游链路、哈希工具）；M3 部分（缺殖民地等级、Transfer 守恒、补给线、D1 判定）。
+- 不得用「机制就绪/骨架完成」冒充「§17 验收达成」。
+
 ## 约定
 - 游戏代码模块前缀 `fc-`，Maven 多模块，零第三方 compile/runtime 依赖，测试用自研 fc-testkit。
 - 每完成一个阶段向 `docs/phaseN/` 交付 md + 数据；扫描/审计工具放 `tools/`。

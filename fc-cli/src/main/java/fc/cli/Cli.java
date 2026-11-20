@@ -1,5 +1,6 @@
 package fc.cli;
 
+import fc.economy.TradeService;
 import fc.fleet.VoyageService;
 import fc.sim.GameLoop;
 import fc.world.Ids;
@@ -32,6 +33,10 @@ public final class Cli {
                     "主体名册：角色、位置、饥饿/疲劳/士气、当前指派"),
             new Cmd("sail", List.of(), "sail <舰船> <目标地点>",
                     "启航（舰船与目标都可用 id 或名字）"),
+            new Cmd("market", List.of(), "market [舰船]",
+                    "当前地点行情：库存、买入价、卖出价"),
+            new Cmd("trade", List.of(), "trade buy|sell <资源> <数量> [舰船]",
+                    "按行情买卖（舰船须停泊在有货的地点）"),
             new Cmd("next", List.of(), "next <天数>",
                     "推进世界时间（移动与产出在推进中结算）"),
             new Cmd("log", List.of("chronicle"), "log [条数|all]",
@@ -45,9 +50,15 @@ public final class Cli {
     );
 
     private final GameLoop loop;
+    private final TradeService trade;
 
     public Cli(GameLoop loop) {
+        this(loop, null);
+    }
+
+    public Cli(GameLoop loop, TradeService trade) {
         this.loop = loop;
+        this.trade = trade;
     }
 
     /** 把输入命令名/别名解析为规范名（未知则原样返回）。 */
@@ -76,6 +87,8 @@ public final class Cli {
             case "ships" -> ships();
             case "crew" -> crew();
             case "sail" -> doSail(tokens);
+            case "market" -> doMarket(tokens);
+            case "trade" -> doTrade(tokens);
             case "log" -> doChronicle(tokens);
             case "help" -> help();
             case "quit" -> "bye";
@@ -198,6 +211,75 @@ public final class Cli {
         return r.message();
     }
 
+    /** 默认舰船（id 最小的那艘）。 */
+    private Optional<Location.Ship> defaultShip(WorldState state) {
+        return state.graph().ships().stream()
+                .min(java.util.Comparator.comparingLong(s -> s.shipId().id()));
+    }
+
+    private String doMarket(List<String> tokens) {
+        if (trade == null) {
+            return "经济系统未启用（世界未配置 <resources>）。";
+        }
+        WorldState st = loop.state();
+        Optional<Location.Ship> ship = tokens.size() > 1
+                ? findShip(st, tokens.get(1)) : defaultShip(st);
+        if (ship.isEmpty()) {
+            return "找不到舰船。";
+        }
+        if (ship.get().inVoyage()) {
+            return "该舰船在航中，无法交易（先 next 抵达）。";
+        }
+        return trade.marketTable(st, ship.get());
+    }
+
+    private String doTrade(List<String> tokens) {
+        if (trade == null) {
+            return "经济系统未启用（世界未配置 <resources>）。";
+        }
+        if (tokens.size() < 3) {
+            return "用法: trade buy|sell <资源> <数量> [舰船] / trade quote <资源>";
+        }
+        String side = tokens.get(1);
+        String resource = tokens.get(2);
+        if ("quote".equals(side)) {
+            WorldState s0 = loop.state();
+            Optional<Location.Ship> sh = tokens.size() > 3 ? findShip(s0, tokens.get(3)) : defaultShip(s0);
+            return sh.map(x -> trade.quote(s0, x, resource)).orElse("找不到舰船。");
+        }
+        if (tokens.size() < 4) {
+            return "用法: trade buy|sell <资源> <数量> [舰船]";
+        }
+        int qty;
+        try {
+            qty = Integer.parseInt(tokens.get(3));
+        } catch (NumberFormatException e) {
+            return "数量非法: " + tokens.get(3);
+        }
+        WorldState st = loop.state();
+        Optional<Location.Ship> ship = tokens.size() > 4
+                ? findShip(st, tokens.get(4)) : defaultShip(st);
+        if (ship.isEmpty()) {
+            return "找不到舰船。";
+        }
+        if (ship.get().inVoyage()) {
+            return "该舰船在航中，无法交易（先 next 抵达）。";
+        }
+        var r = switch (side) {
+            case "buy" -> trade.buy(st, ship.get(), resource, qty);
+            case "sell" -> trade.sell(st, ship.get(), resource, qty);
+            case "quote" -> null;
+            default -> null;
+        };
+        if (r == null) {
+            if ("quote".equals(side)) {
+                return trade.quote(st, ship.get(), resource);
+            }
+            return "未知交易方向: " + side + "（buy|sell）";
+        }
+        return r.message();
+    }
+
     private Optional<Location.Ship> findShip(WorldState state, String key) {
         try {
             Optional<Location.Ship> byId = VoyageService.findShip(state, Long.parseLong(key));
@@ -284,7 +366,8 @@ public final class Cli {
                 + "，地点 " + st.graph().placeCount() + " 个"
                 + "，航线 " + st.graph().links().size() + " 条"
                 + "，舰船 " + st.graph().ships().size() + " 艘"
-                + "，编年史 " + st.chronicle().size() + " 条";
+                + "，编年史 " + st.chronicle().size() + " 条"
+                + "，信用点 " + st.credits().stripTrailingZeros().toPlainString();
     }
 
     private String help() {
@@ -301,12 +384,14 @@ public final class Cli {
         }
         sb.append("""
 
-                开局建议:
-                  1) map                     看清 16 个地点与航线
-                  2) sail 1 4                让晨星号从 Sol 去 Vega（4 天，耗油 10）
-                  3) next 4                  推进 4 天，抵达
-                  4) log                     看发生了什么
-                  5) sail 1 1  然后 next 4    返航 Sol""");
+                跑商开局（低买高卖）:
+                  1) market                  看 Sol 行情（粮食便宜、燃料为零）
+                  2) trade buy food 100      在 Sol 买粮
+                  3) sail 1 8                去熔炉殖民地（当地粮贵）
+                  4) next 14                 航行抵港
+                  5) trade sell food 100     卖出获利（买方资金不足会部分成交）
+                  6) market                  再买 fuel / alloy，继续跑
+                  7) log                     看编年史（自主生产、迁徙、风暴）""");
         return sb.toString();
     }
 

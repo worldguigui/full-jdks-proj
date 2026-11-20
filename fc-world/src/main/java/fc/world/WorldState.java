@@ -23,6 +23,7 @@ public final class WorldState {
     private final Chronicle chronicle;
     private final Map<LocationId, LocationId> parents;
     private final Map<String, WorkUnit> workUnits = new HashMap<>();
+    private java.math.BigDecimal credits = java.math.BigDecimal.ZERO;
     private Stardate now;
 
     public WorldState(LocationGraph graph, Map<AgentId, Agent> agents,
@@ -39,6 +40,20 @@ public final class WorldState {
         this.chronicle = chronicle;
         this.parents = new HashMap<>(parents);
         this.now = now;
+    }
+
+    /** 玩家（组织）信用点余额。 */
+    public java.math.BigDecimal credits() {
+        return credits;
+    }
+
+    public void setCredits(java.math.BigDecimal next) {
+        this.credits = next;
+    }
+
+    /** 收支信用点（负数为支出）。 */
+    public void addCredits(java.math.BigDecimal delta) {
+        this.credits = this.credits.add(delta);
     }
 
     /** 地点的父地点（无父返回 null）。层级来自配置，不属于 sealed 模型。 */

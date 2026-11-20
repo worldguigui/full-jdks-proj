@@ -17,6 +17,7 @@ public record WorldDefinition(
         List<LinkDef> links,
         List<ShipDef> ships,
         List<AgentDef> agents,
+        EconomyDef economy,
         long seed) {
 
     /** 默认世界种子（确定性随机的起点）。 */
@@ -29,16 +30,35 @@ public record WorldDefinition(
         agents = List.copyOf(agents);
     }
 
-    /** 兼容：无主体、默认种子。 */
+    /** 兼容：无主体、无经济、默认种子。 */
     public WorldDefinition(String name, long epochDay, List<LocationDef> locations,
                            List<LinkDef> links, List<ShipDef> ships) {
-        this(name, epochDay, locations, links, ships, List.of(), DEFAULT_SEED);
+        this(name, epochDay, locations, links, ships, List.of(), EconomyDef.EMPTY, DEFAULT_SEED);
     }
 
-    /** 兼容：有主体、默认种子。 */
+    /** 兼容：有主体、无经济、默认种子。 */
     public WorldDefinition(String name, long epochDay, List<LocationDef> locations,
                            List<LinkDef> links, List<ShipDef> ships, List<AgentDef> agents) {
-        this(name, epochDay, locations, links, ships, agents, DEFAULT_SEED);
+        this(name, epochDay, locations, links, ships, agents, EconomyDef.EMPTY, DEFAULT_SEED);
+    }
+
+    /** 兼容：有主体与经济、默认种子。 */
+    public WorldDefinition(String name, long epochDay, List<LocationDef> locations,
+                           List<LinkDef> links, List<ShipDef> ships, List<AgentDef> agents,
+                           EconomyDef economy) {
+        this(name, epochDay, locations, links, ships, agents, economy, DEFAULT_SEED);
+    }
+
+    /** 经济参数（资源价格、配方、玩家初始信用点）。 */
+    public record EconomyDef(List<ResourceDef> resources, List<RecipeDef> recipes,
+                             BigDecimal playerCredits) {
+        public static final EconomyDef EMPTY =
+                new EconomyDef(List.of(), List.of(), BigDecimal.ZERO);
+
+        public EconomyDef {
+            resources = List.copyOf(resources);
+            recipes = List.copyOf(recipes);
+        }
     }
 
     /** 地点定义。kind ∈ StarSystem / Planet / OrbitalStation / Anomaly / Colony / Facility。 */

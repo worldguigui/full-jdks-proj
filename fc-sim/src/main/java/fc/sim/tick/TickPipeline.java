@@ -40,19 +40,27 @@ public final class TickPipeline {
         this.bus = bus;
     }
 
-    /** M2 标准管线：十二阶段全量。 */
+    /** M2 标准管线：十二阶段全量（经济系统为空实现）。 */
     public static TickPipeline m2(Map<Ids.LocationId, WorldAssembler.Production> production,
                                   RngStreams rng, EventBus bus) {
+        return m3(production, rng, bus, null, null);
+    }
+
+    /** M3 管线：注入生产与市场系统。 */
+    public static TickPipeline m3(Map<Ids.LocationId, WorldAssembler.Production> production,
+                                  RngStreams rng, EventBus bus,
+                                  fc.sim.spi.ProductionSystem prodSystem,
+                                  fc.sim.spi.MarketSystem marketSystem) {
         return new TickPipeline(List.of(
                 new TimeStage(),
                 new EnvironmentStage(),
                 new FactionStage(),
                 new PerceiveStage(),
                 new DecideStage(),
-                new WorkStage(),
+                new WorkStage(prodSystem),
                 new VoyageStage(),
                 new ConsumptionStage(),
-                new MarketStage(),
+                new MarketStage(marketSystem),
                 new WorldEventStage(),
                 new ChronicleStage(),
                 new ReportStage()

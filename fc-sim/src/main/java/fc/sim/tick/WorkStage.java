@@ -19,6 +19,16 @@ import java.util.concurrent.Future;
  */
 public final class WorkStage implements TickStage {
 
+    private final fc.sim.spi.ProductionSystem production;
+
+    public WorkStage() {
+        this(null);
+    }
+
+    public WorkStage(fc.sim.spi.ProductionSystem production) {
+        this.production = production;
+    }
+
     @Override
     public String name() {
         return "6-work";
@@ -26,6 +36,9 @@ public final class WorkStage implements TickStage {
 
     @Override
     public void apply(WorldState state, TickContext ctx) {
+        if (production != null) {
+            production.startUnits(state, ctx);
+        }
         List<Map.Entry<String, WorkUnit>> entries = new ArrayList<>(state.workUnits().entrySet());
         if (entries.isEmpty()) {
             return;
@@ -49,11 +62,15 @@ public final class WorkStage implements TickStage {
         }
 
         for (int i = 0; i < entries.size(); i++) {
+            String key = entries.get(i).getKey();
             WorkUnit unit = entries.get(i).getValue();
             for (int step = 0; step < advance[i] && !unit.done(); step++) {
                 unit = unit.advance();
             }
-            state.putWorkUnit(entries.get(i).getKey(), unit);
+            if (unit.done() && production != null) {
+                production.onComplete(state, ctx, key, unit);
+            }
+            state.putWorkUnit(key, unit);
         }
     }
 }

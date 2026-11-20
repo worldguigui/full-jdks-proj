@@ -16,12 +16,25 @@ public final class WorkUnit {
     private final int progress;
     private final int totalTicks;
     private final List<AgentId> workers;
+    private final Ids.LocationId at;
 
+    /** 兼容：不绑定地点的工作单元。 */
     public WorkUnit(String recipeName, int progress, int totalTicks, List<AgentId> workers) {
+        this(recipeName, progress, totalTicks, workers, null);
+    }
+
+    public WorkUnit(String recipeName, int progress, int totalTicks, List<AgentId> workers,
+                    Ids.LocationId at) {
         this.recipeName = recipeName;
         this.progress = progress;
         this.totalTicks = totalTicks;
         this.workers = List.copyOf(workers);
+        this.at = at;
+    }
+
+    /** 工作单元所在地点（生产结算用）。 */
+    public Ids.LocationId at() {
+        return at;
     }
 
     public String recipeName() {
@@ -47,6 +60,6 @@ public final class WorkUnit {
 
     /** 推进一格，返回新 WorkUnit。 */
     public WorkUnit advance() {
-        return new WorkUnit(recipeName, Math.min(progress + 1, totalTicks), totalTicks, workers);
+        return new WorkUnit(recipeName, Math.min(progress + 1, totalTicks), totalTicks, workers, at);
     }
 }

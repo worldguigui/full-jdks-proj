@@ -4,17 +4,23 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="097c6c33-ef2e-4e50-9435-6767862fcd71" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="097c6c33-ef2e-4e50-9435-6767862fcd71" name="Changes" comment="### v0.2.0 2026-11-21 阶段五 M2：主体与事件&#10;&#10;1. **十二阶段 Tick 管线**：`1-time → 2-environment → 3-faction → 4-perceive → 5-decide → 6-work → 7-voyage → 8-consumption → 9-market → 10-event → 11-chronicle → 12-report`（3/9 为显式占位，M3/M4 填充）。&#10;2. **统一主体决策**：船员/居民/使者同一类型三角色；饥饿/疲劳/士气驱动进食、休息、工作、**觅食迁徙**、拒绝指令。&#10;3. **确定性随机流**：`RngStreams`（L64X128MixRandom）按 weather/events/agents/market/factions 派生独立流；同种子两次历史逐字节一致。&#10;4. **事件分发**：tick 内有序 `EventQueue` → 阶段 11 唯一落库 → tick 后 `Flow` 广播（只读）。&#10;5. **新命令** `crew`：查看 14 个主体的角色/位置/需求/指派；`next` 附带回合报告行。&#10;6. 测试 24 个通过（M2 11 + M1 7 + fleet 6）。">
       <change beforePath="$PROJECT_DIR$/.workbuddy/memory/2026-11-20.md" beforeDir="false" afterPath="$PROJECT_DIR$/.workbuddy/memory/2026-11-20.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.workbuddy/memory/MEMORY.md" beforeDir="false" afterPath="$PROJECT_DIR$/.workbuddy/memory/MEMORY.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/phase1/api-inventory.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/phase1/api-inventory.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/phase1/data/freeze-manifest.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/phase1/data/freeze-manifest.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/phase2/game-design.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/phase2/game-design.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/phase2/phase2-report.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/phase2/phase2-report.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tools/FreezeBaseline.java" beforeDir="false" afterPath="$PROJECT_DIR$/tools/FreezeBaseline.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-cli/src/main/java/fc/cli/Cli.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-cli/src/main/java/fc/cli/Cli.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-config/src/main/java/fc/config/world/WorldDefinition.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-config/src/main/java/fc/config/world/WorldDefinition.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-config/src/main/java/fc/config/world/XmlWorldLoader.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-config/src/main/java/fc/config/world/XmlWorldLoader.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-config/src/main/resources/schema/world.xsd" beforeDir="false" afterPath="$PROJECT_DIR$/fc-config/src/main/resources/schema/world.xsd" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-config/src/main/resources/world/default-world.xml" beforeDir="false" afterPath="$PROJECT_DIR$/fc-config/src/main/resources/world/default-world.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-economy/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/fc-economy/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-runtime/src/main/java/fc/runtime/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-runtime/src/main/java/fc/runtime/Main.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/MarketStage.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/MarketStage.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/TickPipeline.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/TickPipeline.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/WorkStage.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/WorkStage.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/GameEvent.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/GameEvent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/WorkUnit.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/WorkUnit.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/WorldState.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/WorldState.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -106,6 +112,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "Application.Frontier Chronicle.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -179,5 +186,9 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="### v0.2.0 2026-11-21 阶段五 M2：主体与事件&#10;&#10;1. **十二阶段 Tick 管线**：`1-time → 2-environment → 3-faction → 4-perceive → 5-decide → 6-work → 7-voyage → 8-consumption → 9-market → 10-event → 11-chronicle → 12-report`（3/9 为显式占位，M3/M4 填充）。&#10;2. **统一主体决策**：船员/居民/使者同一类型三角色；饥饿/疲劳/士气驱动进食、休息、工作、**觅食迁徙**、拒绝指令。&#10;3. **确定性随机流**：`RngStreams`（L64X128MixRandom）按 weather/events/agents/market/factions 派生独立流；同种子两次历史逐字节一致。&#10;4. **事件分发**：tick 内有序 `EventQueue` → 阶段 11 唯一落库 → tick 后 `Flow` 广播（只读）。&#10;5. **新命令** `crew`：查看 14 个主体的角色/位置/需求/指派；`next` 附带回合报告行。&#10;6. 测试 24 个通过（M2 11 + M1 7 + fleet 6）。" />
+    <option name="LAST_COMMIT_MESSAGE" value="### v0.2.0 2026-11-21 阶段五 M2：主体与事件&#10;&#10;1. **十二阶段 Tick 管线**：`1-time → 2-environment → 3-faction → 4-perceive → 5-decide → 6-work → 7-voyage → 8-consumption → 9-market → 10-event → 11-chronicle → 12-report`（3/9 为显式占位，M3/M4 填充）。&#10;2. **统一主体决策**：船员/居民/使者同一类型三角色；饥饿/疲劳/士气驱动进食、休息、工作、**觅食迁徙**、拒绝指令。&#10;3. **确定性随机流**：`RngStreams`（L64X128MixRandom）按 weather/events/agents/market/factions 派生独立流；同种子两次历史逐字节一致。&#10;4. **事件分发**：tick 内有序 `EventQueue` → 阶段 11 唯一落库 → tick 后 `Flow` 广播（只读）。&#10;5. **新命令** `crew`：查看 14 个主体的角色/位置/需求/指派；`next` 附带回合报告行。&#10;6. 测试 24 个通过（M2 11 + M1 7 + fleet 6）。" />
   </component>
 </project>

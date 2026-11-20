@@ -146,6 +146,20 @@ public sealed interface GameEvent
         }
     }
 
+    /** 生产完成：殖民地产出。 */
+    record ProductionCompleted(Stardate when, LocationId where, String recipeName,
+                               String outputs) implements ColonyEvent {
+        @Override
+        public String cause() {
+            return "生产完成";
+        }
+
+        @Override
+        public String outcome() {
+            return recipeName + " → " + outputs;
+        }
+    }
+
     /** 主体为觅食迁徙：附近有粮时自行移动。 */
     record CrewMigrated(Stardate when, LocationId where, AgentId actor,
                         LocationId to, String reason) implements CrewEvent {

@@ -136,10 +136,55 @@
                         </xs:sequence>
                     </xs:complexType>
                 </xs:element>
+
+                <xs:element name="resources" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="resource" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:attribute name="name" type="xs:string" use="required"/>
+                                    <xs:attribute name="basePrice" type="xs:decimal" use="required"/>
+                                    <xs:attribute name="target" type="xs:decimal" use="required"/>
+                                    <xs:attribute name="elasticity" type="xs:double" use="optional"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <xs:element name="recipes" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="recipe" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="in" minOccurs="0" maxOccurs="unbounded">
+                                            <xs:complexType>
+                                                <xs:attribute name="resource" type="xs:string" use="required"/>
+                                                <xs:attribute name="amount" type="xs:decimal" use="required"/>
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="out" minOccurs="0" maxOccurs="unbounded">
+                                            <xs:complexType>
+                                                <xs:attribute name="resource" type="xs:string" use="required"/>
+                                                <xs:attribute name="amount" type="xs:decimal" use="required"/>
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                    <xs:attribute name="id" type="xs:string" use="required"/>
+                                    <xs:attribute name="name" type="xs:string" use="required"/>
+                                    <xs:attribute name="ticks" type="xs:int" use="required"/>
+                                    <xs:attribute name="at" type="xs:long" use="required"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="epoch" type="xs:long" use="optional"/>
             <xs:attribute name="seed" type="xs:long" use="optional"/>
+            <xs:attribute name="playerCredits" type="xs:decimal" use="optional"/>
         </xs:complexType>
     </xs:element>
 </xs:schema>

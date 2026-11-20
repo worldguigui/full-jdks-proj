@@ -23,13 +23,22 @@ JAVA_HOME=E:/jdks/ms-21.0.11 ~/.m2/wrapper/dists/apache-maven-3.9.16-bin/*/bin/m
 java -jar fc-runtime/target/frontier-chronicle.jar
 ```
 
-开局照 `help` 里的建议走：`map` → `sail 1 4` → `next 4` → `log` → `sail 1 1` → `next 4`。
+开局照 `help` 里的「跑商开局」走：`market` → `trade buy food 100` → `sail 1 8` → `next 14` → `trade sell food 100` → `log`。
 
-> 输入 `help` 可看到**全部命令**（8 条命令 + `chronicle`/`exit` 两个别名，共 10 项）。查看编年史用 `log`（别名 `chronicle`），默认最近 8 条；`log all` 看全部，`log 20` 看最近 20 条。
+> 输入 `help` 可看到**全部命令**（11 条命令 + `chronicle`/`exit` 两个别名，共 13 项）。
 
 > M1 起不再提供验收脚本（按用户要求），直接 IDEA Run 或跑 jar 即可。
 
 ## 版本变更迭代
+
+### v0.3.0 2026-11-21 阶段五 M3：经济与贸易
+
+1. **供需定价**：`PriceModel` 幂函数定价（库存低于目标即涨价，夹在 0.3×–5×），买价 ×1.05 / 卖价 ×0.95。
+2. **配方生产**：`ProductionSystemImpl` 按配方扣输入开工、完工发产出；fuel 作为能源，缺料即停产（冶炼/农业/精炼/给养 4 条配方）。
+3. **组织收支**：`MarketSystemImpl` 阶段 9 发工资，地点没钱则欠薪 → 士气下降。
+4. **玩家交易**：`market` / `trade buy|sell|quote`，支持**部分成交**；货物与信用点总量守恒。
+5. **SPI 解耦**：`fc-sim` 定义 `ProductionSystem`/`MarketSystem` 接口，`fc-economy` 实现，运行时注入（避免 sim 反向依赖 economy）。
+6. 测试 35 个通过（M3 11 + M2 11 + M1 7 + fleet 6）。
 
 ### v0.2.0 2026-11-21 阶段五 M2：主体与事件
 
@@ -130,7 +139,8 @@ java -jar fc-runtime/target/frontier-chronicle.jar
 | 阶段一 规范盘点 | `docs/phase1/api-inventory.md`（**正式冻结版**；冻结清单 `data/coverage-baseline.csv` + `freeze-manifest.md`；基准数据 `data/api-baseline.csv`；全量差异审计证据 `data/verification/`） | ✅ **已冻结**：3874 类型 / 177 包 / 20 模块（覆盖率分母 3836 / 176） |
 | 阶段二 游戏设计 | `docs/phase2/game-design.md`（**星际远征重写版 · v3 审查修订版**）+ `docs/phase2/phase2-report.md` | ✅ **已确认（2026-11-20）** |
 | 阶段三 API 机会盘点 | `docs/phase3/project-direction.md` + `admission-spec.md` + `api-opportunity-report.md` + `reevaluation-report.md` + `expansion-report.md` + `online-system-design.md` + `online-expansion-report.md` + `time-model-spec.md` + `naming-spec.md` + `decisions-and-uncovered.md` + **`full-coverage-report.md`**（映射表 `data/api-mapping.csv`；规则 `rules/`；统计 `mapping-summary.md`） | 📝 **待审阅**：Planned 1913 / Pending 735 / Excluded 1188；类型级 **49.87%**、模块级 **90%** |
-| 阶段五 实现 | `docs/phase5/m0-report.md`（M0 骨架）+ `m1-report.md`（M1 星域与舰队）+ `m2-report.md`（M2 主体与事件） | 🚧 **M2 已完成**：十二阶段管线 / 自主主体 / 确定性随机 |
+| 阶段五 计划与对照 | `docs/phase5/batch-plan.md`（§17 批次表 × 执行状态，单一事实来源） | ✅ |
+| 阶段五 实现 | `docs/phase5/m0-report.md`（M0 骨架）+ `m1-report.md`（M1 星域与舰队）+ `m2-report.md`（M2 主体与事件）+ `m3-report.md`（M3 经济与贸易） | 🚧 **M0/M1 达成；M2/M3 部分达成**（差距见 `docs/phase5/batch-plan.md`） |
 | 盘点/审计/映射工具 | `tools/ApiInventoryScanner.java`、`ApiSpecDiff.java`、`DocTypeClosure.java`、`verify-page.sh`、`FreezeBaseline.java`、`Phase3Mapper.java`、`EnvProbe.java`、`CapProbe.java` | ✅ |
 
 固定运行环境：Microsoft Build of OpenJDK **21.0.11+10-LTS**（`E:/jdks/ms-21.0.11`），`java` 与 `javac` 均取该路径下的可执行文件。

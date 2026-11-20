@@ -1,6 +1,10 @@
 package fc.runtime;
 
 import fc.cli.Cli;
+import fc.economy.Economy;
+import fc.economy.MarketSystemImpl;
+import fc.economy.ProductionSystemImpl;
+import fc.economy.TradeService;
 import fc.config.Config;
 import fc.config.PropertiesConfig;
 import fc.config.world.WorldDefinition;
@@ -48,13 +52,21 @@ public final class Main {
                     world.epoch(),
                     world.parents());
 
+            // 经济：价格模型 + 配方生产 + 工资结算
+            Economy economy = Economy.from(def.economy());
+            state.setCredits(def.economy().playerCredits());
+            ProductionSystemImpl productionSystem = new ProductionSystemImpl(economy);
+            MarketSystemImpl marketSystem = new MarketSystemImpl();
+            TradeService trade = new TradeService(economy);
+
             RngStreams rng = RngStreams.of(world.seed());
             EventBus bus = new EventBus();
             bus.subscribe(new EventBus.CountingSubscriber());
 
-            TickPipeline pipeline = TickPipeline.m2(world.production(), rng, bus);
+            TickPipeline pipeline = TickPipeline.m3(world.production(), rng, bus,
+                    productionSystem, marketSystem);
             GameLoop loop = new GameLoop(state, pipeline);
-            Cli cli = new Cli(loop);
+            Cli cli = new Cli(loop, trade);
 
             System.out.println("Frontier Chronicle —— 边境纪事");
             System.out.println("世界：" + world.name() + "，地点 " + world.graph().placeCount()
@@ -62,6 +74,9 @@ public final class Main {
                     + " 条，舰船 " + world.graph().ships().size() + " 艘");
             System.out.println("主体 " + world.agents().size() + " 人｜随机种子 " + world.seed()
                     + "（" + rng.algorithm() + "）");
+            System.out.println("经济：资源 " + economy.resources().size() + " 种｜配方 "
+                    + economy.recipes().size() + " 条｜初始信用点 "
+                    + state.credits().stripTrailingZeros().toPlainString());
             System.out.println("Tick 阶段（12）：" + String.join(" → ", pipeline.stageNames()));
             System.out.println("当前 " + state.now() + "（" + state.now().toIsoDate() + "）");
             System.out.println("提示：输入 map 看星图，help 看全部命令，quit 退出。");

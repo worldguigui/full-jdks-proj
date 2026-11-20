@@ -4,18 +4,20 @@
   全部世界数据来自本文件，核心代码不硬编码任何地点/船/资源。
   航线在 M1 按无向边处理（from/to 可双向通行）。
 -->
-<world name="边境纪事·启程" epoch="0" seed="20261120">
+<world name="边境纪事·启程" epoch="0" seed="20261120" playerCredits="1000">
 
     <locations>
         <!-- 1 索尔星系（起点星域） -->
         <location id="1" kind="StarSystem" name="Sol 索尔">
             <stock>
+                <item resource="credits" amount="500"/>
                 <item resource="supply" amount="200"/>
                 <item resource="food" amount="150"/>
             </stock>
         </location>
         <location id="2" kind="Planet" name="Terra 泰拉" parent="1">
             <stock>
+                <item resource="credits" amount="150"/>
                 <item resource="food" amount="300"/>
                 <item resource="ore" amount="80"/>
             </stock>
@@ -23,6 +25,7 @@
         </location>
         <location id="3" kind="OrbitalStation" name="Luna 站" parent="1">
             <stock>
+                <item resource="credits" amount="200"/>
                 <item resource="supply" amount="120"/>
                 <item resource="fuel" amount="90"/>
             </stock>
@@ -32,11 +35,13 @@
         <!-- 4 织女星系 -->
         <location id="4" kind="StarSystem" name="Vega 织女">
             <stock>
+                <item resource="credits" amount="200"/>
                 <item resource="fuel" amount="60"/>
             </stock>
         </location>
         <location id="5" kind="Planet" name="Vega Prime" parent="4">
             <stock>
+                <item resource="credits" amount="120"/>
                 <item resource="ore" amount="140"/>
             </stock>
             <production resource="ore" perDay="1"/>
@@ -52,17 +57,21 @@
         <!-- 7 参宿七星系 + 殖民地 + 设施 -->
         <location id="7" kind="StarSystem" name="Rigel 参宿七">
             <stock>
+                <item resource="credits" amount="200"/>
                 <item resource="supply" amount="80"/>
             </stock>
         </location>
         <location id="8" kind="Colony" name="Rigel Forge 熔炉殖民地" parent="7">
             <stock>
+                <item resource="fuel" amount="10"/>
+                <item resource="credits" amount="300"/>
                 <item resource="ore" amount="120"/>
                 <item resource="food" amount="90"/>
             </stock>
         </location>
         <location id="9" kind="Facility" name="Forge Workshop 锻造工坊" parent="8">
             <stock>
+                <item resource="credits" amount="200"/>
                 <item resource="ore" amount="30"/>
                 <item resource="food" amount="40"/>
             </stock>
@@ -72,11 +81,13 @@
         <!-- 10 天狼星系 + 船坞 -->
         <location id="10" kind="StarSystem" name="Sirius 天狼">
             <stock>
+                <item resource="credits" amount="250"/>
                 <item resource="fuel" amount="150"/>
             </stock>
         </location>
         <location id="11" kind="OrbitalStation" name="Sirius Dock 天狼船坞" parent="10">
             <stock>
+                <item resource="credits" amount="400"/>
                 <item resource="fuel" amount="200"/>
                 <item resource="supply" amount="100"/>
             </stock>
@@ -93,17 +104,20 @@
         <!-- 13 天津四星系 + 殖民地 + 农场 + 前哨 -->
         <location id="13" kind="StarSystem" name="Deneb 天津四">
             <stock>
+                <item resource="credits" amount="200"/>
                 <item resource="supply" amount="70"/>
             </stock>
         </location>
         <location id="14" kind="Colony" name="Deneb Colony 天津四殖民地" parent="13">
             <stock>
+                <item resource="credits" amount="300"/>
                 <item resource="food" amount="110"/>
                 <item resource="supply" amount="60"/>
             </stock>
         </location>
         <location id="15" kind="Facility" name="Deneb Farm 农业站" parent="14">
             <stock>
+                <item resource="credits" amount="150"/>
                 <item resource="food" amount="40"/>
             </stock>
             <production resource="food" perDay="3"/>
@@ -118,24 +132,24 @@
 
     <links>
         <!-- 星域间的曲速航线（构成环形，保证可往返） -->
-        <link from="1" to="4" kind="WarpRoute" ticks="4" risk="0.05" cost="10"/>
-        <link from="4" to="6" kind="WarpRoute" ticks="3" risk="0.20" cost="12"/>
-        <link from="6" to="7" kind="WarpRoute" ticks="5" risk="0.15" cost="14"/>
-        <link from="7" to="10" kind="WarpRoute" ticks="4" risk="0.05" cost="10"/>
-        <link from="10" to="13" kind="WarpRoute" ticks="5" risk="0.10" cost="12"/>
-        <link from="13" to="1" kind="WarpRoute" ticks="6" risk="0.05" cost="15"/>
-        <link from="6" to="12" kind="WarpRoute" ticks="2" risk="0.10" cost="8"/>
+        <link from="1" to="4" kind="WarpRoute" ticks="4" risk="0.05" cost="5"/>
+        <link from="4" to="6" kind="WarpRoute" ticks="3" risk="0.20" cost="6"/>
+        <link from="6" to="7" kind="WarpRoute" ticks="5" risk="0.15" cost="7"/>
+        <link from="7" to="10" kind="WarpRoute" ticks="4" risk="0.05" cost="5"/>
+        <link from="10" to="13" kind="WarpRoute" ticks="5" risk="0.10" cost="6"/>
+        <link from="13" to="1" kind="WarpRoute" ticks="6" risk="0.05" cost="7"/>
+        <link from="6" to="12" kind="WarpRoute" ticks="2" risk="0.10" cost="4"/>
 
         <!-- 星系到行星/站的地面或内部通路 -->
-        <link from="1" to="2" kind="SurfaceRoute" ticks="1" risk="0.01" cost="2"/>
+        <link from="1" to="2" kind="SurfaceRoute" ticks="1" risk="0.01" cost="1"/>
         <link from="1" to="3" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
-        <link from="4" to="5" kind="SurfaceRoute" ticks="2" risk="0.02" cost="3"/>
-        <link from="7" to="8" kind="SurfaceRoute" ticks="2" risk="0.03" cost="3"/>
+        <link from="4" to="5" kind="SurfaceRoute" ticks="2" risk="0.02" cost="2"/>
+        <link from="7" to="8" kind="SurfaceRoute" ticks="2" risk="0.03" cost="2"/>
         <link from="8" to="9" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
         <link from="10" to="11" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
-        <link from="13" to="14" kind="SurfaceRoute" ticks="2" risk="0.02" cost="3"/>
+        <link from="13" to="14" kind="SurfaceRoute" ticks="2" risk="0.02" cost="2"/>
         <link from="14" to="15" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
-        <link from="13" to="16" kind="InternalLane" ticks="2" risk="0.0" cost="2"/>
+        <link from="13" to="16" kind="InternalLane" ticks="2" risk="0.0" cost="1"/>
     </links>
 
     <ships>
@@ -180,4 +194,38 @@
         <agent id="21" name="伊萨" role="ENVOY" at="4" trait="ANXIOUS" skill="6"/>
         <agent id="22" name="檀札" role="ENVOY" at="13" trait="STOIC" skill="7"/>
     </agents>
+
+    <!-- 资源经济参数：基准价 / 目标库存 / 价格弹性 -->
+    <resources>
+        <resource name="food" basePrice="2" target="200" elasticity="0.8"/>
+        <resource name="fuel" basePrice="3" target="150" elasticity="1.0"/>
+        <resource name="ore" basePrice="3" target="120" elasticity="1.0"/>
+        <resource name="supply" basePrice="5" target="100" elasticity="0.9"/>
+        <resource name="alloy" basePrice="12" target="40" elasticity="1.2"/>
+    </resources>
+
+    <!--
+        配方：启动时一次性扣输入（fuel 作为能源），ticks 天后产出入库。
+        输入不足则无法开工 —— 所以必须给工坊运燃料，产业链才转得动。
+    -->
+    <recipes>
+        <recipe id="smelt" name="冶炼合金" ticks="3" at="8">
+            <in resource="ore" amount="2"/>
+            <in resource="fuel" amount="1"/>
+            <out resource="alloy" amount="1"/>
+        </recipe>
+        <recipe id="farm" name="农业耕作" ticks="2" at="15">
+            <in resource="fuel" amount="1"/>
+            <out resource="food" amount="4"/>
+        </recipe>
+        <recipe id="refine" name="精炼燃料" ticks="3" at="11">
+            <in resource="ore" amount="1"/>
+            <out resource="fuel" amount="3"/>
+        </recipe>
+        <recipe id="pack" name="加工给养" ticks="2" at="3">
+            <in resource="food" amount="2"/>
+            <in resource="alloy" amount="1"/>
+            <out resource="supply" amount="3"/>
+        </recipe>
+    </recipes>
 </world>
