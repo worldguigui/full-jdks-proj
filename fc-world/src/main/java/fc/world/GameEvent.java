@@ -1,9 +1,14 @@
 package fc.world;
 
 import fc.world.Ids.AgentId;
+import fc.world.Ids.DecisionId;
+import fc.world.Ids.FactionId;
 import fc.world.Ids.LocationId;
+import fc.world.Ids.SupplyLineId;
+import fc.world.Ids.TransferId;
 import fc.world.time.Stardate;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -179,6 +184,25 @@ public sealed interface GameEvent
         }
     }
 
+    /** 主体迁徙抵达：沿航线到达目的地。 */
+    record CrewArrived(Stardate when, LocationId where, AgentId actor,
+                       LocationId from) implements CrewEvent {
+        @Override
+        public List<AgentId> who() {
+            return List.of(actor);
+        }
+
+        @Override
+        public String cause() {
+            return "抵达";
+        }
+
+        @Override
+        public String outcome() {
+            return "自 " + from.id() + " 抵达";
+        }
+    }
+
     /** 主体饥饿告急：所在处无食物。 */
     record CrewStarving(Stardate when, LocationId where, AgentId actor,
                         int hunger) implements CrewEvent {
@@ -195,6 +219,191 @@ public sealed interface GameEvent
         @Override
         public String outcome() {
             return "饥饿度 " + hunger + "，本地无食物";
+        }
+    }
+
+    /**
+     * 离子风暴传播点：沿航线逐跳传播的因果链。
+     *
+     * @param upstream 上一跳地点；起源点为 null
+     * @param step     传播步数（起源为 0）
+     */
+    record StormImpact(Stardate when, LocationId where, LocationId upstream,
+                       int step, int severity, String effect) implements WorldEvent {
+        @Override
+        public String cause() {
+            return step == 0 ? "离子风暴起源"
+                    : "离子风暴传播（第 " + step + " 跳，来自 " + upstream.id() + "）";
+        }
+
+        @Override
+        public String outcome() {
+            return effect;
+        }
+    }
+
+    /** 势力行动：目标驱动的地图级行为。 */
+    record FactionAction(Stardate when, LocationId where, FactionId faction,
+                         String goal, String detail) implements DiplomacyEvent {
+        @Override
+        public String cause() {
+            return "势力目标：" + goal;
+        }
+
+        @Override
+        public String outcome() {
+            return detail;
+        }
+    }
+
+    /** 重大事件产生待决决策。 */
+    record DecisionRaised(Stardate when, LocationId where, DecisionId decision,
+                          String title) implements WorldEvent {
+        @Override
+        public String cause() {
+            return "待决决策";
+        }
+
+        @Override
+        public String outcome() {
+            return decision + " " + title;
+        }
+    }
+
+    /** 玩家做出决策。 */
+    record DecisionResolved(Stardate when, LocationId where, DecisionId decision,
+                            String option, String outcome) implements WorldEvent {
+        @Override
+        public String cause() {
+            return "决策：" + decision;
+        }
+
+        @Override
+        public String outcome() {
+            return option + " → " + outcome;
+        }
+    }
+
+    /** 运输出发。 */
+    record TransferStarted(Stardate when, LocationId where, TransferId transfer,
+                           LocationId from, LocationId to, ResourceKind resource,
+                           BigDecimal amount, int ticks) implements FleetEvent {
+        @Override
+        public String cause() {
+            return "货物运输 " + transfer;
+        }
+
+        @Override
+        public String outcome() {
+            return amount.stripTrailingZeros().toPlainString() + " " + resource.id()
+                    + " " + from.id() + " → " + to.id() + "，预计 " + ticks + " 天";
+        }
+    }
+
+    /** 运输抵达。 */
+    record TransferArrived(Stardate when, LocationId where, TransferId transfer,
+                           LocationId from, ResourceKind resource,
+                           BigDecimal amount) implements FleetEvent {
+        @Override
+        public String cause() {
+            return "运输抵达 " + transfer;
+        }
+
+        @Override
+        public String outcome() {
+            return amount.stripTrailingZeros().toPlainString() + " " + resource.id()
+                    + " 自 " + from.id() + " 入库";
+        }
+    }
+
+    /** 殖民地升级。 */
+    record ColonyUpgraded(Stardate when, LocationId where, int level) implements ColonyEvent {
+        @Override
+        public String cause() {
+            return "殖民地升级";
+        }
+
+        @Override
+        public String outcome() {
+            return "达到 " + level + " 级";
+        }
+    }
+
+    /** 补给线建立。 */
+    record SupplyLineEstablished(Stardate when, LocationId where, SupplyLineId line,
+                                 LocationId from, LocationId to, ResourceKind resource,
+                                 BigDecimal amount) implements MarketEvent {
+        @Override
+        public String cause() {
+            return "补给线 " + line;
+        }
+
+        @Override
+        public String outcome() {
+            return from.id() + " → " + to.id() + " 每批 "
+                    + amount.stripTrailingZeros().toPlainString() + " " + resource.id();
+        }
+    }
+
+    /** 市场价格冲击。 */
+    record MarketPriceShocked(Stardate when, LocationId where, ResourceKind resource,
+                              BigDecimal multiplier) implements MarketEvent {
+        @Override
+        public String cause() {
+            return "市场冲击";
+        }
+
+        @Override
+        public String outcome() {
+            return resource.id() + " 价格 ×" + multiplier.stripTrailingZeros().toPlainString();
+        }
+    }
+
+    /** 工资支付。 */
+    record WagePaid(Stardate when, LocationId where, AgentId actor,
+                    BigDecimal amount) implements MarketEvent {
+        @Override
+        public List<AgentId> who() {
+            return List.of(actor);
+        }
+
+        @Override
+        public String cause() {
+            return "工资";
+        }
+
+        @Override
+        public String outcome() {
+            return "支付 " + amount.stripTrailingZeros().toPlainString() + " 信用点";
+        }
+    }
+
+    /** 市场成交。 */
+    record TradeSettled(Stardate when, LocationId where, ResourceKind resource,
+                        BigDecimal amount, BigDecimal unitPrice, String side) implements MarketEvent {
+        @Override
+        public String cause() {
+            return "市场交易：" + side;
+        }
+
+        @Override
+        public String outcome() {
+            return amount.stripTrailingZeros().toPlainString() + " " + resource.id()
+                    + " @ " + unitPrice.stripTrailingZeros().toPlainString();
+        }
+    }
+
+    /** 航行燃料消耗。 */
+    record FuelConsumed(Stardate when, LocationId where, Ids.ShipId ship,
+                        BigDecimal amount) implements FleetEvent {
+        @Override
+        public String cause() {
+            return "燃料消耗";
+        }
+
+        @Override
+        public String outcome() {
+            return amount.stripTrailingZeros().toPlainString() + " 燃料";
         }
     }
 }

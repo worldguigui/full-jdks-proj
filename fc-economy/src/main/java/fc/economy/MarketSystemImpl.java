@@ -4,22 +4,23 @@ import fc.sim.spi.MarketSystem;
 import fc.sim.tick.TickContext;
 import fc.world.Agent;
 import fc.world.Assignment;
+import fc.world.GameEvent;
 import fc.world.Ids;
-import fc.world.Location;
-import fc.world.LocationOps;
-import fc.world.Stock;
+import fc.world.MoneyLedger;
 import fc.world.WorldState;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * 市场与财务（阶段 9）：殖民地/设施给在岗主体发工资。
  *
- * <p>资金流：地点信用点 → 工资支出（记账本扣减，视为生活消费离开被追踪经济体）。
- * 地点信用点不足则**欠薪**：在该处工作的主体士气下降，久了会拒绝指令——
- * 因此玩家把货卖给殖民地（使其获得信用点）是有正反馈的。</p>
+ * <p>资金流：地点账户 → 居民家庭账户。地点信用点不足则**欠薪**：在该处工作的
+ * 主体士气下降，久了会拒绝指令——因此玩家把货卖给殖民地（使其获得信用点）
+ * 是有正反馈的。资金只在账户之间转移，账本总额不变。</p>
  *
  * <p>价格本身不需要在本阶段写入状态：{@link PriceModel} 按库存现算，
  * 存档只需保存库存与信用点。</p>
@@ -33,32 +34,30 @@ public final class MarketSystemImpl implements MarketSystem {
 
     @Override
     public void onTick(WorldState state, TickContext ctx) {
-        // 统计各地点在岗人数（按地点 id 有序遍历，保证确定性）
-        Map<Ids.LocationId, Integer> working = new HashMap<>();
-        Map<Ids.LocationId, java.util.List<Agent>> byLocation = new HashMap<>();
+        Map<Ids.LocationId, List<Agent>> working = new TreeMap<>();
         for (Agent a : state.agents().values()) {
-            if (a.assignment() != Assignment.WORKING) {
-                continue;
+            if (a.assignment() == Assignment.WORKING) {
+                working.computeIfAbsent(a.location(), k -> new ArrayList<>()).add(a);
             }
-            working.merge(a.location(), 1, Integer::sum);
-            byLocation.computeIfAbsent(a.location(), k -> new java.util.ArrayList<>()).add(a);
         }
 
         int unpaidPlaces = 0;
-        for (Map.Entry<Ids.LocationId, Integer> e : working.entrySet()) {
-            Location loc = state.graph().get(e.getKey());
-            if (loc == null) {
+        for (Map.Entry<Ids.LocationId, List<Agent>> e : working.entrySet()) {
+            int count = e.getValue().size();
+            if (count == 0) {
                 continue;
             }
-            BigDecimal payroll = DAILY_WAGE.multiply(BigDecimal.valueOf(e.getValue()));
-            BigDecimal credits = loc.stock().amount("credits");
-            if (credits.compareTo(payroll) >= 0) {
-                Stock next = loc.stock().subtract("credits", payroll);
-                state.graph().replace(LocationOps.withStock(loc, next));
-                state.ledger().debit("credits", payroll);
+            BigDecimal payroll = DAILY_WAGE.multiply(BigDecimal.valueOf(count));
+            String from = MoneyLedger.locationAccount(e.getKey());
+            if (state.money().balance(from).compareTo(payroll) >= 0) {
+                state.money().transfer(state.now(), from, MoneyLedger.HOUSEHOLDS, payroll, "工资");
+                for (Agent a : e.getValue()) {
+                    ctx.events().enqueue(new GameEvent.WagePaid(
+                            state.now(), a.location(), a.id(), DAILY_WAGE));
+                }
             } else {
                 unpaidPlaces++;
-                for (Agent a : byLocation.get(e.getKey())) {
+                for (Agent a : e.getValue()) {
                     a.perceive(0, 0, -UNPAID_MORALE_PENALTY);
                 }
             }

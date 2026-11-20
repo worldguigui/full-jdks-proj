@@ -21,7 +21,18 @@ public final class PerceiveStage implements TickStage {
     @Override
     public void apply(WorldState state, TickContext ctx) {
         boolean harsh = ctx.weather() >= 85;
-        for (Agent a : state.agents().values()) {
+        for (Agent a : Agents.sorted(state)) {
+            // 迁徙中：先推进一天行程；抵达则更新位置，当日不再做工作决策
+            if (a.isTraveling()) {
+                fc.world.Ids.LocationId from = a.location();
+                fc.world.Ids.LocationId dest = a.travelDestination();
+                if (a.advanceTravel()) {
+                    ctx.events().enqueue(new fc.world.GameEvent.CrewArrived(
+                            state.now(), dest, a.id(), from));
+                }
+                a.perceive(1, 0, 0);
+                continue;
+            }
             int hunger = switch (a.trait()) {
                 case STOIC -> 1;
                 case ANXIOUS -> 3;

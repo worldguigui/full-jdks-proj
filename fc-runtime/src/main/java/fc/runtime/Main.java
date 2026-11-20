@@ -1,37 +1,18 @@
 package fc.runtime;
 
 import fc.cli.Cli;
-import fc.economy.Economy;
-import fc.economy.MarketSystemImpl;
-import fc.economy.ProductionSystemImpl;
-import fc.economy.TradeService;
-import fc.config.Config;
-import fc.config.PropertiesConfig;
-import fc.config.world.WorldDefinition;
-import fc.config.world.XmlWorldLoader;
-import fc.history.InMemoryChronicle;
-import fc.sim.GameLoop;
-import fc.sim.WorldAssembler;
-import fc.sim.event.EventBus;
-import fc.sim.rng.RngStreams;
-import fc.sim.tick.TickPipeline;
-import fc.world.WorldState;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.util.Map;
 
 /**
- * 应用装配根与启动器（main）。
+ * 应用启动器：建立运行会话，打印启动横幅并进入 CLI 交互循环。
  *
- * <p>M1 起：世界数据来自 {@code world.xml}（XSD 校验），经 {@link WorldAssembler} 装配为领域对象，
- * 接入 {@link TickPipeline}（时间/移动/库存三阶段），再进入 CLI 交互循环。</p>
+ * <p>世界数据全部来自 {@code world.xml}（XSD 校验），经 {@link RuntimeSession}
+ * 装配为领域对象并注入系统实现。</p>
  */
 public final class Main {
-
-    private static final String DEFAULT_WORLD = "world/default-world.xml";
 
     private Main() {
     }
@@ -40,49 +21,13 @@ public final class Main {
         forceUtf8StdoutIfNeeded();
 
         try {
-            Config config = loadConfig(args);
-            WorldDefinition def = loadWorld(args);
-            WorldAssembler.AssembledWorld world = WorldAssembler.assemble(def);
-
-            WorldState state = new WorldState(
-                    world.graph(),
-                    world.agents(),
-                    world.ledger(),
-                    new InMemoryChronicle(),
-                    world.epoch(),
-                    world.parents());
-
-            // 经济：价格模型 + 配方生产 + 工资结算
-            Economy economy = Economy.from(def.economy());
-            state.setCredits(def.economy().playerCredits());
-            ProductionSystemImpl productionSystem = new ProductionSystemImpl(economy);
-            MarketSystemImpl marketSystem = new MarketSystemImpl();
-            TradeService trade = new TradeService(economy);
-
-            RngStreams rng = RngStreams.of(world.seed());
-            EventBus bus = new EventBus();
-            bus.subscribe(new EventBus.CountingSubscriber());
-
-            TickPipeline pipeline = TickPipeline.m3(world.production(), rng, bus,
-                    productionSystem, marketSystem);
-            GameLoop loop = new GameLoop(state, pipeline);
-            Cli cli = new Cli(loop, trade);
-
-            System.out.println("Frontier Chronicle —— 边境纪事");
-            System.out.println("世界：" + world.name() + "，地点 " + world.graph().placeCount()
-                    + " 个，航线 " + world.graph().links().size()
-                    + " 条，舰船 " + world.graph().ships().size() + " 艘");
-            System.out.println("主体 " + world.agents().size() + " 人｜随机种子 " + world.seed()
-                    + "（" + rng.algorithm() + "）");
-            System.out.println("经济：资源 " + economy.resources().size() + " 种｜配方 "
-                    + economy.recipes().size() + " 条｜初始信用点 "
-                    + state.credits().stripTrailingZeros().toPlainString());
-            System.out.println("Tick 阶段（12）：" + String.join(" → ", pipeline.stageNames()));
-            System.out.println("当前 " + state.now() + "（" + state.now().toIsoDate() + "）");
-            System.out.println("提示：输入 map 看星图，help 看全部命令，quit 退出。");
-
-            repl(cli);
+            RuntimeSession session = RuntimeSession.create(args);
+            session.banner().forEach(System.out::println);
+            repl(session.cli());
         } catch (fc.config.ConfigException e) {
+            System.err.println("启动失败：" + e.getMessage());
+            System.exit(2);
+        } catch (RuntimeException e) {
             System.err.println("启动失败：" + e.getMessage());
             System.exit(2);
         }
@@ -111,25 +56,6 @@ public final class Main {
         System.setOut(new java.io.PrintStream(
                 new java.io.FileOutputStream(java.io.FileDescriptor.out),
                 false, StandardCharsets.UTF_8));
-    }
-
-    private static Config loadConfig(String[] args) {
-        String path = "fc-default.properties";
-        for (int i = 0; i < args.length; i++) {
-            if ("--config".equals(args[i]) && i + 1 < args.length) {
-                path = args[i + 1];
-            }
-        }
-        return PropertiesConfig.load(path);
-    }
-
-    private static WorldDefinition loadWorld(String[] args) {
-        for (int i = 0; i < args.length; i++) {
-            if ("--world".equals(args[i]) && i + 1 < args.length) {
-                return XmlWorldLoader.loadFile(Path.of(args[i + 1]));
-            }
-        }
-        return XmlWorldLoader.loadResource(DEFAULT_WORLD);
     }
 
     private static void repl(Cli cli) {

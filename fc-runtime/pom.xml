@@ -46,10 +46,38 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>run-runtime-smoke</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <classpathScope>test</classpathScope>
+                            <arguments>
+                                <argument>-ea</argument>
+                                <argument>-classpath</argument>
+                                <classpath/>
+                                <argument>fc.runtime.RuntimeSmokeTest</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
     <dependencies>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-testkit</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>fc</groupId>
             <artifactId>fc-world</artifactId>

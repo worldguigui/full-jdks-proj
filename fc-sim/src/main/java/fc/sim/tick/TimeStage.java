@@ -6,7 +6,8 @@ import fc.world.WorldState;
 /**
  * 阶段 1：时间推进。
  *
- * <p>Stardate +1，并采样当日环境强度（后续阶段据此调制产出与士气）。</p>
+ * <p>Stardate +1，清理已过期的风险/价格修正，并采样当日环境强度
+ * （后续阶段据此调制产出与士气）。</p>
  */
 public final class TimeStage implements TickStage {
 
@@ -18,6 +19,7 @@ public final class TimeStage implements TickStage {
     @Override
     public void apply(WorldState state, TickContext ctx) {
         state.advanceTo(state.now().plusDays(1));
+        state.clearExpiredModifiers();
         ctx.setWeather(ctx.rng().stream(RngStreams.WEATHER).nextInt(101));
     }
 }

@@ -22,24 +22,28 @@ public final class DecideStage implements TickStage {
     @Override
     public void apply(WorldState state, TickContext ctx) {
         var rng = ctx.rng().stream(RngStreams.AGENTS);
-        for (Agent a : state.agents().values()) {
-            // 1) 生存：饥饿危急 → 就地进食，否则就近觅食迁徙
+        for (Agent a : Agents.sorted(state)) {
+            // 迁徙中的主体不接受新决策，由感知阶段推进行程
+            if (a.isTraveling()) {
+                continue;
+            }
+            // 1) 生存：饥饿危急 → 就地进食，否则沿航线前往最近有粮地点
             if (a.needs().starving()) {
                 int before = a.needs().hunger();
-                if (Eating.tryEat(state, a, 45)) {
+                if (!a.ateOn(state.now().day()) && Eating.tryEat(state, a, 45)) {
                     ctx.events().enqueue(new GameEvent.CrewAte(
                             state.now(), a.location(), a.id(), before));
                     a.setStarvingAlerted(false);
                     a.assign(Assignment.IDLE);
                     continue;
                 }
-                var food = Foraging.nearestFood(state, a.location(), 2);
+                var food = Foraging.nearestFood(state, a.location(), 6);
                 if (food.isPresent()) {
                     var from = a.location();
-                    a.moveTo(food.get());
-                    a.assign(Assignment.TRAVELING);
+                    a.beginTravel(food.get().id(), food.get().ticks());
                     ctx.events().enqueue(new GameEvent.CrewMigrated(
-                            state.now(), from, a.id(), food.get(), "觅食"));
+                            state.now(), from, a.id(), food.get().id(),
+                            "觅食，行程 " + food.get().ticks() + " 天"));
                     continue;
                 }
                 if (!a.starvingAlerted()) {

@@ -8,24 +8,24 @@ import fc.world.Assignment;
 import fc.world.GameEvent;
 import fc.world.Ids;
 import fc.world.Location;
-import fc.world.LocationOps;
-import fc.world.Stock;
+import fc.world.ResourceKind;
 import fc.world.WorldState;
 import fc.world.WorkUnit;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
 /**
  * 配方驱动的生产系统（阶段 6 的开工与完工结算）。
  *
- * <p>开工：检查输入齐备（含作为能源的 fuel），一次性扣除输入，创建 {@link WorkUnit}（工时为配方 ticks）。
- * 完工：把产出计入地点库存与账本，并写一条 {@link GameEvent.ProductionCompleted}。</p>
+ * <p>开工：检查输入齐备（含作为能源的 fuel），一次性扣除输入（经权威账本），
+ * 创建 {@link WorkUnit}（工时为配方 ticks）。完工：把产出计入地点库存与账本，
+ * 并写一条 {@link GameEvent.ProductionCompleted}。</p>
  *
- * <p>"输入不足就不开工"是 M3 的关键约束：工坊缺燃料就停产，迫使玩家真的去运货。</p>
+ * <p>"输入不足就不开工"是 M3 的关键约束：工坊缺燃料就停产，迫使玩家真的去运货。
+ * 配方按 id 排序处理，工作单元按 key 排序推进，结果与串行完全一致。</p>
  */
 public final class ProductionSystemImpl implements ProductionSystem {
 
@@ -40,36 +40,74 @@ public final class ProductionSystemImpl implements ProductionSystem {
         if (!economy.enabled()) {
             return;
         }
+        // 每个工人每天只能投入一个工作单元。在制单元的工人先被占用，
+        // 否则新配方会把同一批人重复编入两个工作单元。
+        Map<Ids.LocationId, java.util.Set<Ids.AgentId>> assigned = new java.util.HashMap<>();
+        for (WorkUnit unit : state.workUnits().values()) {
+            if (unit.at() != null) {
+                assigned.computeIfAbsent(unit.at(), k -> new java.util.HashSet<>())
+                        .addAll(unit.workers());
+            }
+        }
+
+        // 收集每个地点当天可开工的配方（按 id 顺序）。
+        Map<Ids.LocationId, List<RecipeDef>> candidates = new java.util.TreeMap<>();
         for (RecipeDef r : economy.recipes()) {
             Ids.LocationId at = new Ids.LocationId(r.at());
-            String key = key(r.id(), at);
-            if (state.workUnits().containsKey(key)) {
+            if (state.workUnits().containsKey(key(r.id(), at))) {
                 continue;
             }
-            Location loc = state.graph().get(at);
-            if (loc == null) {
+            if (state.graph().get(at) == null || state.productionDisrupted(at)) {
                 continue;
             }
-            if (!hasAll(loc.stock(), r.inputs())) {
+            if (!hasAll(state, at, r.inputs())) {
                 continue;
             }
-            // 扣输入（分区视图 + 权威账本）
-            Stock stock = loc.stock();
-            for (Map.Entry<String, BigDecimal> e : r.inputs().entrySet()) {
-                stock = stock.subtract(e.getKey(), e.getValue());
+            candidates.computeIfAbsent(at, k -> new ArrayList<>()).add(r);
+        }
+
+        for (Map.Entry<Ids.LocationId, List<RecipeDef>> entry : candidates.entrySet()) {
+            Ids.LocationId at = entry.getKey();
+            java.util.Set<Ids.AgentId> used =
+                    assigned.computeIfAbsent(at, k -> new java.util.HashSet<>());
+            List<Ids.AgentId> free = new ArrayList<>();
+            for (Agent a : state.agentsAt(at)) {
+                if (a.assignment() == Assignment.WORKING && !used.contains(a.id())) {
+                    free.add(a.id());
+                }
             }
-            state.graph().replace(LocationOps.withStock(loc, stock));
-            for (Map.Entry<String, BigDecimal> e : r.inputs().entrySet()) {
-                state.ledger().debit(e.getKey(), e.getValue());
+            if (free.isEmpty()) {
+                continue;
             }
 
-            List<Ids.AgentId> workers = new ArrayList<>();
-            state.agents().values().stream()
-                    .filter(a -> a.location().equals(at) && a.assignment() == Assignment.WORKING)
-                    .sorted(Comparator.comparingLong(a -> a.id().id()))
-                    .forEach(a -> workers.add(a.id()));
+            // 轮转分配：让同一地点的多个配方都有机会获得工人。
+            List<RecipeDef> recipes = entry.getValue();
+            Map<String, List<Ids.AgentId>> allocation = new java.util.LinkedHashMap<>();
+            for (RecipeDef r : recipes) {
+                allocation.put(key(r.id(), at), new ArrayList<>());
+            }
+            for (int i = 0; i < free.size(); i++) {
+                RecipeDef r = recipes.get(i % recipes.size());
+                allocation.get(key(r.id(), at)).add(free.get(i));
+            }
 
-            state.putWorkUnit(key, new WorkUnit(r.id(), 0, r.ticks(), workers, at));
+            for (RecipeDef r : recipes) {
+                List<Ids.AgentId> workers = allocation.get(key(r.id(), at));
+                if (workers.isEmpty()) {
+                    continue;
+                }
+                // 同一地点的配方可能争夺同一种输入；后一个配方在扣料前重新核对。
+                if (!hasAll(state, at, r.inputs())) {
+                    continue;
+                }
+                for (Map.Entry<String, BigDecimal> e : r.inputs().entrySet()) {
+                    state.consume(at, ResourceKind.goodsFromId(e.getKey()), e.getValue(),
+                            "配方输入 " + r.id());
+                }
+                used.addAll(workers);
+                state.putWorkUnit(key(r.id(), at),
+                        new WorkUnit(r.id(), 0, r.ticks(), workers, at));
+            }
         }
     }
 
@@ -79,28 +117,28 @@ public final class ProductionSystemImpl implements ProductionSystem {
         if (r == null) {
             return;
         }
-        Location loc = state.graph().get(r.at() == 0 ? unit.at() : new Ids.LocationId(r.at()));
-        if (loc == null) {
+        Ids.LocationId at = unit.at() != null ? unit.at() : new Ids.LocationId(r.at());
+        if (state.graph().get(at) == null) {
             return;
         }
-        Stock stock = loc.stock();
         StringBuilder out = new StringBuilder();
-        for (Map.Entry<String, BigDecimal> e : r.outputs().entrySet()) {
-            stock = stock.add(e.getKey(), e.getValue());
-            state.ledger().credit(e.getKey(), e.getValue());
+        for (String name : new java.util.TreeSet<>(r.outputs().keySet())) {
+            BigDecimal amount = r.outputs().get(name);
+            state.produce(at, ResourceKind.goodsFromId(name), amount, "配方产出 " + r.id());
             if (out.length() > 0) {
                 out.append(' ');
             }
-            out.append(e.getKey()).append('+').append(e.getValue().stripTrailingZeros().toPlainString());
+            out.append(name).append('+').append(amount.stripTrailingZeros().toPlainString());
         }
-        state.graph().replace(LocationOps.withStock(loc, stock));
         ctx.events().enqueue(new GameEvent.ProductionCompleted(
-                state.now(), loc.id(), r.name(), out.toString()));
+                state.now(), at, r.name(), out.toString()));
     }
 
-    private static boolean hasAll(Stock stock, Map<String, BigDecimal> need) {
+    private static boolean hasAll(WorldState state, Ids.LocationId at,
+                                  Map<String, BigDecimal> need) {
         for (Map.Entry<String, BigDecimal> e : need.entrySet()) {
-            if (stock.amount(e.getKey()).compareTo(e.getValue()) < 0) {
+            ResourceKind kind = ResourceKind.goodsFromId(e.getKey());
+            if (state.goods(at, kind).compareTo(e.getValue()) < 0) {
                 return false;
             }
         }
@@ -124,8 +162,8 @@ public final class ProductionSystemImpl implements ProductionSystem {
     /** 该地点在岗人数（决定生产速度）。 */
     public static int workingAgents(WorldState state, Ids.LocationId at) {
         int n = 0;
-        for (Agent a : state.agents().values()) {
-            if (a.location().equals(at) && a.assignment() == Assignment.WORKING) {
+        for (Agent a : state.agentsAt(at)) {
+            if (a.assignment() == Assignment.WORKING) {
                 n++;
             }
         }

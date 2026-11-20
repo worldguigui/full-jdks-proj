@@ -9,10 +9,11 @@ import java.util.List;
 /**
  * 自研微型测试 runner。
  *
- * <p>通过反射发现指定类（或包）中所有 {@code @FcTest} 方法并执行，
+ * <p>通过反射发现指定类中所有 {@code @FcTest} 方法并执行，
  * 报告通过/失败与失败定位（类#方法 + 断言差异）。零第三方依赖。</p>
  *
- * <p>用法：{@code TestRunner.run(MyTests.class)} 或 {@code TestRunner.runAll("fc.world")}。</p>
+ * <p>用法：{@code TestRunner.run(MyTests.class)}。每个测试主类显式列出要运行的测试类，
+ * 不做类路径自动扫描。</p>
  */
 public final class TestRunner {
 
@@ -37,16 +38,6 @@ public final class TestRunner {
             if (m.isAnnotationPresent(FcTest.class)) {
                 results.add(runMethod(testClass, m));
             }
-        }
-        return results;
-    }
-
-    /** 运行某包下所有测试类的全部 {@code @FcTest} 方法（递归子包）。 */
-    public static List<Result> runAll(String packageName) {
-        List<Class<?>> classes = discover(packageName);
-        List<Result> results = new ArrayList<>();
-        for (Class<?> c : classes) {
-            results.addAll(run(c));
         }
         return results;
     }
@@ -78,12 +69,6 @@ public final class TestRunner {
         } catch (ReflectiveOperationException e) {
             return Result.fail(cls, m, "反射失败: " + e);
         }
-    }
-
-    private static List<Class<?>> discover(String packageName) {
-        // 骨架：从类路径扫描包（简化实现，完整扫描在 fc-audit 阶段提供）
-        // 目前只返回空列表；实际项目测试类显式传给 run(Class)。
-        return List.of();
     }
 
     /** 汇总执行结果并打印报告，返回是否全部通过。 */

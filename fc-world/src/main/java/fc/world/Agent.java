@@ -23,6 +23,9 @@ public final class Agent {
     private Assignment assignment;
     private int skill;
     private boolean starvingAlerted;
+    private LocationId travelDestination;
+    private int travelTicksRemaining;
+    private long lastAteDay = Long.MIN_VALUE;
 
     public Agent(AgentId id, AgentRole role, Trait trait, String name,
                  LocationId location, Needs needs, Assignment assignment, int skill) {
@@ -107,9 +110,63 @@ public final class Agent {
         this.starvingAlerted = flagged;
     }
 
-    /** 迁移到另一地点。 */
+    /** 迁移到另一地点（即时移动；供抵达结算使用）。 */
     public void moveTo(LocationId target) {
         this.location = target;
+    }
+
+    // ---- 迁徙（沿航线，需要行程时间） ----
+
+    /** 开始沿航线迁徙：记录目的地与剩余天数。 */
+    public void beginTravel(LocationId destination, int ticks) {
+        this.travelDestination = destination;
+        this.travelTicksRemaining = Math.max(1, ticks);
+        this.assignment = Assignment.TRAVELING;
+    }
+
+    public boolean isTraveling() {
+        return travelDestination != null;
+    }
+
+    public LocationId travelDestination() {
+        return travelDestination;
+    }
+
+    public int travelTicksRemaining() {
+        return travelTicksRemaining;
+    }
+
+    /** 推进一天行程；抵达时更新所在地点并返回 true。 */
+    public boolean advanceTravel() {
+        if (travelDestination == null) {
+            return false;
+        }
+        travelTicksRemaining--;
+        if (travelTicksRemaining > 0) {
+            return false;
+        }
+        this.location = travelDestination;
+        this.travelDestination = null;
+        this.travelTicksRemaining = 0;
+        this.assignment = Assignment.IDLE;
+        return true;
+    }
+
+    // ---- 进食记录（避免同一天重复进食） ----
+
+    /** 记录该主体在指定 Stardate 已进食。 */
+    public void recordAte(long day) {
+        this.lastAteDay = day;
+    }
+
+    /** 该主体在指定 Stardate 是否已经吃过。 */
+    public boolean ateOn(long day) {
+        return lastAteDay == day;
+    }
+
+    /** 最后一次进食的日期（状态哈希用）。 */
+    public long lastAteDay() {
+        return lastAteDay;
     }
 
     /** 行为主体角色：船员 / 居民 / 使者。 */

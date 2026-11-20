@@ -23,11 +23,34 @@ public sealed interface Location
     /** 地点标识（进入 LocationGraph 的唯一身份）。 */
     LocationId id();
 
-    /** 该地点的账本分区视图。 */
+    /** 该地点的账本分区视图（舰船返回货舱）。 */
     Stock stock();
 
     /** 地点名称（展示用）。 */
     String name();
+
+    /**
+     * 返回库存更新后的地点视图。
+     *
+     * <p>不可变地点（行星/殖民地等）返回新记录；舰船直接更新货舱并返回自身。
+     * 账本是权威数据，本方法只负责让地点持有的视图与账本同步。</p>
+     */
+    default Location withStock(Stock next) {
+        return switch (this) {
+            case StarSystem s -> new StarSystem(s.id(), next, s.name());
+            case Planet p -> new Planet(p.id(), next, p.name());
+            case OrbitalStation o -> new OrbitalStation(o.id(), next, o.name());
+            case Anomaly a -> new Anomaly(a.id(), next, a.name());
+            case Colony c -> new Colony(c.id(), next, c.name());
+            case Facility f -> new Facility(f.id(), next, f.name());
+            case Ship s -> {
+                s.setCargo(next);
+                yield s;
+            }
+            case ExtensionLocation e -> throw new UnsupportedOperationException(
+                    "扩展地点必须自行实现 withStock: " + e.id());
+        };
+    }
 
     // ---- permitted 类型（均为 fc-world 内的 record/final class） ----
 
@@ -59,17 +82,15 @@ public sealed interface Location
      */
     final class Ship implements Location {
         private final LocationId id;
-        private final Stock stock;
         private final String name;
         private final Ids.ShipId shipId;
         private LocationId parent;
         private Stock cargo;
         private VoyageProgress voyage;
 
-        public Ship(LocationId id, Stock stock, String name, Ids.ShipId shipId,
+        public Ship(LocationId id, String name, Ids.ShipId shipId,
                     LocationId parent, Stock cargo, VoyageProgress voyage) {
             this.id = id;
-            this.stock = stock;
             this.name = name;
             this.shipId = shipId;
             this.parent = parent;
@@ -82,9 +103,10 @@ public sealed interface Location
             return id;
         }
 
+        /** 舰船没有独立仓储，货舱就是它的账本分区。 */
         @Override
         public Stock stock() {
-            return stock;
+            return cargo;
         }
 
         @Override
@@ -117,11 +139,11 @@ public sealed interface Location
 
         // ---- 受控修改（仅 tick 阶段调用） ----
 
-        /** 启航：设置在途进度并扣除货舱燃料。 */
-        public void beginVoyage(VoyageProgress progress, java.math.BigDecimal fuelCost) {
-            if (fuelCost.signum() > 0) {
-                this.cargo = this.cargo.subtract("fuel", fuelCost);
-            }
+        /**
+         * 启航：只设置在途进度。
+         * 燃料由 {@code VoyageService} 通过权威账本扣除，避免绕过守恒账本。
+         */
+        public void beginVoyage(VoyageProgress progress) {
             this.voyage = progress;
         }
 
@@ -145,9 +167,22 @@ public sealed interface Location
             }
         }
 
-        /** 变更货舱（库存阶段装卸货用）。 */
+        /** 变更货舱（由 {@link WorldState} 在账本变更后同步）。 */
         public void setCargo(Stock newCargo) {
             this.cargo = newCargo;
+        }
+
+        /** 风暴等事件造成的延误：延长预计抵达天数。 */
+        public void delayVoyage(int extraTicks) {
+            if (voyage != null && extraTicks > 0) {
+                this.voyage = new VoyageProgress(voyage.from(), voyage.to(),
+                        voyage.elapsedTicks(), voyage.totalTicks() + extraTicks, voyage.departed());
+            }
+        }
+
+        /** 剩余航程天数（未在航为 0）。 */
+        public int remainingTicks() {
+            return voyage == null ? 0 : Math.max(0, voyage.totalTicks() - voyage.elapsedTicks());
         }
     }
 

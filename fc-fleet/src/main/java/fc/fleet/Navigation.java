@@ -35,6 +35,10 @@ public final class Navigation {
     private record Edge(LocationId to, Link link) {
     }
 
+    /** 优先队列中的不可变条目：距离与成本在入队时固定。 */
+    private record Node(LocationId id, int ticks, BigDecimal cost) {
+    }
+
     /** 求最短航路（按 totalTicks 最小；并列时取 cost 小者）。 */
     public static Optional<Route> find(LocationGraph graph, LocationId from, LocationId to) {
         if (from.equals(to)) {
@@ -47,24 +51,41 @@ public final class Navigation {
         }
 
         Map<LocationId, Integer> dist = new HashMap<>();
+        Map<LocationId, BigDecimal> costSoFar = new HashMap<>();
         Map<LocationId, Edge> prev = new LinkedHashMap<>();
-        PriorityQueue<LocationId> pq = new PriorityQueue<>(Comparator.comparingInt(
-                id -> dist.getOrDefault(id, Integer.MAX_VALUE)));
+        // 先比 tick 数，并列再比累计成本（与类文档一致）。
+        // 队列条目不可变；发现更优路径时插入新条目，旧条目出队时被跳过。
+        PriorityQueue<Node> pq = new PriorityQueue<>(Comparator
+                .comparingInt(Node::ticks)
+                .thenComparing(Node::cost)
+                .thenComparingLong(n -> n.id().id()));
         dist.put(from, 0);
-        pq.add(from);
+        costSoFar.put(from, BigDecimal.ZERO);
+        pq.add(new Node(from, 0, BigDecimal.ZERO));
 
         while (!pq.isEmpty()) {
-            LocationId cur = pq.poll();
-            if (cur.equals(to)) {
+            Node cur = pq.poll();
+            if (cur.ticks() != dist.getOrDefault(cur.id(), Integer.MAX_VALUE)
+                    || cur.cost().compareTo(costSoFar.getOrDefault(cur.id(),
+                            BigDecimal.ZERO)) != 0) {
+                continue;
+            }
+            if (cur.id().equals(to)) {
                 break;
             }
-            int d = dist.get(cur);
-            for (Edge e : adj.getOrDefault(cur, List.of())) {
-                int nd = d + e.link().travelTicks();
-                if (nd < dist.getOrDefault(e.to(), Integer.MAX_VALUE)) {
+            for (Edge e : adj.getOrDefault(cur.id(), List.of())) {
+                int nd = cur.ticks() + e.link().travelTicks();
+                BigDecimal nc = cur.cost().add(e.link().cost());
+                Integer oldDist = dist.get(e.to());
+                BigDecimal oldCost = costSoFar.getOrDefault(e.to(), null);
+                boolean better = oldDist == null
+                        || nd < oldDist
+                        || (nd == oldDist && nc.compareTo(oldCost) < 0);
+                if (better) {
                     dist.put(e.to(), nd);
+                    costSoFar.put(e.to(), nc);
                     prev.put(e.to(), e);
-                    pq.add(e.to());
+                    pq.add(new Node(e.to(), nd, nc));
                 }
             }
         }

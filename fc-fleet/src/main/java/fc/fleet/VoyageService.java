@@ -71,14 +71,18 @@ public final class VoyageService {
             return new SailResult(false, "无可用航路: " + from.id() + " -> " + target, 0, BigDecimal.ZERO);
         }
         Navigation.Route r = route.get();
-        BigDecimal fuel = ship.cargo().amount("fuel");
+        BigDecimal fuel = state.goods(ship.id(), fc.world.ResourceKind.FUEL);
         if (fuel.compareTo(r.totalCost()) < 0) {
             return new SailResult(false,
                     "燃料不足：需要 " + r.totalCost().toPlainString() + "，货舱仅有 " + fuel.toPlainString(),
                     r.totalTicks(), r.totalCost());
         }
 
-        ship.beginVoyage(new Location.VoyageProgress(from, to, 0, r.totalTicks(), state.now()), r.totalCost());
+        // 燃料经权威账本从舰船货舱分区扣除（世界总量减少）
+        state.consume(ship.id(), fc.world.ResourceKind.FUEL, r.totalCost(), "启航燃料");
+        ship.beginVoyage(new Location.VoyageProgress(from, to, 0, r.totalTicks(), state.now()));
+        state.chronicle().record(new GameEvent.FuelConsumed(
+                state.now(), from, ship.shipId(), r.totalCost()));
         state.chronicle().record(new GameEvent.ShipDeparted(
                 state.now(), from, ship.shipId(), from, to, r.totalTicks()));
         return new SailResult(true,

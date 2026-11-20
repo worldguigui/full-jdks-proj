@@ -20,7 +20,9 @@ public final class LocationGraph {
     private final List<Link> links;
 
     public LocationGraph(Map<LocationId, Location> nodes, List<Link> links) {
-        this.nodes = new HashMap<>(nodes);
+        // 节点按 id 升序保存：遍历顺序与配置顺序无关，保证确定性
+        this.nodes = new java.util.TreeMap<>();
+        this.nodes.putAll(nodes);
         this.links = new ArrayList<>(links);
     }
 
@@ -57,7 +59,7 @@ public final class LocationGraph {
         nodes.put(location.id(), location);
     }
 
-    /** 全部舰船（图节点中类型为 Ship 的）。 */
+    /** 全部舰船（图节点中类型为 Ship 的，按舰船 id 升序）。 */
     public java.util.List<Location.Ship> ships() {
         java.util.List<Location.Ship> out = new ArrayList<>();
         for (Location l : nodes.values()) {
@@ -65,6 +67,7 @@ public final class LocationGraph {
                 out.add(s);
             }
         }
+        out.sort(java.util.Comparator.comparingLong(s -> s.shipId().id()));
         return out;
     }
 
@@ -79,7 +82,7 @@ public final class LocationGraph {
         return n;
     }
 
-    /** 从某地点出发的链接。 */
+    /** 从某地点出发的链接（按终点 id 升序）。 */
     public List<Link> linksFrom(LocationId id) {
         List<Link> out = new ArrayList<>();
         for (Link l : links) {
@@ -87,6 +90,7 @@ public final class LocationGraph {
                 out.add(l);
             }
         }
+        out.sort(java.util.Comparator.comparingLong(l -> l.to().id()));
         return out;
     }
 

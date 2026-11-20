@@ -1,6 +1,7 @@
 package fc.config.world;
 
 import fc.config.ConfigException;
+import fc.world.ResourceKind;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -36,6 +37,7 @@ public final class XmlWorldLoader {
             "WarpRoute", "SurfaceRoute", "InternalLane");
     private static final Set<String> AGENT_ROLES = Set.of("CREW", "RESIDENT", "ENVOY");
     private static final Set<String> AGENT_TRAITS = Set.of("DILIGENT", "LAZY", "STOIC", "ANXIOUS");
+    private static final Set<String> FACTION_KINDS = Set.of("TRADE", "COLONY", "MILITARY", "SCIENCE");
 
     private XmlWorldLoader() {
     }
@@ -87,6 +89,18 @@ public final class XmlWorldLoader {
         f.setExpandEntityReferences(false);
 
         DocumentBuilder b = f.newDocumentBuilder();
+        // XSD 校验错误默认只打印告警且继续解析；这里改为严格失败，避免坏配置被静默接受
+        b.setErrorHandler(new org.xml.sax.helpers.DefaultHandler() {
+            @Override
+            public void error(org.xml.sax.SAXParseException e) throws org.xml.sax.SAXException {
+                throw e;
+            }
+
+            @Override
+            public void fatalError(org.xml.sax.SAXParseException e) throws org.xml.sax.SAXException {
+                throw e;
+            }
+        });
         Document doc;
         try {
             doc = b.parse(in);
@@ -112,8 +126,24 @@ public final class XmlWorldLoader {
                 throw new ConfigException("地点 " + id + " 的 kind 非法: " + kind);
             }
             Long parent = e.hasAttribute("parent") ? Long.valueOf(attr(e, "parent")) : null;
+            BigDecimal credits = e.hasAttribute("credits")
+                    ? new BigDecimal(attr(e, "credits")) : BigDecimal.ZERO;
+            if (credits.signum() < 0) {
+                throw new ConfigException("地点 " + id + " 的 credits 不得为负");
+            }
+            int level = e.hasAttribute("level") ? Integer.parseInt(attr(e, "level")) : 0;
+            if (level < 0 || level > 3) {
+                throw new ConfigException("地点 " + id + " 的 level 必须在 0..3");
+            }
+            String owner = e.hasAttribute("owner") ? attr(e, "owner") : null;
+            int population = e.hasAttribute("population")
+                    ? Integer.parseInt(attr(e, "population")) : 0;
+            if (population < 0) {
+                throw new ConfigException("地点 " + id + " 的 population 不得为负");
+            }
             locations.add(new WorldDefinition.LocationDef(
-                    id, kind, attr(e, "name"), parent, readStock(e), readProduction(e)));
+                    id, kind, attr(e, "name"), parent, readStock(e), credits,
+                    readProduction(e), level, owner, population, readUpgrades(e)));
         }
         if (locations.isEmpty()) {
             throw new ConfigException("世界配置至少需要一个地点");
@@ -145,7 +175,7 @@ public final class XmlWorldLoader {
                 throw new ConfigException("航线 " + from + "->" + to + " 的 ticks 必须 > 0");
             }
             double risk = e.hasAttribute("risk") ? Double.parseDouble(attr(e, "risk")) : 0.0;
-            if (risk < 0 || risk > 1) {
+            if (!Double.isFinite(risk) || risk < 0 || risk > 1) {
                 throw new ConfigException("航线 " + from + "->" + to + " 的 risk 必须在 0..1");
             }
             BigDecimal cost = e.hasAttribute("cost") ? new BigDecimal(attr(e, "cost")) : BigDecimal.ZERO;
@@ -165,6 +195,12 @@ public final class XmlWorldLoader {
             long at = Long.parseLong(attr(e, "at"));
             if (!ids.contains(at)) {
                 throw new ConfigException("舰船 " + id + " 的初始位置不存在: " + at);
+            }
+            // 舰船作为移动地点进入图，其地点 id 为 shipId + 100000，不得与静态地点冲突
+            long locationId = id + 100_000L;
+            if (ids.contains(locationId)) {
+                throw new ConfigException("舰船 " + id + " 的地点 id " + locationId
+                        + " 与静态地点冲突（规则：地点 id = 舰船 id + 100000）");
             }
             ships.add(new WorldDefinition.ShipDef(id, attr(e, "name"), at, readCargo(e)));
         }
@@ -196,10 +232,96 @@ public final class XmlWorldLoader {
             agents.add(new WorldDefinition.AgentDef(id, attr(e, "name"), role, at, trait, skill));
         }
 
+        // 势力
+        List<WorldDefinition.FactionDef> factions = new ArrayList<>();
+        Set<Long> factionIds = new LinkedHashSet<>();
+        for (Element e : children(child(root, "factions"), "faction")) {
+            long id = Long.parseLong(attr(e, "id"));
+            if (!factionIds.add(id)) {
+                throw new ConfigException("势力 id 重复: " + id);
+            }
+            String kind = attr(e, "kind");
+            if (!FACTION_KINDS.contains(kind)) {
+                throw new ConfigException("势力 " + id + " 的 kind 非法: " + kind);
+            }
+            long seat = Long.parseLong(attr(e, "seat"));
+            if (!ids.contains(seat)) {
+                throw new ConfigException("势力 " + id + " 的中心地点不存在: " + seat);
+            }
+            String priority = attr(e, "priority");
+            try {
+                ResourceKind.goodsFromId(priority);
+            } catch (IllegalArgumentException ex) {
+                throw new ConfigException("势力 " + id + " 的 priority 非法: " + priority);
+            }
+            BigDecimal reserve = e.hasAttribute("reserve")
+                    ? new BigDecimal(attr(e, "reserve")) : BigDecimal.ZERO;
+            BigDecimal stockTarget = e.hasAttribute("stockTarget")
+                    ? new BigDecimal(attr(e, "stockTarget")) : new BigDecimal("50");
+            BigDecimal tradePrice = e.hasAttribute("tradeUnitPrice")
+                    ? new BigDecimal(attr(e, "tradeUnitPrice")) : new BigDecimal("3");
+            BigDecimal taxRate = e.hasAttribute("taxRate")
+                    ? new BigDecimal(attr(e, "taxRate")) : BigDecimal.ZERO;
+            if (reserve.signum() < 0 || stockTarget.signum() < 0
+                    || tradePrice.signum() < 0 || taxRate.signum() < 0) {
+                throw new ConfigException("势力 " + id + " 的 reserve/stockTarget/tradeUnitPrice/taxRate 不得为负");
+            }
+            List<WorldDefinition.RelationDef> relations = new ArrayList<>();
+            for (Element r : children(e, "relation")) {
+                long other = Long.parseLong(attr(r, "to"));
+                int value = Integer.parseInt(attr(r, "value"));
+                if (value < -100 || value > 100) {
+                    throw new ConfigException("势力关系值必须在 -100..100");
+                }
+                relations.add(new WorldDefinition.RelationDef(other, value));
+            }
+            factions.add(new WorldDefinition.FactionDef(id, attr(e, "name"), kind, seat,
+                    e.hasAttribute("doctrine") ? attr(e, "doctrine") : "",
+                    priority, reserve, stockTarget, tradePrice, taxRate, relations));
+        }
+        for (WorldDefinition.FactionDef fd : factions) {
+            for (WorldDefinition.RelationDef r : fd.relations()) {
+                if (!factionIds.contains(r.other())) {
+                    throw new ConfigException("势力 " + fd.id() + " 的关系对象不存在: " + r.other());
+                }
+            }
+        }
+        for (WorldDefinition.LocationDef loc : locations) {
+            if (loc.owner() == null) {
+                continue;
+            }
+            if ("player".equals(loc.owner())) {
+                continue;
+            }
+            if (loc.owner().startsWith("faction:")) {
+                long factionId;
+                try {
+                    factionId = Long.parseLong(loc.owner().substring("faction:".length()));
+                } catch (NumberFormatException ex) {
+                    throw new ConfigException("地点 " + loc.id() + " 的 owner 非法: " + loc.owner());
+                }
+                if (!factionIds.contains(factionId)) {
+                    throw new ConfigException("地点 " + loc.id() + " 的归属势力不存在: " + loc.owner());
+                }
+                continue;
+            }
+            throw new ConfigException("地点 " + loc.id()
+                    + " 的 owner 必须是 player 或 faction:<id>，实际: " + loc.owner());
+        }
+
         // 资源经济参数
         List<ResourceDef> resources = new ArrayList<>();
+        Set<String> resourceNames = new LinkedHashSet<>();
         for (Element e : children(child(root, "resources"), "resource")) {
             String resName = attr(e, "name");
+            try {
+                ResourceKind.goodsFromId(resName);
+            } catch (IllegalArgumentException ex) {
+                throw new ConfigException("资源名必须是 11 种货物之一: " + resName);
+            }
+            if (!resourceNames.add(resName)) {
+                throw new ConfigException("资源重复定义: " + resName);
+            }
             BigDecimal base = new BigDecimal(attr(e, "basePrice"));
             if (base.signum() <= 0) {
                 throw new ConfigException("资源 " + resName + " 的 basePrice 必须 > 0");
@@ -210,7 +332,7 @@ public final class XmlWorldLoader {
             }
             double elasticity = e.hasAttribute("elasticity")
                     ? Double.parseDouble(attr(e, "elasticity")) : 1.0;
-            if (elasticity <= 0) {
+            if (!Double.isFinite(elasticity) || elasticity <= 0) {
                 throw new ConfigException("资源 " + resName + " 的 elasticity 必须 > 0");
             }
             resources.add(new ResourceDef(resName, base, target, elasticity));
@@ -242,9 +364,17 @@ public final class XmlWorldLoader {
 
         BigDecimal credits = root.hasAttribute("playerCredits")
                 ? new BigDecimal(attr(root, "playerCredits")) : BigDecimal.ZERO;
+        BigDecimal bankCapital = root.hasAttribute("bankCapital")
+                ? new BigDecimal(attr(root, "bankCapital")) : BigDecimal.ZERO;
+        BigDecimal loanRate = root.hasAttribute("loanDailyRate")
+                ? new BigDecimal(attr(root, "loanDailyRate")) : BigDecimal.ZERO;
+        if (credits.signum() < 0 || bankCapital.signum() < 0 || loanRate.signum() < 0) {
+            throw new ConfigException("playerCredits/bankCapital/loanDailyRate 不得为负");
+        }
 
-        return new WorldDefinition(name, epoch, locations, links, ships, agents,
-                new WorldDefinition.EconomyDef(resources, recipes, credits), seed);
+        return new WorldDefinition(name, epoch, locations, links, ships, agents, factions,
+                new WorldDefinition.EconomyDef(resources, recipes, credits, bankCapital, loanRate),
+                seed);
     }
 
     private static Schema loadSchema() throws Exception {
@@ -297,6 +427,7 @@ public final class XmlWorldLoader {
         Element stockEl = child(location, "stock");
         for (Element item : children(stockEl, "item")) {
             String res = attr(item, "resource");
+            checkGoods(res, "库存");
             BigDecimal amount = new BigDecimal(attr(item, "amount"));
             if (amount.signum() < 0) {
                 throw new ConfigException("库存数量不得为负: " + res + "=" + amount);
@@ -306,16 +437,62 @@ public final class XmlWorldLoader {
         return stock;
     }
 
+    private static void checkGoods(String resource, String where) {
+        try {
+            ResourceKind.goodsFromId(resource);
+        } catch (IllegalArgumentException ex) {
+            throw new ConfigException(where + "资源名非法（信用点不属于库存）: " + resource);
+        }
+    }
+
+    private static List<WorldDefinition.UpgradeDef> readUpgrades(Element location) {
+        List<WorldDefinition.UpgradeDef> upgrades = new ArrayList<>();
+        Set<Integer> levels = new LinkedHashSet<>();
+        for (Element u : children(location, "upgrade")) {
+            int to = Integer.parseInt(attr(u, "level"));
+            if (to < 1 || to > 3) {
+                throw new ConfigException("殖民地升级目标等级必须在 1..3: " + to);
+            }
+            if (!levels.add(to)) {
+                throw new ConfigException("殖民地升级目标等级重复: " + to);
+            }
+            Map<String, BigDecimal> goods = new LinkedHashMap<>();
+            for (Element need : children(u, "need")) {
+                String res = attr(need, "resource");
+                checkGoods(res, "升级需求");
+                BigDecimal amount = new BigDecimal(attr(need, "amount"));
+                if (amount.signum() <= 0) {
+                    throw new ConfigException("升级货物数量必须为正: " + res + "=" + amount);
+                }
+                goods.merge(res, amount, BigDecimal::add);
+            }
+            BigDecimal credits = new BigDecimal(attr(u, "credits"));
+            if (credits.signum() < 0) {
+                throw new ConfigException("升级信用点不得为负: " + credits);
+            }
+            upgrades.add(new WorldDefinition.UpgradeDef(to, goods, credits));
+        }
+        return upgrades;
+    }
+
     private static WorldDefinition.ProductionDef readProduction(Element location) {
         Element p = child(location, "production");
         if (p == null) {
             return null;
         }
+        String resource = attr(p, "resource");
+        checkGoods(resource, "每日产出");
+        ResourceKind kind = ResourceKind.goodsFromId(resource);
+        if (kind != ResourceKind.FOOD && kind != ResourceKind.WATER
+                && kind != ResourceKind.ORE && kind != ResourceKind.ENERGY) {
+            throw new ConfigException("每日自然产出只适用于食物、水、矿物与能源，不能是 "
+                    + resource + "（制成品必须由配方生产）");
+        }
         BigDecimal perDay = new BigDecimal(attr(p, "perDay"));
         if (perDay.signum() < 0) {
             throw new ConfigException("每日产出不得为负: " + perDay);
         }
-        return new WorldDefinition.ProductionDef(attr(p, "resource"), perDay);
+        return new WorldDefinition.ProductionDef(resource, perDay);
     }
 
     /** 读取 <in>/<out> 资源数量列表。 */
@@ -323,6 +500,7 @@ public final class XmlWorldLoader {
         Map<String, BigDecimal> out = new LinkedHashMap<>();
         for (Element item : children(parent, tag)) {
             String res = attr(item, "resource");
+            checkGoods(res, "配方");
             BigDecimal amount = new BigDecimal(attr(item, "amount"));
             if (amount.signum() <= 0) {
                 throw new ConfigException("配方资源数量必须 > 0: " + res + "=" + amount);
@@ -337,6 +515,7 @@ public final class XmlWorldLoader {
         Element cargoEl = child(ship, "cargo");
         for (Element item : children(cargoEl, "item")) {
             String res = attr(item, "resource");
+            checkGoods(res, "货舱");
             BigDecimal amount = new BigDecimal(attr(item, "amount"));
             if (amount.signum() < 0) {
                 throw new ConfigException("货舱数量不得为负: " + res + "=" + amount);

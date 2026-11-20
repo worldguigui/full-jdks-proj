@@ -4,8 +4,10 @@ import fc.config.world.WorldDefinition;
 import fc.sim.WorldAssembler;
 import fc.testkit.FcTest;
 import fc.testkit.TestRunner;
+import fc.world.GameEvent;
 import fc.world.Ids;
 import fc.world.Location;
+import fc.world.ResourceKind;
 import fc.world.WorldState;
 import fc.world.time.Stardate;
 
@@ -19,7 +21,9 @@ import java.util.Map;
 public final class VoyageTest {
 
     public static void main(String[] args) {
-        TestRunner.report(TestRunner.run(VoyageTest.class));
+        if (!TestRunner.report(TestRunner.run(VoyageTest.class))) {
+            System.exit(1);
+        }
     }
 
     /** 1 -2- 2 -3- 3 链式世界；船在 1，燃料可调。 */
@@ -37,29 +41,30 @@ public final class VoyageTest {
     }
 
     private static WorldState stateOf(WorldAssembler.AssembledWorld w) {
-        return new WorldState(w.graph(), Map.of(), w.ledger(), new MiniChronicle(), w.epoch(), w.parents());
+        return new WorldState(w.graph(), Map.of(), w.ledger(), w.money(),
+                new MiniChronicle(), w.epoch(), w.parents());
     }
 
     private static final class MiniChronicle implements fc.world.Chronicle {
-        private final java.util.List<fc.world.GameEvent> e = new java.util.ArrayList<>();
+        private final java.util.List<GameEvent> e = new java.util.ArrayList<>();
 
-        public void record(fc.world.GameEvent ev) {
+        public void record(GameEvent ev) {
             e.add(ev);
         }
 
-        public java.util.List<fc.world.GameEvent> since(Stardate s) {
+        public java.util.List<GameEvent> since(Stardate s) {
             return java.util.List.copyOf(e);
         }
 
-        public java.util.List<fc.world.GameEvent> byActor(Ids.AgentId a) {
+        public java.util.List<GameEvent> byActor(Ids.AgentId a) {
             return java.util.List.of();
         }
 
-        public java.util.List<fc.world.GameEvent> at(Ids.LocationId l) {
+        public java.util.List<GameEvent> at(Ids.LocationId l) {
             return java.util.List.of();
         }
 
-        public java.util.List<fc.world.GameEvent> all() {
+        public java.util.List<GameEvent> all() {
             return java.util.List.copyOf(e);
         }
 
@@ -87,17 +92,21 @@ public final class VoyageTest {
     }
 
     @FcTest
-    public void sailConsumesFuel() {
+    public void sailConsumesFuelThroughLedger() {
         var w = chainWorld("100");
         WorldState st = stateOf(w);
         Location.Ship ship = st.graph().ships().get(0);
+        BigDecimal worldBefore = st.ledger().total(ResourceKind.FUEL);
         var r = VoyageService.sail(st, ship, 3);
         assert r.ok() : r.message();
         assert r.ticks() == 5 : "应为 5 天";
-        assert ship.cargo().amount("fuel").compareTo(new BigDecimal("88")) == 0
-                : "100-12=88，实际 " + ship.cargo().amount("fuel");
+        assert ship.cargo().amount(ResourceKind.FUEL).compareTo(new BigDecimal("88")) == 0
+                : "100-12=88，实际 " + ship.cargo().amount(ResourceKind.FUEL);
+        assert st.ledger().total(ResourceKind.FUEL)
+                .compareTo(worldBefore.subtract(new BigDecimal("12"))) == 0
+                : "燃料经账本扣除（世界总量减少）";
         assert ship.inVoyage();
-        assert st.chronicle().size() == 1 : "应写 1 条启航事件";
+        assert st.chronicle().size() == 2 : "应写燃料消耗 + 启航两条事件";
     }
 
     @FcTest
@@ -109,7 +118,7 @@ public final class VoyageTest {
         assert !r.ok() : "燃料不足应拒绝";
         assert r.message().contains("燃料不足") : r.message();
         assert !ship.inVoyage() : "不应进入在航";
-        assert ship.cargo().amount("fuel").compareTo(new BigDecimal("5")) == 0 : "燃料不应被扣";
+        assert ship.cargo().amount(ResourceKind.FUEL).compareTo(new BigDecimal("5")) == 0 : "燃料不应被扣";
     }
 
     @FcTest
@@ -130,5 +139,19 @@ public final class VoyageTest {
         var r = VoyageService.sail(st, ship, 1);
         assert !r.ok();
         assert r.message().contains("已在该地点");
+    }
+
+    @FcTest
+    public void sailRejectedWhenUnreachable() {
+        List<WorldDefinition.LocationDef> locs = List.of(
+                new WorldDefinition.LocationDef(1, "StarSystem", "A", null, Map.of(), null),
+                new WorldDefinition.LocationDef(2, "StarSystem", "B", null, Map.of(), null));
+        List<WorldDefinition.ShipDef> ships = List.of(
+                new WorldDefinition.ShipDef(1, "S", 1, Map.of("fuel", new BigDecimal("100"))));
+        var w = WorldAssembler.assemble(new WorldDefinition("iso", 0, locs, List.of(), ships));
+        WorldState st = stateOf(w);
+        var r = VoyageService.sail(st, st.graph().ships().get(0), 2);
+        assert !r.ok();
+        assert r.message().contains("无可用航路") : r.message();
     }
 }

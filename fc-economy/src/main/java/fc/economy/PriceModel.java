@@ -6,10 +6,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * 定价模型：库存相对目标越少，价格越高（幂函数弹性），并带买卖价差。
+ * 定价模型：库存相对目标越少，价格越高（幂函数弹性），并带买卖价差与事件冲击。
  *
  * <pre>
- * 基准价 = basePrice × (targetStock / max(stock,1)) ^ elasticity   （夹在 0.3×..5× 基准价）
+ * 基准价 = basePrice × (targetStock / max(stock,1)) ^ elasticity × 冲击乘数
+ *        （供需因子夹在 0.3×..5× 基准价）
  * 玩家买入 = 基准价 × 1.05
  * 玩家卖出 = 基准价 × 0.95
  * </pre>
@@ -29,24 +30,41 @@ public final class PriceModel {
     private PriceModel() {
     }
 
-    /** 基准价（供需均衡价）。 */
+    /** 基准价（无价格冲击）。 */
     public static BigDecimal basePrice(ResourceDef def, BigDecimal stock) {
+        return basePrice(def, stock, BigDecimal.ONE);
+    }
+
+    /** 基准价（含事件价格冲击乘数）。 */
+    public static BigDecimal basePrice(ResourceDef def, BigDecimal stock, BigDecimal shock) {
         double target = def.targetStock().doubleValue();
         double s = Math.max(1.0, stock.doubleValue());
         double factor = Math.pow(target / s, def.elasticity());
         factor = Math.max(MIN_FACTOR, Math.min(MAX_FACTOR, factor));
-        return def.basePrice().multiply(BigDecimal.valueOf(factor))
+        BigDecimal supply = def.basePrice().multiply(BigDecimal.valueOf(factor));
+        return supply.multiply(shock == null ? BigDecimal.ONE : shock)
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    /** 玩家买入价。 */
+    /** 玩家买入价（无价格冲击）。 */
     public static BigDecimal buyPrice(ResourceDef def, BigDecimal stock) {
-        return basePrice(def, stock).multiply(BUY_MARKUP).setScale(2, RoundingMode.HALF_UP);
+        return buyPrice(def, stock, BigDecimal.ONE);
     }
 
-    /** 玩家卖出价。 */
+    /** 玩家买入价（含事件价格冲击乘数）。 */
+    public static BigDecimal buyPrice(ResourceDef def, BigDecimal stock, BigDecimal shock) {
+        return basePrice(def, stock, shock).multiply(BUY_MARKUP)
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** 玩家卖出价（无价格冲击）。 */
     public static BigDecimal sellPrice(ResourceDef def, BigDecimal stock) {
-        BigDecimal p = basePrice(def, stock).multiply(SELL_DISCOUNT)
+        return sellPrice(def, stock, BigDecimal.ONE);
+    }
+
+    /** 玩家卖出价（含事件价格冲击乘数）。 */
+    public static BigDecimal sellPrice(ResourceDef def, BigDecimal stock, BigDecimal shock) {
+        BigDecimal p = basePrice(def, stock, shock).multiply(SELL_DISCOUNT)
                 .setScale(2, RoundingMode.HALF_UP);
         return p.signum() <= 0 ? new BigDecimal("0.01") : p;
     }

@@ -1,10 +1,15 @@
 package fc.sim;
 
 import fc.config.world.WorldDefinition;
+import fc.world.Agent;
+import fc.world.ColonyState;
+import fc.world.Faction;
 import fc.world.Ids;
 import fc.world.Link;
 import fc.world.Location;
 import fc.world.LocationGraph;
+import fc.world.MoneyLedger;
+import fc.world.ResourceKind;
 import fc.world.ResourceLedger;
 import fc.world.Stock;
 import fc.world.time.Stardate;
@@ -18,27 +23,37 @@ import java.util.Map;
 /**
  * 世界装配器：把配置（{@link WorldDefinition}）装配成 fc-world 领域对象。
  *
- * <p>这是「世界数据全部来自配置」的落地点——核心代码不含任何地点/航线硬编码。</p>
+ * <p>这是「世界数据全部来自配置」的落地点——核心代码不含任何地点/航线硬编码。
+ * 装配同时开立权威货物账本分区与财务账户，并建立势力、殖民地与关系矩阵。</p>
  */
 public final class WorldAssembler {
 
     private WorldAssembler() {
     }
 
-    /** 装配结果：世界图 + 账本 + 每日产出表 + 父子层级 + 主体 + 启程时间 + 随机种子。 */
+    /**
+     * 装配结果：世界图 + 货物/财务账本 + 每日产出表 + 父子层级 + 主体 +
+     * 势力/殖民地 + 启程时间 + 随机种子。
+     */
     public record AssembledWorld(
             String name,
             LocationGraph graph,
             ResourceLedger ledger,
+            MoneyLedger money,
             Map<Ids.LocationId, Production> production,
             Map<Ids.LocationId, Ids.LocationId> parents,
-            java.util.Map<Ids.AgentId, fc.world.Agent> agents,
+            Map<Ids.AgentId, Agent> agents,
+            Map<Ids.FactionId, Faction> factions,
+            Map<Ids.LocationId, ColonyState> colonies,
+            Map<String, Integer> initialRelations,
             Stardate epoch,
-            long seed) {
+            long seed,
+            BigDecimal playerCredits,
+            BigDecimal loanDailyRate) {
     }
 
     /** 每日产出。 */
-    public record Production(String resource, BigDecimal perDay) {
+    public record Production(ResourceKind resource, BigDecimal perDay) {
     }
 
     /** 从世界定义装配。 */
@@ -47,11 +62,20 @@ public final class WorldAssembler {
         Map<Ids.LocationId, Production> production = new LinkedHashMap<>();
         Map<Ids.LocationId, Ids.LocationId> parents = new LinkedHashMap<>();
         ResourceLedger ledger = new ResourceLedger();
+        MoneyLedger money = new MoneyLedger();
+
+        // 0. 财务基础账户
+        money.open(MoneyLedger.PLAYER, def.economy().playerCredits());
+        money.open(MoneyLedger.BANK, def.economy().bankCapital());
+        money.open(MoneyLedger.HOUSEHOLDS, BigDecimal.ZERO);
+        money.open(MoneyLedger.TREASURY, BigDecimal.ZERO);
+
+        Map<Ids.LocationId, ColonyState> colonies = new LinkedHashMap<>();
 
         // 1. 地点
         for (WorldDefinition.LocationDef d : def.locations()) {
             Ids.LocationId id = new Ids.LocationId(d.id());
-            Stock stock = Stock.of(d.stock());
+            Stock stock = Stock.of(convert(d.stock(), "地点 " + d.id() + " 库存"));
             Location loc = switch (d.kind()) {
                 case "StarSystem" -> new Location.StarSystem(id, stock, d.name());
                 case "Planet" -> new Location.Planet(id, stock, d.name());
@@ -62,44 +86,47 @@ public final class WorldAssembler {
                 default -> throw new IllegalStateException("未知地点种类: " + d.kind());
             };
             nodes.put(id, loc);
+            ledger.open(id, stock);
+            money.open(MoneyLedger.locationAccount(id), d.credits());
             if (d.parentId() != null) {
                 parents.put(id, new Ids.LocationId(d.parentId()));
             }
             if (d.production() != null) {
                 production.put(id, new Production(
-                        d.production().resource(), d.production().perDay()));
+                        ResourceKind.goodsFromId(d.production().resource()),
+                        d.production().perDay()));
             }
-            // 账本累加初始库存
-            d.stock().forEach((res, amt) -> {
-                if (amt.signum() > 0) {
-                    ledger.credit(res, amt);
+            if (d.isColony()) {
+                List<ColonyState.Upgrade> upgrades = new ArrayList<>();
+                for (WorldDefinition.UpgradeDef u : d.upgrades()) {
+                    Map<ResourceKind, BigDecimal> goods = new LinkedHashMap<>();
+                    u.goods().forEach((k, v) -> goods.put(ResourceKind.goodsFromId(k), v));
+                    upgrades.add(new ColonyState.Upgrade(u.toLevel(), goods, u.credits()));
                 }
-            });
+                boolean playerOwned = "player".equals(d.owner());
+                colonies.put(id, new ColonyState(id, playerOwned, d.colonyLevel(),
+                        d.population(), upgrades));
+            }
         }
 
         // 2. 舰船（作为移动 Location 进入图）
         for (WorldDefinition.ShipDef d : def.ships()) {
             Ids.ShipId shipId = new Ids.ShipId(d.id());
-            Ids.LocationId locId = new Ids.LocationId(d.id() + 100_000); // 船的地点身份不与静态地点冲突
-            Stock cargo = Stock.of(d.cargo());
+            Ids.LocationId locId = new Ids.LocationId(d.id() + 100_000);
+            Stock cargo = Stock.of(convert(d.cargo(), "舰船 " + d.id() + " 货舱"));
             Location.Ship ship = new Location.Ship(
-                    locId, Stock.empty(), d.name(), shipId,
-                    new Ids.LocationId(d.at()), cargo, null);
+                    locId, d.name(), shipId, new Ids.LocationId(d.at()), cargo, null);
             nodes.put(locId, ship);
-            d.cargo().forEach((res, amt) -> {
-                if (amt.signum() > 0) {
-                    ledger.credit(res, amt);
-                }
-            });
+            ledger.open(locId, cargo);
         }
 
-        // 2.5 主体（船员/居民/使者同一类型）
-        java.util.Map<Ids.AgentId, fc.world.Agent> agents = new LinkedHashMap<>();
+        // 3. 主体（船员/居民/使者同一类型）
+        Map<Ids.AgentId, Agent> agents = new LinkedHashMap<>();
         for (WorldDefinition.AgentDef d : def.agents()) {
             Ids.AgentId aid = new Ids.AgentId(d.id());
-            agents.put(aid, new fc.world.Agent(
+            agents.put(aid, new Agent(
                     aid,
-                    fc.world.Agent.AgentRole.valueOf(d.role()),
+                    Agent.AgentRole.valueOf(d.role()),
                     fc.world.Trait.valueOf(d.trait()),
                     d.name(),
                     new Ids.LocationId(d.at()),
@@ -108,7 +135,32 @@ public final class WorldAssembler {
                     d.skill()));
         }
 
-        // 3. 航线（M1 按无向处理：Navigation 双向可达）
+        // 4. 势力（财政账户 + 关系）
+        Map<Ids.FactionId, Faction> factions = new LinkedHashMap<>();
+        Map<String, Integer> relations = new LinkedHashMap<>();
+        for (WorldDefinition.FactionDef d : def.factions()) {
+            Ids.FactionId fid = new Ids.FactionId(d.id());
+            Faction f = new Faction(fid, d.name(), Faction.Kind.valueOf(d.kind()),
+                    new Ids.LocationId(d.seat()), d.doctrine(),
+                    ResourceKind.goodsFromId(d.priority()), d.reserve(), d.stockTarget(),
+                    d.tradeUnitPrice(), d.taxRate());
+            factions.put(fid, f);
+            money.open(f.account(), d.reserve());
+            for (WorldDefinition.RelationDef r : d.relations()) {
+                long low = Math.min(d.id(), r.other());
+                long high = Math.max(d.id(), r.other());
+                relations.put(low + ":" + high, r.value());
+            }
+        }
+        for (WorldDefinition.FactionDef d : def.factions()) {
+            for (WorldDefinition.RelationDef r : d.relations()) {
+                if (!factions.containsKey(new Ids.FactionId(r.other()))) {
+                    throw new IllegalStateException("势力关系对象未装配: " + r.other());
+                }
+            }
+        }
+
+        // 5. 航线
         List<Link> links = new ArrayList<>();
         for (WorldDefinition.LinkDef d : def.links()) {
             Ids.LocationId from = new Ids.LocationId(d.from());
@@ -123,7 +175,20 @@ public final class WorldAssembler {
         }
 
         LocationGraph graph = new LocationGraph(nodes, links);
-        return new AssembledWorld(def.name(), graph, ledger, production, parents, agents,
-                new Stardate(def.epochDay()), def.seed());
+        return new AssembledWorld(def.name(), graph, ledger, money, production, parents, agents,
+                factions, colonies, relations, new Stardate(def.epochDay()), def.seed(),
+                def.economy().playerCredits(), def.economy().loanDailyRate());
+    }
+
+    private static Map<ResourceKind, BigDecimal> convert(Map<String, BigDecimal> raw, String what) {
+        Map<ResourceKind, BigDecimal> out = new LinkedHashMap<>();
+        raw.forEach((k, v) -> {
+            try {
+                out.put(ResourceKind.goodsFromId(k), v);
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalStateException(what + " 含非法资源: " + k);
+            }
+        });
+        return out;
     }
 }

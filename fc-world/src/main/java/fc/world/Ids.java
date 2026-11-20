@@ -42,4 +42,43 @@ public final class Ids {
             return Long.compare(this.id, o.id);
         }
     }
+
+    /** 运输批次标识。 */
+    public record TransferId(long id) implements Comparable<TransferId> {
+        @Override
+        public int compareTo(TransferId o) {
+            return Long.compare(this.id, o.id);
+        }
+
+        @Override
+        public String toString() {
+            return "T" + id;
+        }
+    }
+
+    /** 待决决策标识。 */
+    public record DecisionId(String id) implements Comparable<DecisionId> {
+        @Override
+        public int compareTo(DecisionId o) {
+            return id.compareTo(o.id);
+        }
+
+        @Override
+        public String toString() {
+            return id;
+        }
+    }
+
+    /** 补给线标识（玩家可读的稳定名称）。 */
+    public record SupplyLineId(String id) implements Comparable<SupplyLineId> {
+        @Override
+        public int compareTo(SupplyLineId o) {
+            return id.compareTo(o.id);
+        }
+
+        @Override
+        public String toString() {
+            return id;
+        }
+    }
 }

@@ -49,7 +49,8 @@ public final class WorkStage implements TickStage {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<Integer>> futures = new ArrayList<>(entries.size());
             for (Map.Entry<String, WorkUnit> e : entries) {
-                futures.add(executor.submit(() -> Math.max(1, e.getValue().workers().size())));
+                // 无工人的工作单元不推进（不能凭空生产）
+                futures.add(executor.submit(() -> e.getValue().workers().size()));
             }
             for (int i = 0; i < futures.size(); i++) {
                 advance[i] = futures.get(i).get();

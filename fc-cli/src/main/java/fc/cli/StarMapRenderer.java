@@ -4,11 +4,12 @@ import fc.world.Ids;
 import fc.world.Link;
 import fc.world.Location;
 import fc.world.LocationGraph;
-import fc.world.LocationOps;
+import fc.world.ResourceKind;
 import fc.world.WorldState;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -98,9 +99,16 @@ public final class StarMapRenderer {
         sb.append(indent)
                 .append('[').append(loc.id().id()).append("] ")
                 .append(loc.name())
-                .append(' ').append(LocationOps.kindOf(loc));
-        if (!loc.stock().amounts().isEmpty()) {
-            sb.append("  库:").append(stockSummary(loc.stock().amounts()));
+                .append(' ').append(kindOf(loc));
+        Map<ResourceKind, BigDecimal> amounts = new EnumMap<>(ResourceKind.class);
+        for (ResourceKind kind : ResourceKind.GOODS) {
+            BigDecimal v = loc.stock().amount(kind);
+            if (v.signum() != 0) {
+                amounts.put(kind, v);
+            }
+        }
+        if (!amounts.isEmpty()) {
+            sb.append("  库:").append(stockSummary(amounts));
         }
         List<String> ships = shipsAt.get(loc.id());
         if (ships != null) {
@@ -109,15 +117,29 @@ public final class StarMapRenderer {
         sb.append('\n');
     }
 
-    private static String stockSummary(Map<String, BigDecimal> amounts) {
+    private static String stockSummary(Map<ResourceKind, BigDecimal> amounts) {
         StringBuilder sb = new StringBuilder();
         amounts.forEach((k, v) -> {
             if (sb.length() > 0) {
                 sb.append(',');
             }
-            sb.append(k).append('=').append(v.stripTrailingZeros().toPlainString());
+            sb.append(k.id()).append('=').append(v.stripTrailingZeros().toPlainString());
         });
         return sb.toString();
+    }
+
+    /** 人类可读的地点种类名（含扩展地点兜底）。 */
+    private static String kindOf(Location loc) {
+        return switch (loc) {
+            case Location.StarSystem l -> "星系";
+            case Location.Planet l -> "行星";
+            case Location.OrbitalStation l -> "空间站";
+            case Location.Anomaly l -> "异常点";
+            case Location.Colony l -> "殖民地";
+            case Location.Facility l -> "设施";
+            case Location.Ship l -> "舰船";
+            case Location.ExtensionLocation l -> "扩展地点";
+        };
     }
 
     private static String linkSummary(LocationGraph graph, Ids.LocationId from) {

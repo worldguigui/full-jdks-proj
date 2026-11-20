@@ -28,6 +28,20 @@
                                                 <xs:attribute name="perDay" type="xs:decimal" use="required"/>
                                             </xs:complexType>
                                         </xs:element>
+                                        <xs:element name="upgrade" minOccurs="0" maxOccurs="unbounded">
+                                            <xs:complexType>
+                                                <xs:sequence>
+                                                    <xs:element name="need" minOccurs="0" maxOccurs="unbounded">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="resource" type="xs:string" use="required"/>
+                                                            <xs:attribute name="amount" type="xs:decimal" use="required"/>
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                </xs:sequence>
+                                                <xs:attribute name="level" type="xs:int" use="required"/>
+                                                <xs:attribute name="credits" type="xs:decimal" use="required"/>
+                                            </xs:complexType>
+                                        </xs:element>
                                     </xs:sequence>
                                     <xs:attribute name="id" type="xs:long" use="required"/>
                                     <xs:attribute name="kind" use="required">
@@ -44,6 +58,10 @@
                                     </xs:attribute>
                                     <xs:attribute name="name" type="xs:string" use="required"/>
                                     <xs:attribute name="parent" type="xs:long" use="optional"/>
+                                    <xs:attribute name="credits" type="xs:decimal" use="optional"/>
+                                    <xs:attribute name="level" type="xs:int" use="optional"/>
+                                    <xs:attribute name="owner" type="xs:string" use="optional"/>
+                                    <xs:attribute name="population" type="xs:int" use="optional"/>
                                 </xs:complexType>
                             </xs:element>
                         </xs:sequence>
@@ -137,6 +155,44 @@
                     </xs:complexType>
                 </xs:element>
 
+                <xs:element name="factions" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="faction" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="relation" minOccurs="0" maxOccurs="unbounded">
+                                            <xs:complexType>
+                                                <xs:attribute name="to" type="xs:long" use="required"/>
+                                                <xs:attribute name="value" type="xs:int" use="required"/>
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                    <xs:attribute name="id" type="xs:long" use="required"/>
+                                    <xs:attribute name="name" type="xs:string" use="required"/>
+                                    <xs:attribute name="kind" use="required">
+                                        <xs:simpleType>
+                                            <xs:restriction base="xs:string">
+                                                <xs:enumeration value="TRADE"/>
+                                                <xs:enumeration value="COLONY"/>
+                                                <xs:enumeration value="MILITARY"/>
+                                                <xs:enumeration value="SCIENCE"/>
+                                            </xs:restriction>
+                                        </xs:simpleType>
+                                    </xs:attribute>
+                                    <xs:attribute name="seat" type="xs:long" use="required"/>
+                                    <xs:attribute name="doctrine" type="xs:string" use="optional"/>
+                                    <xs:attribute name="priority" type="xs:string" use="required"/>
+                                    <xs:attribute name="reserve" type="xs:decimal" use="optional"/>
+                                    <xs:attribute name="stockTarget" type="xs:decimal" use="optional"/>
+                                    <xs:attribute name="tradeUnitPrice" type="xs:decimal" use="optional"/>
+                                    <xs:attribute name="taxRate" type="xs:decimal" use="optional"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
                 <xs:element name="resources" minOccurs="0">
                     <xs:complexType>
                         <xs:sequence>
@@ -185,6 +241,8 @@
             <xs:attribute name="epoch" type="xs:long" use="optional"/>
             <xs:attribute name="seed" type="xs:long" use="optional"/>
             <xs:attribute name="playerCredits" type="xs:decimal" use="optional"/>
+            <xs:attribute name="bankCapital" type="xs:decimal" use="optional"/>
+            <xs:attribute name="loanDailyRate" type="xs:decimal" use="optional"/>
         </xs:complexType>
     </xs:element>
 </xs:schema>

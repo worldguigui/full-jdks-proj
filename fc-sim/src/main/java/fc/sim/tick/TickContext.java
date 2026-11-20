@@ -5,12 +5,13 @@ import fc.sim.event.EventQueue;
 import fc.sim.rng.RngStreams;
 import fc.world.Ids;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Tick 执行上下文：产出表、随机流、事件队列、报告缓冲、环境量。
+ * Tick 执行上下文：产出表、随机流、事件队列、报告缓冲、环境量与贷款利率。
  *
  * <p>一个 tick 一个实例；阶段间通过本对象传递只读参数与累积结果（不写世界状态以外的东西）。</p>
  */
@@ -18,14 +19,21 @@ public final class TickContext {
 
     private final Map<Ids.LocationId, WorldAssembler.Production> production;
     private final RngStreams rng;
+    private final BigDecimal loanDailyRate;
     private final EventQueue events = new EventQueue();
     private final List<String> report = new ArrayList<>();
     private List<fc.world.GameEvent> drained = List.of();
     private int weather;
 
     public TickContext(Map<Ids.LocationId, WorldAssembler.Production> production, RngStreams rng) {
+        this(production, rng, BigDecimal.ZERO);
+    }
+
+    public TickContext(Map<Ids.LocationId, WorldAssembler.Production> production, RngStreams rng,
+                       BigDecimal loanDailyRate) {
         this.production = Map.copyOf(production);
         this.rng = rng;
+        this.loanDailyRate = loanDailyRate;
     }
 
     public Map<Ids.LocationId, WorldAssembler.Production> production() {
@@ -34,6 +42,11 @@ public final class TickContext {
 
     public RngStreams rng() {
         return rng;
+    }
+
+    /** 玩家贷款日利率（由配置提供；0 表示不计息）。 */
+    public BigDecimal loanDailyRate() {
+        return loanDailyRate;
     }
 
     public EventQueue events() {
