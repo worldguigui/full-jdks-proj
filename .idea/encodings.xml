@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/fc-audit/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-audit/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-cli/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-cli/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-colony/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-colony/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-config/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-config/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-diplomacy/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-diplomacy/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-economy/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-economy/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-extensions/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-extensions/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-fleet/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-fleet/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-history/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-history/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-persist/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-persist/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-runtime/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-runtime/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-science/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-science/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-sim/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-sim/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-testkit/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-testkit/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-world/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/fc-world/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
+  </component>
+</project>

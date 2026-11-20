@@ -1,0 +1,178 @@
+module,package,fc_module,batch,total_types,in_denominator,planned,pending,excluded,coverage_class,exclusion_reasons,plan_note
+java.desktop,java.applet,-,-,4,4,0,0,4,NONE,{DEPRECATED=4},整包排除：{DEPRECATED=4}
+java.desktop,java.awt,fc-cli,M5,132,132,26,2,104,PARTIAL,{BIZ=104},部分覆盖：Planned 26 / Pending 2 / Excluded 104
+java.desktop,java.awt.color,fc-cli,M5,7,7,7,0,0,FULL,{},包内分母类型全部 Planned
+java.datatransfer,java.awt.datatransfer,fc-extensions,M6,12,12,12,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,java.awt.desktop,-,-,30,30,0,0,30,NONE,{BIZ=30},整包排除：{BIZ=30}
+java.desktop,java.awt.dnd,-,-,22,22,0,0,22,NONE,{BIZ=22},整包排除：{BIZ=22}
+java.desktop,java.awt.event,-,-,44,44,0,30,14,PENDING_ONLY,{BIZ=14},整包 Pending（30 行）：待 L3 逐类型论证
+java.desktop,java.awt.font,fc-cli,M5,20,20,20,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,java.awt.geom,fc-cli,M5,36,36,36,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,java.awt.im,-,-,4,4,0,0,4,NONE,{BIZ=4},整包排除：{BIZ=4}
+java.desktop,java.awt.im.spi,-,-,3,3,0,0,3,NONE,{BIZ=3},整包排除：{BIZ=3}
+java.desktop,java.awt.image,fc-cli,M5,55,55,55,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,java.awt.image.renderable,-,-,7,7,0,7,0,PENDING_ONLY,{},整包 Pending（7 行）：待 L3 逐类型论证
+java.desktop,java.awt.print,-,-,10,10,0,0,10,NONE,{BIZ=10},整包排除：{BIZ=10}
+java.desktop,java.beans,fc-config,M5,41,41,13,0,28,PARTIAL,{BIZ=28},部分覆盖：Planned 13 / Pending 0 / Excluded 28
+java.desktop,java.beans.beancontext,-,-,18,18,0,0,18,NONE,{BIZ=18},整包排除：{BIZ=18}
+java.base,java.io,fc-persist,M5,86,86,84,0,2,PARTIAL,{DEPRECATED=2},部分覆盖：Planned 84 / Pending 0 / Excluded 2
+java.base,java.lang,fc-world,M0,129,124,121,0,3,PARTIAL,"{BIZ=1, DEPRECATED=2}",部分覆盖：Planned 121 / Pending 0 / Excluded 3
+java.base,java.lang.annotation,fc-testkit,M0,12,12,12,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.lang.constant,-,-,12,12,0,12,0,PENDING_ONLY,{},整包 Pending（12 行）：待 L3 逐类型论证
+java.base,java.lang.foreign,-,-,25,0,0,0,0,PREVIEW_ONLY,{},整包 Preview（25 行）
+java.instrument,java.lang.instrument,fc-audit,M6,6,6,6,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.lang.invoke,fc-extensions,M5,25,25,7,0,18,PARTIAL,{BIZ=18},部分覆盖：Planned 7 / Pending 0 / Excluded 18
+java.management,java.lang.management,fc-extensions,M6,20,20,18,0,2,PARTIAL,{BIZ=2},部分覆盖：Planned 18 / Pending 0 / Excluded 2
+java.base,java.lang.module,fc-runtime,M6,19,19,19,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.lang.ref,fc-world,M2,7,7,7,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.lang.reflect,fc-testkit,M0,34,34,34,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.lang.runtime,-,-,3,2,0,2,0,PENDING_ONLY,{},整包 Pending（2 行）：待 L3 逐类型论证
+java.base,java.math,fc-economy,M0,4,4,4,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.net,fc-extensions,M5,66,66,6,56,4,PARTIAL,{BIZ=4},部分覆盖：Planned 6 / Pending 56 / Excluded 4
+java.net.http,java.net.http,fc-extensions,M5,22,22,20,2,0,PARTIAL,{},部分覆盖：Planned 20 / Pending 2 / Excluded 0
+java.base,java.net.spi,-,-,5,5,0,5,0,PENDING_ONLY,{},整包 Pending（5 行）：待 L3 逐类型论证
+java.base,java.nio,fc-persist,M5,14,14,14,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.nio.channels,fc-persist,M5,56,56,17,38,1,PARTIAL,{BIZ=1},部分覆盖：Planned 17 / Pending 38 / Excluded 1
+java.base,java.nio.channels.spi,-,-,6,6,0,6,0,PENDING_ONLY,{},整包 Pending（6 行）：待 L3 逐类型论证
+java.base,java.nio.charset,fc-world,M0,12,12,12,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.nio.charset.spi,-,-,1,1,0,0,1,NONE,{BIZ=1},整包排除：{BIZ=1}
+java.base,java.nio.file,fc-persist,M0,47,47,47,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.nio.file.attribute,fc-persist,M5,25,25,25,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.nio.file.spi,-,-,2,2,0,2,0,PENDING_ONLY,{},整包 Pending（2 行）：待 L3 逐类型论证
+java.rmi,java.rmi,fc-extensions,M6,20,20,16,1,3,PARTIAL,{DEPRECATED=3},部分覆盖：Planned 16 / Pending 1 / Excluded 3
+java.rmi,java.rmi.dgc,-,-,3,3,0,3,0,PENDING_ONLY,{},整包 Pending（3 行）：待 L3 逐类型论证
+java.rmi,java.rmi.registry,fc-extensions,M6,3,3,2,0,1,PARTIAL,{DEPRECATED=1},部分覆盖：Planned 2 / Pending 0 / Excluded 1
+java.rmi,java.rmi.server,fc-extensions,M6,27,27,10,7,10,PARTIAL,{DEPRECATED=10},部分覆盖：Planned 10 / Pending 7 / Excluded 10
+java.base,java.security,fc-persist,M5,93,93,79,0,14,PARTIAL,{DEPRECATED=14},部分覆盖：Planned 79 / Pending 0 / Excluded 14
+java.base,java.security.cert,-,-,52,52,0,52,0,PENDING_ONLY,{},整包 Pending（52 行）：待 L3 逐类型论证
+java.base,java.security.interfaces,fc-persist,M5,19,19,19,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.security.spec,fc-persist,M5,35,35,35,0,0,FULL,{},包内分母类型全部 Planned
+java.sql,java.sql,fc-history,M5,55,55,30,24,1,PARTIAL,{BIZ=1},部分覆盖：Planned 30 / Pending 24 / Excluded 1
+java.base,java.text,fc-cli,M0,32,32,32,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.text.spi,-,-,6,6,0,0,6,NONE,{BIZ=6},整包排除：{BIZ=6}
+java.base,java.time,fc-world,M0,19,19,19,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.time.chrono,fc-world,M2,21,21,21,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.time.format,fc-cli,M0,8,8,8,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.time.temporal,fc-world,M1,16,16,16,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.time.zone,fc-world,M2,6,6,6,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.util,fc-world,M0,135,134,132,0,2,PARTIAL,{DEPRECATED=2},部分覆盖：Planned 132 / Pending 0 / Excluded 2
+java.base,java.util.concurrent,fc-sim,M2,79,73,73,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.util.concurrent.atomic,fc-sim,M2,16,16,16,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.util.concurrent.locks,fc-sim,M2,14,14,14,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.util.function,fc-world,M0,43,43,43,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.util.jar,fc-persist,M5,8,8,8,0,0,FULL,{},包内分母类型全部 Planned
+java.logging,java.util.logging,fc-history,M2,17,17,16,0,1,PARTIAL,{DEPRECATED=1},部分覆盖：Planned 16 / Pending 0 / Excluded 1
+java.prefs,java.util.prefs,fc-persist,M5,9,9,9,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.util.random,fc-sim,M2,7,7,7,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.util.regex,fc-cli,M0,4,4,4,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.util.spi,fc-runtime,M6,10,10,1,0,9,PARTIAL,{BIZ=9},部分覆盖：Planned 1 / Pending 0 / Excluded 9
+java.base,java.util.stream,fc-world,M1,16,16,16,0,0,FULL,{},包内分母类型全部 Planned
+java.base,java.util.zip,fc-persist,M5,21,21,21,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,javax.accessibility,-,-,28,28,0,0,28,NONE,{BIZ=28},整包排除：{BIZ=28}
+java.compiler,javax.annotation.processing,fc-audit,M6,13,13,13,0,0,FULL,{},包内分母类型全部 Planned
+java.base,javax.crypto,fc-persist,M5,32,32,32,0,0,FULL,{},包内分母类型全部 Planned
+java.base,javax.crypto.interfaces,fc-persist,M5,4,4,4,0,0,FULL,{},包内分母类型全部 Planned
+java.base,javax.crypto.spec,fc-persist,M5,17,17,17,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,javax.imageio,fc-cli,M5,11,11,11,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,javax.imageio.event,fc-cli,M5,5,5,5,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,javax.imageio.metadata,fc-cli,M5,6,6,6,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,javax.imageio.plugins.bmp,fc-cli,M5,1,1,1,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,javax.imageio.plugins.jpeg,fc-cli,M5,4,4,4,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,javax.imageio.plugins.tiff,fc-cli,M5,12,12,12,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,javax.imageio.spi,fc-cli,M5,11,11,11,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,javax.imageio.stream,fc-cli,M5,11,11,11,0,0,FULL,{},包内分母类型全部 Planned
+java.compiler,javax.lang.model,fc-audit,M6,3,3,3,0,0,FULL,{},包内分母类型全部 Planned
+java.compiler,javax.lang.model.element,fc-audit,M6,29,29,29,0,0,FULL,{},包内分母类型全部 Planned
+java.compiler,javax.lang.model.type,fc-audit,M6,18,18,18,0,0,FULL,{},包内分母类型全部 Planned
+java.compiler,javax.lang.model.util,fc-audit,M6,49,49,13,36,0,PARTIAL,{},部分覆盖：Planned 13 / Pending 36 / Excluded 0
+java.management,javax.management,fc-extensions,M6,73,73,30,0,43,PARTIAL,"{BIZ=42, DEPRECATED=1}",部分覆盖：Planned 30 / Pending 0 / Excluded 43
+java.management,javax.management.loading,-,-,7,7,0,0,7,NONE,{BIZ=7},整包排除：{BIZ=7}
+java.management,javax.management.modelmbean,-,-,12,12,0,12,0,PENDING_ONLY,{},整包 Pending（12 行）：待 L3 逐类型论证
+java.management,javax.management.monitor,fc-extensions,M6,10,10,10,0,0,FULL,{},包内分母类型全部 Planned
+java.management,javax.management.openmbean,-,-,25,25,0,25,0,PENDING_ONLY,{},整包 Pending（25 行）：待 L3 逐类型论证
+java.management,javax.management.relation,-,-,27,27,0,27,0,PENDING_ONLY,{},整包 Pending（27 行）：待 L3 逐类型论证
+java.management,javax.management.remote,fc-extensions,M6,18,18,18,0,0,FULL,{},包内分母类型全部 Planned
+java.management.rmi,javax.management.remote.rmi,fc-extensions,M6,9,9,7,2,0,PARTIAL,{},部分覆盖：Planned 7 / Pending 2 / Excluded 0
+java.management,javax.management.timer,fc-extensions,M6,3,3,3,0,0,FULL,{},包内分母类型全部 Planned
+java.naming,javax.naming,fc-extensions,M5,41,41,30,10,1,PARTIAL,{BIZ=1},部分覆盖：Planned 30 / Pending 10 / Excluded 1
+java.naming,javax.naming.directory,-,-,18,18,0,18,0,PENDING_ONLY,{},整包 Pending（18 行）：待 L3 逐类型论证
+java.naming,javax.naming.event,-,-,7,7,0,7,0,PENDING_ONLY,{},整包 Pending（7 行）：待 L3 逐类型论证
+java.naming,javax.naming.ldap,-,-,22,22,0,0,22,NONE,{BIZ=22},整包排除：{BIZ=22}
+java.naming,javax.naming.ldap.spi,-,-,2,2,0,0,2,NONE,{BIZ=2},整包排除：{BIZ=2}
+java.naming,javax.naming.spi,-,-,12,12,0,12,0,PENDING_ONLY,{},整包 Pending（12 行）：待 L3 逐类型论证
+java.base,javax.net,-,-,2,2,0,2,0,PENDING_ONLY,{},整包 Pending（2 行）：待 L3 逐类型论证
+java.base,javax.net.ssl,-,-,43,43,0,43,0,PENDING_ONLY,{},整包 Pending（43 行）：待 L3 逐类型论证
+java.desktop,javax.print,-,-,25,25,0,25,0,PENDING_ONLY,{},整包 Pending（25 行）：待 L3 逐类型论证
+java.desktop,javax.print.attribute,-,-,26,26,0,26,0,PENDING_ONLY,{},整包 Pending（26 行）：待 L3 逐类型论证
+java.desktop,javax.print.attribute.standard,-,-,76,76,0,76,0,PENDING_ONLY,{},整包 Pending（76 行）：待 L3 逐类型论证
+java.desktop,javax.print.event,-,-,8,8,0,8,0,PENDING_ONLY,{},整包 Pending（8 行）：待 L3 逐类型论证
+java.rmi,javax.rmi.ssl,-,-,2,2,0,2,0,PENDING_ONLY,{},整包 Pending（2 行）：待 L3 逐类型论证
+java.scripting,javax.script,fc-extensions,M5,12,12,12,0,0,FULL,{},包内分母类型全部 Planned
+java.base,javax.security.auth,-,-,8,8,0,8,0,PENDING_ONLY,{},整包 Pending（8 行）：待 L3 逐类型论证
+java.base,javax.security.auth.callback,-,-,10,10,0,10,0,PENDING_ONLY,{},整包 Pending（10 行）：待 L3 逐类型论证
+java.security.jgss,javax.security.auth.kerberos,-,-,8,8,0,8,0,PENDING_ONLY,{},整包 Pending（8 行）：待 L3 逐类型论证
+java.base,javax.security.auth.login,-,-,15,15,0,15,0,PENDING_ONLY,{},整包 Pending（15 行）：待 L3 逐类型论证
+java.base,javax.security.auth.spi,-,-,1,1,0,1,0,PENDING_ONLY,{},整包 Pending（1 行）：待 L3 逐类型论证
+java.base,javax.security.auth.x500,-,-,2,2,0,2,0,PENDING_ONLY,{},整包 Pending（2 行）：待 L3 逐类型论证
+java.base,javax.security.cert,-,-,7,7,0,0,7,NONE,{DEPRECATED=7},整包排除：{DEPRECATED=7}
+java.security.sasl,javax.security.sasl,fc-extensions,M6,10,10,6,4,0,PARTIAL,{},部分覆盖：Planned 6 / Pending 4 / Excluded 0
+java.desktop,javax.sound.midi,fc-extensions,M5,28,28,14,0,14,PARTIAL,{BIZ=14},部分覆盖：Planned 14 / Pending 0 / Excluded 14
+java.desktop,javax.sound.midi.spi,-,-,4,4,0,0,4,NONE,{BIZ=4},整包排除：{BIZ=4}
+java.desktop,javax.sound.sampled,fc-extensions,M5,34,34,25,0,9,PARTIAL,{BIZ=9},部分覆盖：Planned 25 / Pending 0 / Excluded 9
+java.desktop,javax.sound.sampled.spi,-,-,4,4,0,0,4,NONE,{BIZ=4},整包排除：{BIZ=4}
+java.sql,javax.sql,-,-,19,19,0,19,0,PENDING_ONLY,{},整包 Pending（19 行）：待 L3 逐类型论证
+java.sql.rowset,javax.sql.rowset,fc-history,M5,12,12,12,0,0,FULL,{},包内分母类型全部 Planned
+java.sql.rowset,javax.sql.rowset.serial,fc-history,M5,10,10,10,0,0,FULL,{},包内分母类型全部 Planned
+java.sql.rowset,javax.sql.rowset.spi,fc-history,M5,8,8,8,0,0,FULL,{},包内分母类型全部 Planned
+java.desktop,javax.swing,-,-,171,171,0,21,150,PENDING_ONLY,{BIZ=150},整包 Pending（21 行）：待 L3 逐类型论证
+java.desktop,javax.swing.border,-,-,11,11,0,0,11,NONE,{BIZ=11},整包排除：{BIZ=11}
+java.desktop,javax.swing.colorchooser,-,-,4,4,0,0,4,NONE,{BIZ=4},整包排除：{BIZ=4}
+java.desktop,javax.swing.event,-,-,49,49,0,27,22,PENDING_ONLY,{BIZ=22},整包 Pending（27 行）：待 L3 逐类型论证
+java.desktop,javax.swing.filechooser,-,-,4,4,0,0,4,NONE,{BIZ=4},整包排除：{BIZ=4}
+java.desktop,javax.swing.plaf,-,-,49,49,0,0,49,NONE,{BIZ=49},整包排除：{BIZ=49}
+java.desktop,javax.swing.plaf.basic,-,-,151,151,0,0,151,NONE,{BIZ=151},整包排除：{BIZ=151}
+java.desktop,javax.swing.plaf.metal,-,-,61,61,0,0,61,NONE,{BIZ=61},整包排除：{BIZ=61}
+java.desktop,javax.swing.plaf.multi,-,-,31,31,0,0,31,NONE,{BIZ=31},整包排除：{BIZ=31}
+java.desktop,javax.swing.plaf.nimbus,-,-,4,4,0,0,4,NONE,{BIZ=4},整包排除：{BIZ=4}
+java.desktop,javax.swing.plaf.synth,-,-,51,51,0,0,51,NONE,{BIZ=51},整包排除：{BIZ=51}
+java.desktop,javax.swing.table,-,-,13,13,0,8,5,PENDING_ONLY,{BIZ=5},整包 Pending（8 行）：待 L3 逐类型论证
+java.desktop,javax.swing.text,-,-,115,115,0,15,100,PENDING_ONLY,{BIZ=100},整包 Pending（15 行）：待 L3 逐类型论证
+java.desktop,javax.swing.text.html,-,-,43,43,0,0,43,NONE,{BIZ=43},整包排除：{BIZ=43}
+java.desktop,javax.swing.text.html.parser,-,-,10,10,0,0,10,NONE,{BIZ=10},整包排除：{BIZ=10}
+java.desktop,javax.swing.text.rtf,-,-,1,1,0,0,1,NONE,{BIZ=1},整包排除：{BIZ=1}
+java.desktop,javax.swing.tree,-,-,20,20,0,9,11,PENDING_ONLY,{BIZ=11},整包 Pending（9 行）：待 L3 逐类型论证
+java.desktop,javax.swing.undo,fc-cli,M3,9,9,9,0,0,FULL,{},包内分母类型全部 Planned
+java.compiler,javax.tools,fc-extensions,M5,24,24,23,0,1,PARTIAL,{BIZ=1},部分覆盖：Planned 23 / Pending 0 / Excluded 1
+java.transaction.xa,javax.transaction.xa,-,-,3,3,0,0,3,NONE,{BIZ=3},整包排除：{BIZ=3}
+java.xml,javax.xml,fc-config,M1,1,1,1,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.catalog,fc-config,M1,7,7,7,0,0,FULL,{},包内分母类型全部 Planned
+java.xml.crypto,javax.xml.crypto,fc-extensions,M5,15,15,15,0,0,FULL,{},包内分母类型全部 Planned
+java.xml.crypto,javax.xml.crypto.dom,fc-extensions,M5,3,3,3,0,0,FULL,{},包内分母类型全部 Planned
+java.xml.crypto,javax.xml.crypto.dsig,fc-extensions,M5,18,18,18,0,0,FULL,{},包内分母类型全部 Planned
+java.xml.crypto,javax.xml.crypto.dsig.dom,fc-extensions,M5,2,2,2,0,0,FULL,{},包内分母类型全部 Planned
+java.xml.crypto,javax.xml.crypto.dsig.keyinfo,fc-extensions,M5,8,8,8,0,0,FULL,{},包内分母类型全部 Planned
+java.xml.crypto,javax.xml.crypto.dsig.spec,fc-extensions,M5,12,12,12,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.datatype,fc-config,M1,6,6,6,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.namespace,fc-config,M1,2,2,2,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.parsers,fc-config,M1,6,6,6,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.stream,fc-config,M1,15,15,15,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.stream.events,fc-config,M1,14,14,14,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.stream.util,fc-config,M1,4,4,4,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.transform,fc-history,M5,12,12,12,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.transform.dom,fc-history,M5,3,3,3,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.transform.sax,fc-history,M5,5,5,5,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.transform.stax,fc-history,M5,2,2,2,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.transform.stream,fc-history,M5,2,2,2,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.validation,fc-config,M1,7,7,7,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,javax.xml.xpath,fc-history,M5,14,14,14,0,0,FULL,{},包内分母类型全部 Planned
+java.security.jgss,org.ietf.jgss,-,-,8,8,0,8,0,PENDING_ONLY,{},整包 Pending（8 行）：待 L3 逐类型论证
+java.xml,org.w3c.dom,fc-config,M1,29,29,29,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,org.w3c.dom.bootstrap,fc-config,M1,1,1,1,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,org.w3c.dom.events,-,-,8,8,0,0,8,NONE,{BIZ=8},整包排除：{BIZ=8}
+java.xml,org.w3c.dom.ls,fc-config,M1,11,11,11,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,org.w3c.dom.ranges,-,-,3,3,0,0,3,NONE,{BIZ=3},整包排除：{BIZ=3}
+java.xml,org.w3c.dom.traversal,fc-config,M1,4,4,4,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,org.w3c.dom.views,-,-,2,2,0,0,2,NONE,{BIZ=2},整包排除：{BIZ=2}
+java.xml,org.xml.sax,fc-config,M1,17,17,13,0,4,PARTIAL,{DEPRECATED=4},部分覆盖：Planned 13 / Pending 0 / Excluded 4
+java.xml,org.xml.sax.ext,fc-config,M1,8,8,8,0,0,FULL,{},包内分母类型全部 Planned
+java.xml,org.xml.sax.helpers,fc-config,M1,10,10,7,0,3,PARTIAL,{DEPRECATED=3},部分覆盖：Planned 7 / Pending 0 / Excluded 3

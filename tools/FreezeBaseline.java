@@ -159,6 +159,10 @@ public class FreezeBaseline {
           .append("- 三个覆盖率指标（任务书 §4）的分母统一取 **3836 类型 / 176 包 / 20 模块**；\n")
           .append("  若后续裁决改为「Preview 保留在分母」，只需将 `EXCLUDED_PREVIEW` 行并入分母，数字回到 3874 / 177。\n\n");
         md.append("## 3. 文件清单与完整性（SHA-256）\n\n");
+        md.append("> **校验前提**：上表 SHA-256 均基于 **LF 行尾内容**计算（本工具以 `\\n` 写出）。\n")
+          .append("> Windows 默认 `core.autocrlf=true` 会把工作区检出为 CRLF，导致直接对工作区文件取哈希不匹配——这不是数据漂移。\n")
+          .append("> 仓库根目录的 `.gitattributes` 已固定 `*.csv` / `*.md` / `*.java` / `*.sh` 为 `eol=lf`，重新检出后哈希可直接复现；\n")
+          .append("> 若旧工作区仍为 CRLF，可执行 `git add --renormalize .` 后重新检出，或将内容按 CRLF→LF 归一化后再校验。\n\n");
         md.append("| 文件 | 行数（含表头） | 说明 | SHA-256 |\n|---|---|---|---|\n");
         for (String a : artifacts) {
             Path p = dir.resolve(a);
@@ -171,10 +175,11 @@ public class FreezeBaseline {
           .append("阶段三在 `coverage-baseline.csv` 上**追加** `mapping_status`（Planned/Implemented/Verified/")
           .append("Excluded/Pending）及场景、代码位置、证据、未覆盖原因等列；\n")
           .append("`EXCLUDED_PREVIEW` 行的 mapping_status 固定为 `Excluded`（原因：任务书禁止 Preview API 作为正式实现）。\n")
-          .append("四份扩展清单**不进入**覆盖率分母，仅作完整性登记与审计追溯。\n\n")
+          .append("三份扩展清单**不进入**覆盖率分母，仅作完整性登记与审计追溯。\n\n")
           .append("## 5. 复现\n\n```bash\n")
           .append("D:/Java/ms-21.0.13.0.2/bin/java tools/FreezeBaseline.java docs/phase1/data\n")
-          .append("```\n工具内含全部冻结常量的硬断言；数据漂移会直接报错而非静默改写。\n");
+          .append("```\n工具对冻结常量（类型/包/扩展/Deprecated 计数）做硬断言，任何数量变化都会直接报错而非静默改写；\n")
+          .append("上表 SHA-256 用于留痕与人工复核，工具本身不校验历史哈希。若需验证当前工作区是否与冻结内容一致，请按 §3 的 LF 前提比对。\n");
         Files.writeString(dir.resolve("freeze-manifest.md"), md, StandardCharsets.UTF_8);
 
         // ---- 摘要 ----

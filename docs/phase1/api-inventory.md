@@ -276,7 +276,7 @@ javadoc 文档化规则（默认 protected 模式，已实证）：**顶层类�
 | `extension-smartcardio.csv` | smartcardio 扩展清单（排除分母） | 14 |
 | `extension-preview.csv` | 类型级 Preview 扩展清单（排除分母，单独登记） | 39 |
 | `extension-protected-nested.csv` | 文档化 protected 嵌套扩展清单（排除分母） | 169 |
-| `freeze-manifest.md` | 冻结边界、两层口径、SHA-256、阶段三使用约定 | 48 |
+| `freeze-manifest.md` | 冻结边界、两层口径、SHA-256（LF 内容校验说明）、阶段三使用约定 | 54 |
 
 `coverage-baseline.csv` 列（14 列，UTF-8）：
 `module, package, type_binary, type_display, kind, nesting, deprecated, for_removal, preview, preview_members, spec_status, coverage_scope, extension_reason, frozen_status`
@@ -321,7 +321,7 @@ $JDK tools/DocTypeClosure.java
 sed 's/|/ /' $V/fetch-missing.txt | xargs -P 6 -L1 bash tools/verify-page.sh > $V/page-verify-missing.raw
 sed 's/|/ /' $V/fetch-extras.txt  | xargs -P 6 -L1 bash tools/verify-page.sh > $V/page-verify-extras.raw
 
-# 6) 冻结：由只读基准派生正式清单与四类扩展清单（含硬断言 + SHA-256 manifest）
+# 6) 冻结：由只读基准派生正式清单与三类扩展清单（含硬断言 + SHA-256 manifest）
 $JDK tools/FreezeBaseline.java docs/phase1/data
 
 # 校验点：基准 3887（主口径 3874）；全类索引 3780 = 3887−116+9；闭包 4055；额外 0；无法判断 0

@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="097c6c33-ef2e-4e50-9435-6767862fcd71" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.workbuddy/memory/2026-11-20.md" beforeDir="false" afterPath="$PROJECT_DIR$/.workbuddy/memory/2026-11-20.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.workbuddy/memory/MEMORY.md" beforeDir="false" afterPath="$PROJECT_DIR$/.workbuddy/memory/MEMORY.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/phase1/api-inventory.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/phase1/api-inventory.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/phase1/data/freeze-manifest.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/phase1/data/freeze-manifest.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/phase2/game-design.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/phase2/game-design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/phase2/phase2-report.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/phase2/phase2-report.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/FreezeBaseline.java" beforeDir="false" afterPath="$PROJECT_DIR$/tools/FreezeBaseline.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -12,22 +24,81 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "worldguigui"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;worldguigui&quot;
   }
-}]]></component>
+}</component>
   <component name="GithubPullRequestsUISettings"><![CDATA[{
   "selectedUrlAndAccountId": {
     "url": "https://github.com/worldguigui/full-jdks-proj.git",
-    "accountId": "9da0316a-59e1-4548-ba39-55dd6d74cafa"
+    "accountId": "f9300625-e5a1-413e-aeae-0a83d002205e"
   }
 }]]></component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 5,
-  "fromUser": false
-}]]></component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.465644997252967" />
+      <entry key="MS500" value="2.9589367878284984" />
+      <entry key="S2" value="3.6891782118539913" />
+      <entry key="S5" value="3.8709239702601344" />
+      <entry key="S10" value="3.9346875161916515" />
+      <entry key="S30" value="4.052789949536057" />
+      <entry key="S60" value="4.46251881138714" />
+      <entry key="M2" value="5.186334689138094" />
+      <entry key="M5" value="6.0715492242781135" />
+      <entry key="M10" value="6.493140096666579" />
+      <entry key="M15" value="6.65183031416305" />
+      <entry key="M30" value="6.820570932475835" />
+      <entry key="H1" value="6.908907979016026" />
+      <entry key="H2" value="6.954104298276617" />
+      <entry key="H4" value="6.976964052414258" />
+      <entry key="D1" value="6.996148382123767" />
+      <entry key="W1" value="6.999449467060682" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="1.3925127283541234" />
+      <entry key="MS500" value="2.9191165553325953" />
+      <entry key="S2" value="3.675559943019014" />
+      <entry key="S5" value="3.865097019414811" />
+      <entry key="S10" value="3.9317065033739107" />
+      <entry key="S30" value="4.05156385004673" />
+      <entry key="S60" value="4.461311132958906" />
+      <entry key="M2" value="5.185189977481733" />
+      <entry key="M5" value="6.070823940116444" />
+      <entry key="M10" value="6.492713488725358" />
+      <entry key="M15" value="6.65152983324775" />
+      <entry key="M30" value="6.820412138707594" />
+      <entry key="H1" value="6.9088263420212375" />
+      <entry key="H2" value="6.954062906560578" />
+      <entry key="H4" value="6.976943211572587" />
+      <entry key="D1" value="6.996144888369608" />
+      <entry key="W1" value="6.999448967454391" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3MMaawgR3K7APKQI5O6NwB806n7" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -35,24 +106,53 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Application.Frontier Chronicle.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "Shell Script.m0-verify.sh.executor": "Run",
     "codeWithMe.voiceChat.enabledByDefault": "false",
     "git-widget-placeholder": "main",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "D:/codes/full-jdks-proj",
+    "last_opened_file_path": "E:/copilot/full-jdks-proj",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "project.structure.last.edited": "Project",
     "project.structure.proportion": "0.0",
-    "project.structure.side.proportion": "0.0"
+    "project.structure.side.proportion": "0.0",
+    "settings.editor.selected.configurable": "MavenSettings"
   }
 }]]></component>
+  <component name="RunManager" selected="Application.Frontier Chronicle">
+    <configuration name="m0-verify.sh" type="ShConfigurationType" temporary="true">
+      <option name="SCRIPT_TEXT" value="" />
+      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+      <option name="SCRIPT_PATH" value="$PROJECT_DIR$/tools/m0-verify.sh" />
+      <option name="SCRIPT_OPTIONS" value="" />
+      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+      <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$/tools" />
+      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+      <option name="INTERPRETER_PATH" value="/bin/bash" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="EXECUTE_IN_TERMINAL" value="true" />
+      <option name="EXECUTE_SCRIPT_FILE" value="true" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Shell Script.m0-verify.sh" />
+      </list>
+    </recent_temporary>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-30f59d01ecdd-a203e0a19954-intellij.indexing.shared.core-IU-262.10315.125" />
-        <option value="bundled-js-predefined-d6986cc7102b-4abd2a77f808-JavaScript-IU-262.10315.125" />
+        <option value="bundled-jdk-30f59d01ecdd-ac68fc9d2b05-intellij.indexing.shared.core-IU-263.7307.200" />
       </set>
     </attachedChunks>
   </component>

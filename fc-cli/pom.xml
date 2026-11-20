@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>fc</groupId>
+        <artifactId>frontier-chronicle</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>fc-cli</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-testkit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-world</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-sim</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-fleet</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-colony</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-economy</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-science</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-diplomacy</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-history</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-config</artifactId>
+        </dependency>
+    </dependencies>
+</project>

@@ -1,0 +1,64 @@
+# 阶段三环境能力探测报告（自动生成，勿手改）
+
+java.version        = 21.0.11
+java.vendor         = Microsoft
+java.vm.version     = 21.0.11+10-LTS
+java.vm.name        = OpenJDK 64-Bit Server VM
+java.home           = E:\jdks\ms-21.0.11
+os.name / os.arch   = Windows 11 / amd64
+java.awt.headless   = true
+file.encoding       = UTF-8
+user.language/country = zh_CN
+
+## 1. 图形环境（java.awt / java.awt.desktop）
+GraphicsEnvironment.isHeadless() = true
+可用字体族数量 = 112
+结论：GUI 组件（Swing/AWT 容器）在本环境不可用；
+## 2. 剪贴板（java.awt.datatransfer）
+剪贴板访问失败：java.awt.HeadlessException: null
+结论：无头环境下 Clipboard 不可用 → 该包判定 Excluded 的原因码为 ENV
+## 3. 桌面集成（java.awt.Desktop）
+Desktop.isDesktopSupported() = false
+结论：桌面集成与纯 CLI 定位无关，且依赖桌面会话 → 业务无关 + 环境依赖
+## 4. 打印服务（javax.print）
+lookupPrintServices(null,null).length = 2
+lookupDefaultPrintService() = 导出为WPS PDF
+  - 导出为WPS PDF
+  - Microsoft Print to PDF
+结论：存在打印服务，但目标运行环境（CLI/容器/CI）不保证有
+## 5. 音频（javax.sound.sampled / javax.sound.midi）
+AudioSystem.getMixerInfo().length = 10
+  - Port 耳机 (Realtek(R) Audio) / Port Mixer
+  - Port 扬声器 (Realtek(R) Audio) / Port Mixer
+  - Port 麦克风阵列 (Realtek(R) Audio) / Port Mixer
+  - Port 外部麦克风 (Realtek(R) Audio) / Port Mixer
+  - 主声音驱动程序 / Direct Audio Device: DirectSound Playback
+  - 耳机 (Realtek(R) Audio) / Direct Audio Device: DirectSound Playback
+  - 扬声器 (Realtek(R) Audio) / Direct Audio Device: DirectSound Playback
+  - 主声音捕获驱动程序 / Direct Audio Device: DirectSound Capture
+  - 外部麦克风 (Realtek(R) Audio) / Direct Audio Device: DirectSound Capture
+  - 麦克风阵列 (Realtek(R) Audio) / Direct Audio Device: DirectSound Capture
+AudioSystem.getAudioFileTypes() = [WAVE, AU, AIFF]
+结论：混音器数量 10；音频只能作为可降级功能（无设备时静音），但格式编解码（WAV/AU/AIFF）与文件读写不依赖设备，仍可端到端验证
+MidiSystem.getSequencer() = 可用
+## 6. 图像编解码（javax.imageio，无头 PNG 星图）
+ImageIO.getWriterFormatNames() = [JPG, jpg, tiff, bmp, BMP, gif, GIF, WBMP, png, PNG, JPEG, tif, TIF, TIFF, wbmp, jpeg]
+ImageIO.getReaderFormatNames() = [JPG, jpg, tiff, bmp, BMP, gif, GIF, WBMP, png, PNG, JPEG, tif, TIF, TIFF, wbmp, jpeg]
+PNG 写入支持 = true；TIFF 写入支持 = true
+结论：无头环境可生成/读取位图，PNG 星图与统计图路径可行
+## 7. 字体与文本渲染（java.awt.font）
+Font("SansSerif") 可创建 = true, family = SansSerif
+可显示 CJK 字形（'星'）= true
+结论：文本渲染可用（无头亦可），但中文字形依赖系统字体，需回退策略
+## 8. 字符集与本地化
+defaultCharset = UTF-8
+UTF-8 supported = true
+availableCharsets count = 173
+availableLocales count = 1069
+Collator 可用语言数 = 166
+## 9. 对阶段三判定的影响
+- GUI 主体（Swing/AWT 组件、事件、拖放、桌面集成、无障碍）：业务无关（纯 CLI）→ Excluded/BIZ
+- 无头环境下需要显示设备/外设的包（打印、剪贴板）：环境限制 → Excluded/ENV（附本探测证据）
+- 音频：可降级；文件级编解码可验证 → Planned（带降级说明）
+- 图像：无头可用 → Planned（PNG/TIFF 星图与统计图）
+

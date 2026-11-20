@@ -1,0 +1,211 @@
+﻿# 阶段三 v3·功能↔类型准入关系（type-keep）
+#
+# 这是「类型能否 Planned」的唯一来源：不再有包级默认 Planned。
+# 每个准入的类型必须显式出现在某个 feature 的 types 清单里，且该清单的 justification_level 达到 L3 才 Planned。
+#
+# 列：package	feature_id	types	api_role	runtime_requirement	fallback_strategy	justification	justification_level	rest_reason_code	rest_reason
+#   types      = *（整包）/ 逗号分隔 type 短名（嵌套用 $）
+#   api_role   = FACTORY/MODEL/SERVICE/PROTOCOL/TRANSPORT/CONTROL/QUERY/ERROR/LISTENER/METADATA/SECURITY/CONFIG
+#   runtime_requirement = NONE/HEADLESS_OK/DEVICE_OPTIONAL/SERVICE_OPTIONAL/PROVIDER_REQUIRED
+#   fallback_strategy   = NONE/SILENT_DISABLE/STUB/DEGRADE/REQUIRED/-
+#   justification_level = L2（功能级，待逐类型）/ L3（逐类型论证）/ L4（集成验证）
+#   rest_reason_code    = 包内其余类型（未列入 types）的排除原因
+#
+# 语义：types=* 表示「该功能确实整体使用本包类型」（如语言/集合基础），不是包级默认继承；
+#       types=明确清单 表示「只准入这些类型，其余按 rest 排除」。
+
+# ================================================================
+# CORE —— 游戏核心（L3，游戏主体代码逐层直接使用这些类型）
+# ================================================================
+java.util	CORE-WORLD	*	MODEL	NONE	NONE	世界状态容器与值对象基座：ArrayList/HashMap/EnumSet/Optional/Collections/Comparator/Iterator 等构成 Location/Link/Agent/Stock 的字段、索引与遍历；UUID 标识实体；ServiceLoader 供 mod 装载（另由 MOD-LOADER 细化）	L3	BIZ	无：语言与集合框架核心类型，游戏主体代码逐层使用
+java.lang	CORE-WORLD	*	MODEL	NONE	NONE	Object 契约、String/Math/System/Thread/枚举/异常层次构成值对象与标识类型的公共基座；SequencedCollection/Record/ClassValue 等 JDK 21 能力直接支撑领域模型	L3	BIZ	无：语言核心类型
+java.util.function	CORE-WORLD	*	MODEL	NONE	NONE	Function/Predicate/Supplier/BiFunction 表达科技修饰器、事件条件与账本变换，构成规则 DSL 的函数式接口	L3	BIZ	无
+java.lang.ref	CORE-WORLD	*	MODEL	NONE	NONE	WeakReference/SoftReference + ReferenceQueue 缓存地点视图，避免长局内存膨胀	L3	BIZ	无
+java.math	CORE-MONEY	*	MODEL	NONE	NONE	BigDecimal 承载价格/债务/库存量，MathContext+RoundingMode 固定舍入，守恒断言精确比较	L3	BIZ	无
+java.time	CORE-WORLD	*	MODEL	NONE	NONE	LocalDate/Instant/Duration 承载单一时间轴与存档时间戳	L3	BIZ	无
+java.time.temporal	CORE-SIM	*	MODEL	NONE	NONE	TemporalAdjuster/ChronoUnit/TemporalField 做时间推进与星象周期对齐	L3	BIZ	无
+java.time.zone	CORE-SIM	*	MODEL	NONE	NONE	ZoneRules/ZoneOffsetTransition 表达各星系本地时与静默区时差	L3	BIZ	无
+java.time.chrono	CORE-WORLD	*	MODEL	NONE	NONE	自研「启程历」Chronology/ChronoLocalDate/Era，与 ISO 历法互转	L3	BIZ	无
+java.time.format	CORE-TEXT	*	MODEL	NONE	NONE	DateTimeFormatter 输出启程历日期（含自定义格式与本地化）	L3	BIZ	无
+java.text	CORE-TEXT	*	MODEL	NONE	NONE	MessageFormat/DecimalFormat/Collator/BreakIterator 做命令输出、数字与中文排序	L3	BIZ	无
+java.util.regex	CORE-TEXT	*	MODEL	NONE	NONE	Pattern/Matcher 解析命令、参数与过滤表达式	L3	BIZ	无
+
+# ---- IO 与存档（CORE-IO + INFRASTRUCTURE）----
+java.io	CORE-IO	*	TRANSPORT	NONE	NONE	ObjectOutputStream/InputStream 写 world.dat 与编年史分片；缓冲流+字符编码处理存档文本段；PrintStream 统一输出出口	L3	BIZ	无
+java.nio	CORE-IO	*	TRANSPORT	NONE	NONE	ByteBuffer 直接缓冲区承载存档块读写与校验和计算	L3	BIZ	无
+java.nio.file	CORE-IO	*	TRANSPORT	NONE	NONE	Path/Files 原子写、目录遍历、WatchService 监听配置热更新	L3	BIZ	无
+java.nio.charset	CORE-IO	*	TRANSPORT	NONE	NONE	Charset/StandardCharsets 固定 UTF-8 读写，CharsetDecoder 处理损坏存档替换	L3	BIZ	无
+java.nio.file.attribute	CORE-IO	*	SECURITY	NONE	NONE	DOS/POSIX 属性与 ACL 用于存档只读保护与跨平台权限降级	L3	BIZ	无
+java.nio.channels	CORE-IO	Channel,ByteChannel,ReadableByteChannel,WritableByteChannel,SeekableByteChannel,FileChannel,FileChannel$MapMode,FileLock,OverlappingFileLockException,FileLockInterruptionException,ClosedChannelException,AsynchronousCloseException,ClosedByInterruptException,InterruptibleChannel,Channels,NonReadableChannelException,NonWritableChannelException	TRANSPORT	NONE	NONE	FileChannel 原子写 + FileLock 双开保护 + 内存映射索引；网络/异步/选择器通道见 REMOTE-WATCH 下行	L3	BIZ	网络通道见下行
+java.nio.channels	REMOTE-WATCH	SocketChannel,ServerSocketChannel,DatagramChannel,Selector,SelectionKey,SelectableChannel,NetworkChannel,MulticastChannel,MembershipKey,Pipe,Pipe$SinkChannel,Pipe$SourceChannel,AsynchronousSocketChannel,AsynchronousServerSocketChannel,AsynchronousChannel,AsynchronousChannelGroup,AsynchronousByteChannel,CompletionHandler,ScatteringByteChannel,GatheringByteChannel,AlreadyBoundException,AlreadyConnectedException,ConnectionPendingException,NotYetBoundException,NotYetConnectedException,NoConnectionPendingException,ReadPendingException,WritePendingException,InterruptedByTimeoutException,IllegalBlockingModeException,IllegalSelectorException,IllegalChannelGroupException,CancelledKeyException,ClosedSelectorException,UnresolvedAddressException,UnsupportedAddressTypeException,ShutdownChannelGroupException,AcceptPendingException,OverlappingFileLockException	TRANSPORT	SERVICE_OPTIONAL	SILENT_DISABLE	远程观战非阻塞传输：SocketChannel/ServerSocketChannel 非阻塞收发、Selector 多路复用、DatagramChannel UDP、Asynchronous* 异步 IO、Pipe 进程内管道；单机离线时静默禁用	L2	BIZ	传输层随远程观战逐类型论证
+java.util.zip	CORE-IO	*	TRANSPORT	NONE	NONE	Deflater/GZIP/CRC32/Adler32 压缩存档块并校验完整性	L3	BIZ	无
+java.util.jar	CORE-IO	*	TRANSPORT	NONE	NONE	JarOutputStream/JarEntry/MANIFEST.MF 构造加密存档容器	L3	BIZ	无
+java.security	SAVE-CRYPTO	*	SECURITY	NONE	NONE	MessageDigest/SecureRandom/KeyStore/Provider 支撑存档摘要、口令派生与密钥库	L3	BIZ	SecurityManager/AccessController 体系已 DEPRECATED，另见 type-overrides
+java.security.spec	SAVE-CRYPTO	*	CONFIG	NONE	NONE	X509EncodedKeySpec/ECPoint 等密钥规格在存档与 mod 签名间传递	L3	BIZ	无
+java.security.interfaces	SAVE-CRYPTO	*	PROTOCOL	NONE	NONE	RSA/EC 公私钥接口承载存档与 mod 签名密钥	L3	BIZ	无
+javax.crypto	SAVE-CRYPTO	*	SERVICE	NONE	NONE	AES-GCM 加密存档正文，PBKDF2 派生口令密钥，Mac 校验篡改	L3	BIZ	无
+javax.crypto.spec	SAVE-CRYPTO	*	CONFIG	NONE	NONE	GCMParameterSpec/SecretKeySpec/PBEParameterSpec 配置加密参数	L3	BIZ	无
+javax.crypto.interfaces	SAVE-CRYPTO	*	PROTOCOL	NONE	NONE	PBEKey/DHKey 接口承载口令派生与密钥协商结果	L3	BIZ	无
+java.util.prefs	PREF-STORE	*	SERVICE	NONE	NONE	Preferences 记忆上次存档槽、语言与面板偏好	L3	BIZ	无
+java.util.logging	LOG-RING	*	SERVICE	NONE	NONE	Logger/Handler/Formatter 构建环形缓冲+文件轮转的运行日志	L3	BIZ	LoggingMXBean 已废弃，见 type-overrides
+
+# ---- 并发与模拟（CORE-SIM）----
+java.util.concurrent	CORE-SIM	*	SERVICE	NONE	NONE	虚拟线程执行 Agent 决策、固定顺序汇合、SubmissionPublisher 做 tick 后报告投递	L3	BIZ	无
+java.util.concurrent.atomic	CORE-SIM	*	SERVICE	NONE	NONE	AtomicLong/LongAdder 统计回合指标，避免并发计数竞争	L3	BIZ	无
+java.util.concurrent.locks	CORE-SIM	*	SERVICE	NONE	NONE	ReentrantReadWriteLock 保护共享账本，固定加锁顺序防死锁	L3	BIZ	无
+java.util.random	CORE-SIM	*	FACTORY	NONE	NONE	RandomGeneratorFactory 按子系统派生可跳跃随机流，保证同种子重放	L3	BIZ	无
+java.util.stream	CORE-WORLD	*	QUERY	NONE	NONE	Stream/Collectors 做舰队、船员、库存的声明式查询与聚合	L3	BIZ	无
+
+# ---- 配置（CORE-CONFIG）----
+org.w3c.dom	CORE-CONFIG	*	MODEL	NONE	NONE	DOM 树承载配置与编年史导出，支持按节点遍历与改写	L3	BIZ	无
+org.w3c.dom.ls	CORE-CONFIG	*	SERVICE	NONE	NONE	DOMImplementationLS/LSSerializer 规范化写出配置与存档 XML	L3	BIZ	无
+org.w3c.dom.traversal	CORE-CONFIG	*	QUERY	NONE	NONE	NodeIterator/TreeWalker 遍历配置树做校验与差异比对	L3	BIZ	无
+org.w3c.dom.bootstrap	CORE-CONFIG	*	FACTORY	NONE	NONE	DOMImplementationRegistry 解析并获取 DOM 实现	L3	BIZ	无
+javax.xml.parsers	CORE-CONFIG	*	FACTORY	NONE	NONE	DocumentBuilderFactory/SAXParserFactory 装载地点、配方、事件配置	L3	BIZ	无
+javax.xml.stream	CORE-CONFIG	*	SERVICE	NONE	NONE	XMLStreamReader/Writer 流式读取大配置与写出存档清单	L3	BIZ	无
+javax.xml.stream.events	CORE-CONFIG	*	MODEL	NONE	NONE	StartElement/Attribute/Characters 事件对象驱动配置流式校验	L3	BIZ	无
+javax.xml.stream.util	CORE-CONFIG	*	SERVICE	NONE	NONE	XMLEventReader/StreamReaderDelegate 装饰与过滤配置事件流	L3	BIZ	无
+javax.xml.validation	CORE-CONFIG	*	SERVICE	NONE	NONE	SchemaFactory/Schema/Validator 按 XSD 校验配置与存档清单	L3	BIZ	无
+javax.xml.catalog	CORE-CONFIG	*	SERVICE	NONE	NONE	Catalog/CatalogFeatures 把配置的 XSD 与实体解析到本地资源	L3	BIZ	无
+javax.xml.datatype	CORE-CONFIG	*	MODEL	NONE	NONE	DatatypeFactory/Duration 在配置与编年史 XML 中表达时间量	L3	BIZ	无
+javax.xml.namespace	CORE-CONFIG	*	MODEL	NONE	NONE	QName/NamespaceContext 支撑配置与 XPath 的命名空间处理	L3	BIZ	无
+javax.xml	CORE-CONFIG	*	CONFIG	NONE	NONE	XMLConstants 固定禁用外部实体与 DTD，保障配置解析安全	L3	BIZ	无
+org.xml.sax	CORE-CONFIG	*	PROTOCOL	NONE	NONE	SAXParser/ContentHandler/ErrorHandler 流式装载大配置文件	L3	BIZ	无
+org.xml.sax.ext	CORE-CONFIG	*	PROTOCOL	NONE	NONE	LexicalHandler/DeclHandler 获取注释与实体信息用于配置溯源	L3	BIZ	无
+org.xml.sax.helpers	CORE-CONFIG	*	SERVICE	NONE	NONE	DefaultHandler/XMLReaderFactory/AttributesImpl 简化处理器实现	L3	BIZ	无
+java.beans	CORE-CONFIG	Introspector,PropertyDescriptor,PropertyChangeListener,PropertyChangeEvent,PropertyChangeSupport,IndexedPropertyDescriptor,PropertyEditor,PropertyEditorSupport,BeanInfo,SimpleBeanInfo,BeanDescriptor,MethodDescriptor,PropertyEditorManager	MODEL	NONE	NONE	以 Introspector/PropertyDescriptor 暴露配置项，PropertyChangeSupport 支撑热重载通知；XMLEncoder/Statement/Expression 等持久化与 GUI 定制类无场景	L3	BIZ	JavaBeans 持久化（Encoder/Decoder/Statement/Expression）与 GUI 定制（Customizer/DesignMode）无场景
+
+# ---- 编年史（CORE-HISTORY）----
+javax.xml.xpath	CORE-HISTORY	*	QUERY	NONE	NONE	XPath/XPathExpression 按时间/地点/人物检索编年史	L3	BIZ	无
+javax.xml.transform	CORE-HISTORY	*	SERVICE	NONE	NONE	TransformerFactory/Templates 把编年史 XML 转成可读报告	L3	BIZ	无
+javax.xml.transform.dom	CORE-HISTORY	*	TRANSPORT	NONE	NONE	DOMSource/DOMResult 在 DOM 与转换管线间传递编年史树	L3	BIZ	无
+javax.xml.transform.sax	CORE-HISTORY	*	TRANSPORT	NONE	NONE	SAXSource/SAXResult 流式转换大编年史	L3	BIZ	无
+javax.xml.transform.stax	CORE-HISTORY	*	TRANSPORT	NONE	NONE	StAXSource/StAXResult 转换与流式解析衔接	L3	BIZ	无
+javax.xml.transform.stream	CORE-HISTORY	*	TRANSPORT	NONE	NONE	StreamSource/StreamResult 以文件流做报告输入输出	L3	BIZ	无
+
+# ---- 测试器（CORE-TEST）----
+java.lang.reflect	CORE-TEST	*	METADATA	NONE	NONE	反射发现 @FcTest 方法、注入夹具并校验访问修饰符	L3	BIZ	无
+java.lang.annotation	CORE-TEST	*	METADATA	NONE	NONE	@Retention/@Target/@Documented 定义自研测试与审计注解	L3	BIZ	无
+
+# ---- 运行时装配（RUNTIME-JLINK）----
+java.lang.module	RUNTIME-JLINK	*	SERVICE	NONE	NONE	ModuleLayer/ModuleDescriptor 校验 mod 模块层与 jlink 镜像的模块图	L3	BIZ	无
+java.util.spi	RUNTIME-JLINK	*	FACTORY	NONE	NONE	ToolProvider 在构建期调用 jlink/javac 工具	L3	BIZ	locale/资源包 provider 无需求，见 type-overrides
+
+# ================================================================
+# API_DRIVEN —— 已论证（L3，前几轮已逐类型论证，保留 Planned）
+# ================================================================
+javax.management	OBS-JMX	ObjectName,MBeanServer,MBeanServerFactory,StandardMBean,MBeanInfo,MBeanAttributeInfo,MBeanConstructorInfo,MBeanFeatureInfo,MBeanNotificationInfo,MBeanOperationInfo,MBeanParameterInfo,Attribute,AttributeList,Notification,NotificationBroadcaster,NotificationBroadcasterSupport,NotificationEmitter,NotificationFilter,NotificationListener,JMException,MBeanException,ReflectionException,AttributeNotFoundException,InstanceNotFoundException,MalformedObjectNameException,NotCompliantMBeanException,InstanceAlreadyExistsException,MBeanRegistrationException,RuntimeMBeanException,RuntimeOperationsException	SERVICE	NONE	NONE	单机进程内 MBeanServer + StandardMBean 把世界指标暴露为可观测 MBean；Query/DynamicMBean/权限类/远程连接器不需要	L3	BIZ	Query/ValueExp/Descriptor 家族服务通用控制台；DynamicMBean/ModelMBean 由 StandardMBean 替代；Permission 类只在 SecurityManager 下有意义
+java.lang.management	OBS-JMX	BufferPoolMXBean,ClassLoadingMXBean,CompilationMXBean,GarbageCollectorMXBean,LockInfo,ManagementFactory,MemoryMXBean,MemoryManagerMXBean,MemoryNotificationInfo,MemoryPoolMXBean,MemoryType,MemoryUsage,MonitorInfo,OperatingSystemMXBean,PlatformManagedObject,RuntimeMXBean,ThreadInfo,ThreadMXBean	SERVICE	NONE	NONE	平台 MXBean 读取 tick 延迟、线程、堆等标量指标	L3	BIZ	PlatformLoggingMXBean 需日志桥接；ManagementPermission 仅 SecurityManager 有意义
+java.lang.invoke	MOD-LOADER	MethodHandle,MethodHandles,MethodHandles$Lookup,MethodHandleProxies,MethodType,VarHandle,WrongMethodTypeException	SERVICE	NONE	NONE	mod 通过 Lookup+MethodHandleProxies 绑定到接口，无锁字段用 VarHandle	L3	BIZ	字节码生成相关（CallSite/LambdaMetafactory/TypeDescriptor）无场景
+javax.sound.sampled	AUDIO-CUE	AudioSystem,AudioFormat,AudioFormat$Encoding,AudioFileFormat,AudioFileFormat$Type,AudioInputStream,Line,Line$Info,LineEvent,LineEvent$Type,LineListener,LineUnavailableException,DataLine,DataLine$Info,SourceDataLine,Clip,Mixer,Mixer$Info,Control,Control$Type,FloatControl,FloatControl$Type,BooleanControl,BooleanControl$Type,UnsupportedAudioFileException	SERVICE	DEVICE_OPTIONAL	SILENT_DISABLE	WAV 播放链路：AudioSystem 取混音器、AudioInputStream 解码、Clip/SourceDataLine 播放；无混音器静默	L3	BIZ	TargetDataLine（采集）/Port（端口枚举）/ReverbType（合成参数）/AudioPermission（SecurityManager）无场景
+javax.sound.midi	AUDIO-AMBIENT	MidiSystem,Sequence,Track,MidiEvent,MidiMessage,ShortMessage,MetaMessage,MetaEventListener,Sequencer,Sequencer$SyncMode,MidiUnavailableException,InvalidMidiDataException,Synthesizer,MidiChannel	SERVICE	DEVICE_OPTIONAL	SILENT_DISABLE	默认音序器+合成器程序化生成氛围乐；无 MIDI 设备静默	L3	BIZ	设备枚举/Soundbank/SysEx/设备间转发无场景
+javax.swing.undo	UNDO-PLAN	UndoManager,UndoableEditSupport,CompoundEdit,AbstractUndoableEdit,UndoableEdit,StateEdit,StateEditable,CannotUndoException,CannotRedoException	MODEL	NONE	NONE	经营指令撤销/重做栈，纯模型类，不创建 GUI；撤销范围限未提交计划	L3	BIZ	无
+java.net	RES-URI	URI,URISyntaxException,URL,MalformedURLException,URLDecoder,URLEncoder	MODEL	NONE	NONE	资源与导出路径的 URI/URL 表示及编解码	L3	BIZ	套接字等网络传输设施见 REMOTE-WATCH 下行
+java.net	REMOTE-WATCH	Socket,ServerSocket,InetAddress,Inet4Address,Inet6Address,InetSocketAddress,SocketAddress,DatagramSocket,DatagramPacket,MulticastSocket,NetworkInterface,InterfaceAddress,StandardProtocolFamily,StandardSocketOptions,SocketOption,ProtocolFamily,SocketTimeoutException,SocketException,BindException,ConnectException,NoRouteToHostException,PortUnreachableException,UnknownHostException,SocketImpl,SocketImplFactory,ServerSocket,UnixDomainSocketAddress,Proxy,Proxy$Type,ProxySelector,IDN,PasswordAuthentication,Authenticator,Authenticator$RequestorType,NetPermission,SocketPermission,URLPermission,FileNameMap,ContentHandler,ContentHandlerFactory,URLStreamHandler,URLStreamHandlerFactory,HttpURLConnection,URLConnection,JarURLConnection,CookieHandler,CookieManager,CookiePolicy,CookieStore,HttpCookie,ResponseCache,CacheRequest,CacheResponse,SecureCacheResponse,HttpRetryException,ProtocolException,UnknownServiceException	TRANSPORT	SERVICE_OPTIONAL	SILENT_DISABLE	远程观战/遥测传输层：Socket/ServerSocket TCP 传输、InetAddress/InetSocketAddress 寻址、DatagramSocket UDP、SocketOption 配置、Authenticator/CookieHandler 认证与状态、URLConnection/HttpURLConnection 通用连接；单机离线时全部静默禁用	L2	BIZ	传输层随远程观战/遥测功能逐类型论证
+java.awt	MAP-RENDER	Color,Paint,GradientPaint,TexturePaint,Stroke,BasicStroke,Shape,Rectangle,Point,Dimension,Polygon,RenderingHints,AlphaComposite,Composite,Graphics,Graphics2D,Font,Image,SystemColor,Transparency,LinearGradientPaint,RadialGradientPaint,MultipleGradientPaint,GraphicsEnvironment,HeadlessException,FontMetrics,CompositeContext	MODEL	HEADLESS_OK	NONE	无头绘图子集：Graphics2D/Shape/Paint/Stroke/Font/Image 渲染 PNG 星图	L3	BIZ	容器/组件/布局/焦点/菜单等 GUI 类无场景
+java.awt.geom	MAP-RENDER	*	MODEL	HEADLESS_OK	NONE	AffineTransform/Path2D/Area/Arc2D/Line2D 绘制航线、轨道与势力边界	L3	BIZ	无
+java.awt.image	MAP-RENDER	*	MODEL	HEADLESS_OK	NONE	BufferedImage/Raster/ColorModel/ConvolveOp 合成星图位图与图例	L3	BIZ	无
+java.awt.font	MAP-RENDER	*	MODEL	HEADLESS_OK	NONE	Font/FontRenderContext/GlyphVector/TextLayout 排版标签（含中文回退）	L3	BIZ	无
+java.awt.color	MAP-RENDER	*	MODEL	HEADLESS_OK	NONE	ColorSpace/ICC_Profile 管理配色与色域转换	L3	BIZ	无
+javax.imageio	MAP-RENDER	*	SERVICE	HEADLESS_OK	NONE	ImageIO 读写 PNG/TIFF，导出星图与统计图	L3	BIZ	无
+javax.imageio.stream	MAP-RENDER	*	TRANSPORT	HEADLESS_OK	NONE	ImageInputStream/ImageOutputStream 处理导出文件随机读写	L3	BIZ	无
+javax.imageio.spi	MAP-RENDER	*	FACTORY	HEADLESS_OK	NONE	IIORegistry/ImageWriterSpi 发现并排序可用编码器	L3	BIZ	无
+javax.imageio.metadata	MAP-RENDER	*	METADATA	HEADLESS_OK	NONE	IIOMetadata 在 PNG 文本块写入存档指纹与编年史摘要	L3	BIZ	无
+javax.imageio.event	MAP-RENDER	*	LISTENER	HEADLESS_OK	NONE	IIOReadProgressListener/IIOWriteProgressListener 驱动导出进度	L3	BIZ	无
+javax.imageio.plugins.tiff	MAP-RENDER	*	CONFIG	HEADLESS_OK	NONE	TIFF 写入参数与元数据，导出可印刷星图	L3	BIZ	无
+javax.imageio.plugins.jpeg	MAP-RENDER	*	CONFIG	HEADLESS_OK	NONE	JPEGImageWriteParam 控制星图压缩质量	L3	BIZ	无
+javax.imageio.plugins.bmp	MAP-RENDER	*	CONFIG	HEADLESS_OK	NONE	BMPImageWriteParam 提供无压缩位图导出	L3	BIZ	无
+
+# ================================================================
+# API_DRIVEN —— 候选（L2，14 个机会盘点方向，待阶段四逐类型升 L3）
+# 说明：这些方向在「API 覆盖优先」目标下重新打开，但尚未逐类型论证，
+#       故 justification_level=L2，生成器降为 Pending。
+# ================================================================
+java.rmi	CHAT	Remote,RemoteException,Naming,AccessException,AlreadyBoundException,NotBoundException,NoSuchObjectException,ConnectException,ConnectIOException,MarshalException,UnmarshalException,ServerError,ServerException,UnexpectedException,StubNotFoundException,UnknownHostException	PROTOCOL	SERVICE_OPTIONAL	SILENT_DISABLE	聊天室远程对象：Remote 标记远程接口、UnicastRemoteObject 导出频道/成员/消息服务、LocateRegistry/Registry 注册发现、Naming 命名绑定、RemoteException 家族处理远程调用错误；缺网静默禁用	L3	BIZ	消息封装（MarshalledObject）、序列化过滤见下行 L2
+java.rmi	REMOTE-WATCH	MarshalledObject	TRANSPORT	SERVICE_OPTIONAL	SILENT_DISABLE	消息封装与序列化：MarshalledObject 承载序列化后的消息载荷，供远程传输；随聊天室消息链路逐类型论证	L2	BIZ	序列化过滤安全
+java.rmi.server	CHAT	UnicastRemoteObject,RemoteObject,RemoteServer,RMISocketFactory,RMIClientSocketFactory,RMIServerSocketFactory,RMIFailureHandler,ExportException,ServerNotActiveException,ServerCloneException	TRANSPORT	SERVICE_OPTIONAL	SILENT_DISABLE	聊天室远程对象导出与传输：UnicastRemoteObject 导出服务、RemoteObject/RemoteServer 远程对象基类、RMISocketFactory 及其客户端/服务端工厂定制传输、ExportException 导出失败处理	L3	BIZ	类加载/序列化过滤/标识见下行 L2
+java.rmi.server	REMOTE-WATCH	RMIClassLoader,RMIClassLoaderSpi,RemoteRef,RemoteObjectInvocationHandler,ObjID,UID,Unreferenced	TRANSPORT	SERVICE_OPTIONAL	SILENT_DISABLE	远程类加载与序列化过滤：RMIClassLoader 加载远程类、RemoteRef 远程引用、RemoteObjectInvocationHandler 动态代理、ObjID/UID 标识；随远程会话逐类型论证	L2	BIZ	废弃桩/骨架（RemoteStub/Skeleton 等）已 DEPRECATED
+java.rmi.registry	CHAT	LocateRegistry,Registry	SERVICE	SERVICE_OPTIONAL	SILENT_DISABLE	聊天室服务注册：LocateRegistry 获取注册表、Registry 绑定/查找频道服务名	L3	BIZ	RegistryHandler 已 DEPRECATED（type-overrides）
+java.rmi.dgc	REMOTE-WATCH	DGC,Lease,VMID	CONTROL	SERVICE_OPTIONAL	SILENT_DISABLE	分布式 GC：DGC 管理远程引用租约、Lease 租约、VMID 标识 JVM；随远程会话生命周期逐类型论证	L2	BIZ	仅远程场景
+javax.management.remote	REMOTE-JMX	JMXConnector,JMXConnectorServer,JMXConnectorFactory,JMXConnectorServerFactory,JMXServiceURL,JMXConnectorServerMBean,JMXAuthenticator,JMXPrincipal,JMXAddressable,MBeanServerForwarder,NotificationResult,TargetedNotification,JMXConnectionNotification,JMXProviderException,JMXServerErrorException,JMXConnectorProvider,JMXConnectorServerProvider,SubjectDelegationPermission	SERVICE	SERVICE_OPTIONAL	SILENT_DISABLE	远程 JMX 连接器基础：JMXConnector/JMXConnectorServer 客户端/服务端连接器、JMXConnectorFactory/JMXConnectorServerFactory 工厂、JMXServiceURL 端点地址、JMXAuthenticator/JMXPrincipal 认证、MBeanServerForwarder 转发、NotificationResult 通知结果、异常家族；缺网静默禁用	L3	BIZ	无
+javax.management.remote.rmi	REMOTE-JMX	RMIConnector,RMIConnectorServer,RMIJRMPServerImpl,RMIServer,RMIServerImpl,RMIConnection,RMIConnectionImpl	TRANSPORT	SERVICE_OPTIONAL	SILENT_DISABLE	远程 JMX 的 RMI 传输：RMIConnector/RMIConnectorServer 客户端/服务端连接器、RMIJRMPServerImpl/RMIServerImpl 服务端实现、RMIConnectionImpl 连接实现；缺网静默禁用	L3	BIZ	RMIConnectionImpl_Stub/RMIServerImpl_Stub 由 rmic 生成，运行时由动态代理替代，见下行 L2
+javax.management.remote.rmi	REMOTE-JMX	RMIConnectionImpl_Stub,RMIServerImpl_Stub	TRANSPORT	SERVICE_OPTIONAL	SILENT_DISABLE	预生成桩类：JDK 9+ 默认动态代理生成，静态 _Stub 仅兼容旧客户端	L2	BIZ	动态代理已替代
+javax.net.ssl	TLS-CHANNEL	*	SECURITY	SERVICE_OPTIONAL	SILENT_DISABLE	SSLContext/SSLEngine/TrustManager 支撑可选联机的自签证书加密通道	L2	BIZ	无
+javax.net	TLS-CHANNEL	*	FACTORY	SERVICE_OPTIONAL	SILENT_DISABLE	SocketFactory/ServerSocketFactory 统一创建连接，便于注入测试替身	L2	BIZ	无
+java.security.cert	CERT-TRUST	*	SECURITY	NONE	NONE	X.509 证书链解析与校验，验证签名 mod 的发布者身份	L2	BIZ	无证书需求时可关闭
+javax.xml.crypto	XML-DSIG	XMLCryptoContext,KeySelector,KeySelectorResult,AlgorithmMethod,URIReference,URIDereferencer,Data,NodeSetData,OctetStreamData,XMLStructure,KeySelector$Purpose,NoSuchMechanismException,KeySelectorException,MarshalException,URIReferenceException	SECURITY	NONE	NONE	XML 签名上下文：XMLCryptoContext 签名上下文、KeySelector 密钥选择、Data/NodeSetData/OctetStreamData 数据模型、URIReference/URIDereferencer URI 解引用、异常家族；mod 清单数字签名验证	L3	BIZ	无
+javax.xml.crypto.dom	XML-DSIG	DOMStructure,DOMCryptoContext,DOMURIReference	MODEL	NONE	NONE	DOM 绑定：DOMStructure 把签名结构映射到 DOM 节点、DOMCryptoContext DOM 签名上下文、DOMURIReference DOM URI 引用	L3	BIZ	无
+javax.xml.crypto.dsig	XML-DSIG	XMLSignatureFactory,XMLSignature,Reference,SignedInfo,XMLSignature$SignatureValue,Manifest,XMLObject,Transform,TransformService,CanonicalizationMethod,DigestMethod,SignatureMethod,SignatureProperties,SignatureProperty,TransformException,XMLSignatureException,XMLValidateContext,XMLSignContext	SERVICE	NONE	NONE	数字签名核心：XMLSignatureFactory 创建签名、XMLSignature 签名/验签、Reference 摘要引用、SignedInfo 签名信息、Transform 变换、DigestMethod/SignatureMethod 算法、异常；mod/存档/远征报告签名验证	L3	BIZ	无
+javax.xml.crypto.dsig.dom	XML-DSIG	DOMValidateContext,DOMSignContext	SERVICE	NONE	NONE	DOM 签名上下文：DOMValidateContext 待验签 DOM 绑定、DOMSignContext 待签名 DOM 绑定	L3	BIZ	无
+javax.xml.crypto.dsig.keyinfo	XML-DSIG	KeyInfo,KeyInfoFactory,KeyValue,X509Data,X509IssuerSerial,KeyName,RetrievalMethod,PGPData	MODEL	NONE	NONE	密钥信息：KeyInfo 密钥容器、KeyInfoFactory 工厂、KeyValue/X509Data/KeyName 密钥表示、X509IssuerSerial 证书标识、RetrievalMethod 引用；解析签名中的证书与公钥	L3	BIZ	无
+javax.xml.crypto.dsig.spec	XML-DSIG	DigestMethodParameterSpec,SignatureMethodParameterSpec,TransformParameterSpec,C14NMethodParameterSpec,XPathType,ExcC14NParameterSpec,XPathFilter2ParameterSpec,XPathFilterParameterSpec,XSLTTransformParameterSpec,HMACParameterSpec,RSAPSSParameterSpec,XPathType$Filter	CONFIG	NONE	NONE	签名算法参数：DigestMethodParameterSpec/SignatureMethodParameterSpec 摘要与签名算法参数、TransformParameterSpec/C14NMethodParameterSpec 变换与规范化参数、XPathType/XPathFilter2ParameterSpec XPath 过滤、HMACParameterSpec HMAC 参数	L3	BIZ	无
+javax.naming	JNDI-LOOKUP	Context,InitialContext,Name,CompositeName,CompoundName,NameParser,Binding,NameClassPair,NamingEnumeration,RefAddr,StringRefAddr,BinaryRefAddr,Reference,Referenceable,NamingException,InvalidNameException,NameNotFoundException,NameAlreadyBoundException,NotContextException,NoInitialContextException,AuthenticationException,CommunicationException,ServiceUnavailableException,OperationNotSupportedException,ConfigurationException,InsufficientResourcesException,LimitExceededException,SizeLimitExceededException,TimeLimitExceededException,PartialResultException	SERVICE	NONE	NONE	真实 fc:// 命名上下文：Context 定位资源、Name/CompositeName 表示命名、Binding/NamingEnumeration 枚举绑定、Reference/Referenceable 表达对象引用、NamingException 家族处理解析错误	L3	BIZ	链接/引用异常（Link*/Referral/CannotProceed）服务命名链接与引用，见下行 L2
+javax.naming	JNDI-LOOKUP	LinkException,LinkLoopException,LinkRef,MalformedLinkException,CannotProceedException,ReferralException,InterruptedNamingException,NamingSecurityException,NoPermissionException,ContextNotEmptyException	ERROR	NONE	NONE	命名链接与引用处理：LinkRef 表达资源别名、ReferralException 处理引用转发、NoPermissionException 权限错误；核心上下文已 L3，链接特性保留 L2	L2	BIZ	命名链接特性可选
+javax.naming.directory	JNDI-LOOKUP	*	QUERY	NONE	NONE	Attributes/BasicAttributes/DirContext 表达 mod 元数据目录树	L2	BIZ	无
+javax.naming.spi	JNDI-LOOKUP	*	FACTORY	NONE	NONE	ObjectFactory/InitialContextFactory 注册 fc:// 对象工厂	L2	BIZ	无
+javax.naming.event	JNDI-LOOKUP	*	LISTENER	NONE	NONE	NamespaceChangeListener 在 mod 资源变更时通知缓存失效	L2	BIZ	无
+java.sql	JDBC-QUERY	Connection,Driver,DriverManager,DriverPropertyInfo,DriverAction,Statement,PreparedStatement,CallableStatement,ResultSet,ResultSetMetaData,DatabaseMetaData,ParameterMetaData,Savepoint,Wrapper,BatchUpdateException,SQLException,SQLWarning,SQLType,JDBCType,Types,Date,Time,Timestamp,SQLTimeoutException,SQLSyntaxErrorException,SQLIntegrityConstraintViolationException,SQLNonTransientConnectionException,SQLTransientConnectionException,SQLDataException,SQLFeatureNotSupportedException	SERVICE	NONE	NONE	自研只读 CSV Driver（实现 Driver/Connection/Statement/ResultSet 接口）供 `query` 模式用 SQL 查编年史 CSV 档案：Driver 实现是项目自有代码、属标准 API 接口的实现，不计第三方依赖	L3	BIZ	高级 JDBC 特性（数组/大对象/行ID/分片/XML）见下行 L2 候选
+java.sql	JDBC-QUERY	Array,Blob,Clob,NClob,Ref,Struct,RowId,RowIdLifetime,SQLData,SQLInput,SQLOutput,SQLXML,ShardingKey,ShardingKeyBuilder,ConnectionBuilder,PseudoColumnUsage,ClientInfoStatus,SQLClientInfoException,SQLInvalidAuthorizationSpecException,SQLNonTransientException,SQLRecoverableException,SQLTransactionRollbackException,SQLTransientException,SQLPermission	SERVICE	NONE	NONE	高级 JDBC 特性：Blob/Clob 大对象、Ref/Struct 结构化类型、RowId 行标识、SQLXML XML 类型、ShardingKey 分片；CSV 档案查询场景不需要，保留 L2 待明确是否扩展自研驱动支持	L2	BIZ	CSV 档案查询不需要大对象/结构化类型
+javax.sql	JDBC-QUERY	*	SERVICE	PROVIDER_REQUIRED	SILENT_DISABLE	DataSource 抽象支撑编年史查询的数据源装配	L2	BIZ	依赖驱动实现
+javax.sql.rowset	JDBC-QUERY	BaseRowSet,CachedRowSet,FilteredRowSet,JdbcRowSet,WebRowSet,JoinRowSet,Joinable,Predicate,RowSetFactory,RowSetProvider,RowSetMetaDataImpl,RowSetWarning	SERVICE	NONE	NONE	离线结果集：CachedRowSet 物化查询结果、FilteredRowSet 过滤、JdbcRowSet 连接型、WebRowSet XML 导出、RowSetFactory/RowSetProvider 创建、RowSetMetaDataImpl 元数据；在自研 CSV Driver 之上提供离线查询结果缓存与分页	L3	BIZ	无
+javax.sql.rowset.serial	JDBC-QUERY	SerialArray,SerialBlob,SerialClob,SerialDatalink,SerialJavaObject,SerialRef,SerialStruct,SQLInputImpl,SQLOutputImpl,SerialException	MODEL	NONE	NONE	可序列化 SQL 数据类型：SerialArray/SerialBlob/SerialClob 序列化大对象与数组、SerialRef/SerialStruct 结构化类型、SQLInputImpl/SQLOutputImpl 读写流、SerialException 异常；离线结果集物化承载	L3	BIZ	无
+javax.sql.rowset.spi	JDBC-QUERY	SyncFactory,SyncFactoryException,SyncProvider,SyncProviderException,SyncResolver,TransactionalWriter,XmlReader,XmlWriter	SERVICE	NONE	NONE	RowSet 同步 SPI：SyncProvider/SyncFactory 同步策略、SyncResolver 冲突解决、XmlReader/XmlWriter 把查询结果序列化为 XML、TransactionalWriter 事务写；数据交换与导出	L3	BIZ	无
+javax.tools	RULE-COMPILE	JavaCompiler,JavaCompiler$CompilationTask,StandardJavaFileManager,StandardJavaFileManager$PathFactory,StandardLocation,JavaFileObject,JavaFileObject$Kind,SimpleJavaFileObject,ForwardingJavaFileObject,ForwardingJavaFileManager,FileObject,JavaFileManager,JavaFileManager$Location,Diagnostic,Diagnostic$Kind,DiagnosticCollector,DiagnosticListener,OptionChecker,Tool,ToolProvider,DocumentationTool,DocumentationTool$DocumentationTask,DocumentationTool$Location	SERVICE	NONE	NONE	受信任 Mod 编译工具链：JavaCompiler 编译 Mod、StandardJavaFileManager/StandardLocation 管理源文件、JavaFileObject/SimpleJavaFileObject 表示源文件、DiagnosticCollector/Diagnostic 收集编译错误、ToolProvider 获取编译器、DocumentationTool 生成文档；编译本地可信 Mod，不承诺进程内沙箱	L3	BIZ	规则语言子集与信任边界见文档
+javax.script	SCRIPT-ENGINE	ScriptEngine,ScriptEngineManager,ScriptEngineFactory,Bindings,SimpleBindings,ScriptContext,SimpleScriptContext,Compilable,CompiledScript,Invocable,ScriptException,AbstractScriptEngine	SERVICE	PROVIDER_REQUIRED	SILENT_DISABLE	事件规则脚本引擎 API（与 Provider 严格分离）：ScriptEngineManager 发现引擎、ScriptEngine 执行脚本、Bindings 绑定变量、ScriptContext 执行上下文、Compilable/Invocable 编译与调用优化、ScriptException 处理错误；引擎实现（Groovy/Nashorn 独立版）第三方不计入	L3	BIZ	JDK 无内置引擎，引擎 Provider 第三方、不计覆盖
+java.net.http	CHAT	HttpClient,HttpClient$Builder,HttpClient$Redirect,HttpClient$Version,HttpRequest,HttpRequest$Builder,HttpRequest$BodyPublisher,HttpRequest$BodyPublishers,HttpResponse,HttpResponse$BodyHandler,HttpResponse$BodyHandlers,HttpResponse$BodySubscriber,HttpResponse$BodySubscribers,HttpHeaders,WebSocket,WebSocket$Builder,WebSocket$Listener,HttpTimeoutException,HttpConnectTimeoutException,WebSocketHandshakeException	SERVICE	SERVICE_OPTIONAL	SILENT_DISABLE	聊天室 WebSocket 客户端接入：HttpClient 建立连接、HttpRequest/HttpResponse 请求响应、WebSocket 双向消息、HttpHeaders 头部、超时/握手异常处理；缺网静默禁用	L3	BIZ	PushPromiseHandler/ResponseInfo 属服务器推送，见下行 L2
+java.net.http	HTTP-TELEMETRY	HttpResponse$PushPromiseHandler,HttpResponse$ResponseInfo	SERVICE	SERVICE_OPTIONAL	SILENT_DISABLE	HTTP/2 服务器推送：PushPromiseHandler 处理推送承诺、ResponseInfo 响应元信息；遥测上传场景逐类型论证	L2	BIZ	离线优先
+java.lang.instrument	AGENT-INSTR	Instrumentation,ClassFileTransformer,ClassDefinition,IllegalClassFormatException,UnmodifiableClassException,UnmodifiableModuleException	SERVICE	NONE	NONE	运行时诊断 agent：Instrumentation 入口注册转换器、ClassFileTransformer 记录/转换类、ClassDefinition 重定义类、IllegalClassFormatException 非法字节码、UnmodifiableClassException/UnmodifiableModuleException 不可修改异常；提供类加载审计与运行期覆盖证据	L3	BIZ	仅诊断用途，不做恶意代码隔离
+javax.annotation.processing	PROC-ANNOT	AbstractProcessor,Processor,ProcessingEnvironment,RoundEnvironment,Filer,FilerException,Messager,SupportedAnnotationTypes,SupportedOptions,SupportedSourceVersion,Generated,Completion,Completions	METADATA	NONE	NONE	注解处理器：AbstractProcessor/Processor 处理器基类、ProcessingEnvironment/RoundEnvironment 处理上下文、Filer 生成文件、Messager 诊断、Supported* 注解声明支持项、Generated 标记生成代码；生成 Mod 注册信息与覆盖证据	L3	BIZ	无
+javax.lang.model	PROC-ANNOT	AnnotatedConstruct,SourceVersion,UnknownEntityException	METADATA	NONE	NONE	语言模型入口：AnnotatedConstruct 可标注构造、SourceVersion 源版本、UnknownEntityException 未知实体；注解处理器分析 Mod 的入口	L3	BIZ	无
+javax.lang.model.element	PROC-ANNOT	Element,ElementKind,ElementVisitor,TypeElement,ExecutableElement,PackageElement,TypeParameterElement,VariableElement,ModuleElement,ModuleElement$Directive,ModuleElement$DirectiveKind,ModuleElement$DirectiveVisitor,ModuleElement$ExportsDirective,ModuleElement$OpensDirective,ModuleElement$ProvidesDirective,ModuleElement$RequiresDirective,ModuleElement$UsesDirective,RecordComponentElement,Name,NestingKind,Modifier,AnnotationMirror,AnnotationValue,AnnotationValueVisitor,QualifiedNameable,Parameterizable,UnknownElementException,UnknownAnnotationValueException,UnknownDirectiveException	METADATA	NONE	NONE	源码元素模型：Element/TypeElement/ExecutableElement 遍历 Mod 的类型、方法、字段、模块指令，AnnotationMirror/AnnotationValue 读取注解，ElementKind/NestingKind/Modifier 判定元素性质；分析 Mod 结构	L3	BIZ	无
+javax.lang.model.type	PROC-ANNOT	TypeMirror,TypeKind,TypeVisitor,DeclaredType,ArrayType,PrimitiveType,ReferenceType,ExecutableType,IntersectionType,UnionType,NoType,NullType,TypeVariable,WildcardType,ErrorType,MirroredTypeException,MirroredTypesException,UnknownTypeException	METADATA	NONE	NONE	类型模型：TypeMirror/DeclaredType/ArrayType 解析 Mod 的类型引用、TypeKind 类型种类、TypeVisitor 遍历、MirroredTypeException 注解类型镜像异常；分析 Mod 类型签名与依赖	L3	BIZ	无
+javax.lang.model.util	PROC-ANNOT	Elements,Types,ElementFilter,Elements$Origin,AbstractAnnotationValueVisitor14,AbstractElementVisitor14,AbstractTypeVisitor14,ElementKindVisitor14,ElementScanner14,SimpleAnnotationValueVisitor14,SimpleElementVisitor14,SimpleTypeVisitor14,TypeKindVisitor14	METADATA	NONE	NONE	语言模型工具：Elements/Types 工具类、ElementFilter 过滤、Origin 来源、各类 …14 版本访问器（JDK 21 最新源版本）遍历元素与类型；注解处理器遍历 Mod 结构	L3	BIZ	历史版本访问器（…6/7/8/9）见下行 L2
+javax.lang.model.util	PROC-ANNOT	AbstractAnnotationValueVisitor6,AbstractAnnotationValueVisitor7,AbstractAnnotationValueVisitor8,AbstractAnnotationValueVisitor9,AbstractElementVisitor6,AbstractElementVisitor7,AbstractElementVisitor8,AbstractElementVisitor9,AbstractTypeVisitor6,AbstractTypeVisitor7,AbstractTypeVisitor8,AbstractTypeVisitor9,ElementKindVisitor6,ElementKindVisitor7,ElementKindVisitor8,ElementKindVisitor9,ElementScanner6,ElementScanner7,ElementScanner8,ElementScanner9,SimpleAnnotationValueVisitor6,SimpleAnnotationValueVisitor7,SimpleAnnotationValueVisitor8,SimpleAnnotationValueVisitor9,SimpleElementVisitor6,SimpleElementVisitor7,SimpleElementVisitor8,SimpleElementVisitor9,SimpleTypeVisitor6,SimpleTypeVisitor7,SimpleTypeVisitor8,SimpleTypeVisitor9,TypeKindVisitor6,TypeKindVisitor7,TypeKindVisitor8,TypeKindVisitor9	METADATA	NONE	NONE	历史源版本访问器（…6/7/8/9）：向后兼容旧源版本的 visitor，新代码统一用 …14；保留 L2 待确认是否需要兼容旧版本 Mod 源码	L2	BIZ	新代码用 …14
+java.lang.constant	RULE-COMPILE	*	METADATA	NONE	NONE	MethodTypeDesc/ClassDesc 描述运行时生成规则类的签名与常量池	L2	BIZ	无字节码生成时排除
+java.lang.runtime	RULE-COMPILE	*	METADATA	NONE	NONE	ObjectMethods.bootstrap 为生成的 record 规则类型产出 equals/hashCode	L2	BIZ	源码层不出现，须有真实生成代码才可计
+java.net.spi	JNDI-LOOKUP	*	FACTORY	NONE	NONE	自研 URLStreamHandlerProvider 注册 fc:// 协议	L2	BIZ	无
+java.nio.channels.spi	REMOTE-WATCH	*	FACTORY	SERVICE_OPTIONAL	SILENT_DISABLE	经 SelectorProvider 统一打开通道，避免依赖平台默认实现	L2	BIZ	无
+java.nio.file.spi	CORE-IO	*	FACTORY	NONE	NONE	自研只读 FileSystemProvider 以 fcfs:// 暴露存档槽位	L2	BIZ	Path/Files 已可满足，属可选增强
+java.awt.datatransfer	CLIPBOARD-EXPORT	Clipboard,ClipboardOwner,DataFlavor,FlavorEvent,FlavorListener,FlavorMap,FlavorTable,StringSelection,SystemFlavorMap,Transferable,MimeTypeParseException,UnsupportedFlavorException	MODEL	HEADLESS_OK	DEGRADE	桌面客户端剪贴板/数据交换：Clipboard 系统剪贴板、DataFlavor 数据格式描述、Transferable 可传输对象、StringSelection 文本包装、SystemFlavorMap 原生格式映射、FlavorListener 监听、异常处理；无头环境 Clipboard 不可用降级写文件（证据 env-probe.txt）	L3	BIZ	无
+javax.print	PRINT-EXPORT	*	SERVICE	DEVICE_OPTIONAL	DEGRADE	PrintService 渲染回合报告到打印服务；无服务降级 PNG/文本	L2	BIZ	本机仅 PDF 虚拟打印服务
+javax.print.attribute	PRINT-EXPORT	*	CONFIG	DEVICE_OPTIONAL	DEGRADE	打印属性容器承载份数/纸张等参数	L2	BIZ	随打印域
+javax.print.attribute.standard	PRINT-EXPORT	*	CONFIG	DEVICE_OPTIONAL	DEGRADE	标准打印属性（纸张/份数/分辨率）	L2	BIZ	随打印域
+javax.print.event	PRINT-EXPORT	*	LISTENER	DEVICE_OPTIONAL	DEGRADE	打印作业事件监听	L2	BIZ	随打印域
+
+# ================================================================
+# 补充：JMX 外围子包 + 渲染扩展（L2 候选，原 package-rules 包级 Planned 未覆盖）
+# ================================================================
+javax.management.relation	OBS-JMX	*	MODEL	NONE	NONE	RelationService/RoleInfo 维护势力关系 MBean 图；Relation 模型可表达星系间外交关系	L2	BIZ	关系服务亦可由领域对象表达，属 API 驱动增强
+javax.management.openmbean	OBS-JMX	*	MODEL	NONE	NONE	CompositeData/TabularData/OpenType 以开放类型导出世界快照，供外部工具消费	L2	BIZ	无外部控制台时无场景
+javax.management.modelmbean	OBS-JMX	*	MODEL	NONE	NONE	RequiredModelMBean/ModelMBeanInfo 把领域对象适配为声明式 MBean	L2	BIZ	StandardMBean 已足够，属增强
+javax.management.monitor	OBS-JMX	CounterMonitor,CounterMonitorMBean,GaugeMonitor,GaugeMonitorMBean,StringMonitor,StringMonitorMBean,Monitor,MonitorMBean,MonitorNotification,MonitorSettingException	CONTROL	NONE	NONE	现实时间指标监控：Monitor 基类以 System.nanoTime 采样（与游戏 Stardate 分离），CounterMonitor 计数型指标、GaugeMonitor 阈值型指标、StringMonitor 字符串匹配告警；MonitorNotification 承载告警事件	L3	BIZ	监控用现实时间，不参与游戏重放
+javax.management.timer	OBS-JMX	Timer,TimerMBean,TimerNotification	CONTROL	NONE	NONE	现实时间定时器：Timer/TimerMBean 以现实时间周期触发观测采样（心跳、资源快照），TimerNotification 承载定时事件；与游戏 Stardate 完全分离，不参与重放	L3	BIZ	仅观测用途
+javax.rmi.ssl	REMOTE-WATCH	*	TRANSPORT	SERVICE_OPTIONAL	SILENT_DISABLE	SslRMIClientSocketFactory/SslRMIServerSocketFactory 加密观战通道	L2	BIZ	无
+java.awt.image.renderable	MAP-RENDER	*	MODEL	HEADLESS_OK	NONE	RenderableImage/RenderedImageFactory 按导出尺寸独立分辨率缩放星图	L2	BIZ	ImageIO 直接缩放已可满足，属增强
+
+# ================================================================
+# 本轮新增：桌面管理客户端（ADMIN-DESKTOP）+ 可选认证（AUTH）
+# ================================================================
+# 桌面客户端核心模型类（L2 功能级，逐类型 L3 见阶段四）
+javax.swing.table	ADMIN-DESKTOP	TableModel,AbstractTableModel,DefaultTableModel,TableColumnModel,DefaultTableColumnModel,TableColumn,TableRowSorter,TableStringConverter	MODEL	HEADLESS_OK	NONE	船员名册/库存表格：TableModel 数据、TableColumnModel 列结构、TableRowSorter 排序；纯模型类，无 GUI 依赖	L2	BIZ	Renderer/Editor 类（TableCellRenderer/TableCellEditor/DefaultTableCellRenderer/JTableHeader）仅桌面渲染，阶段四评估
+javax.swing.tree	ADMIN-DESKTOP	TreeModel,DefaultTreeModel,TreeNode,DefaultMutableTreeNode,MutableTreeNode,TreePath,TreeSelectionModel,DefaultTreeSelectionModel,RowMapper	MODEL	HEADLESS_OK	NONE	星域/势力层级树：TreeModel 树结构、TreeNode 节点、TreePath 路径；纯模型类	L2	BIZ	TreeCellRenderer/TreeCellEditor/DefaultTreeCellEditor/布局缓存（AbstractLayoutCache 等）仅桌面，阶段四评估
+javax.swing.event	ADMIN-DESKTOP	EventListenerList,TableModelEvent,TableModelListener,TableColumnModelEvent,TableColumnModelListener,ListDataEvent,ListDataListener,ListSelectionEvent,ListSelectionListener,TreeModelEvent,TreeModelListener,TreeSelectionEvent,TreeSelectionListener,TreeExpansionEvent,TreeExpansionListener,CellEditorListener,ChangeEvent,ChangeListener,DocumentEvent,DocumentListener,CaretEvent,CaretListener,UndoableEditEvent,UndoableEditListener,RowSorterEvent,RowSorterListener,SwingPropertyChangeSupport	LISTENER	HEADLESS_OK	NONE	表格/树/列表/文档的变更与选择监听：EventListenerList 监听注册、TableModelListener 数据变更、DocumentListener 文档编辑；纯事件模型	L2	BIZ	InternalFrame/PopupMenu/MenuDrag 等窗口菜单事件仅桌面，阶段四评估
+javax.swing.text	ADMIN-DESKTOP	Document,AbstractDocument,StyledDocument,DefaultStyledDocument,Element,AttributeSet,SimpleAttributeSet,Position,Segment,Style,StyleConstants,StyleContext,EditorKit,PlainDocument,PlainView	MODEL	HEADLESS_OK	NONE	编年史/日志文档模型：Document 文本、StyledDocument 样式、Element 结构、EditorKit 读写；纯文档模型	L2	BIZ	HTML/RTF 编辑器套件（html/rtf 子包）无场景，维持排除
+javax.swing	ADMIN-DESKTOP	ListModel,AbstractListModel,DefaultListModel,ComboBoxModel,DefaultComboBoxModel,SpinnerModel,AbstractSpinnerModel,SpinnerNumberModel,ButtonGroup,BoundedRangeModel,DefaultBoundedRangeModel,SingleSelectionModel,DefaultSingleSelectionModel,MutableComboBoxModel,Scrollable,SortOrder,RowSorter,DefaultRowSorter,ListSelectionModel,DefaultListSelectionModel,SizeRequirements	MODEL	HEADLESS_OK	NONE	桌面客户端共享模型：ListModel 列表、SpinnerModel 数值、ButtonGroup 按钮组、SortOrder/RowSorter 排序；纯模型类	L2	BIZ	组件类（JFrame/JButton/JTable 等）与 plaf 外观，阶段四逐类型评估
+# AWT 组件（桌面客户端窗口/布局，L2 功能级）
+java.awt	ADMIN-DESKTOP	Component,Container,Frame,Dialog,Window,Panel,Button,Label,TextField,TextArea,List,Choice,Checkbox,CheckboxGroup,Scrollbar,ScrollPane,Canvas,Menu,MenuBar,MenuItem,PopupMenu,LayoutManager,LayoutManager2,BorderLayout,FlowLayout,GridLayout,GridBagLayout,GridBagConstraints,CardLayout,Insets,FontMetrics,GraphicsDevice,GraphicsConfiguration,DisplayMode,Toolkit,EventQueue,ActiveEvent,Adjustable,ItemSelectable,MenuContainer	CONTROL	HEADLESS_OK	NONE	桌面客户端窗口与布局：Component/Container 组件树、Frame/Dialog 顶层窗口、LayoutManager 布局、Menu 菜单；桌面客户端运行时具备图形环境	L2	BIZ	无头绘图子集已 L3（MAP-RENDER）；本清单为 GUI 组件，仅桌面客户端用
+java.awt.event	ADMIN-DESKTOP	ActionEvent,ActionListener,ItemEvent,ItemListener,TextEvent,TextListener,AdjustmentEvent,AdjustmentListener,ComponentEvent,ComponentListener,ContainerEvent,ContainerListener,FocusEvent,FocusListener,WindowEvent,WindowListener,WindowAdapter,KeyEvent,KeyListener,MouseEvent,MouseListener,MouseMotionListener,MouseWheelEvent,MouseWheelListener,InputEvent,InputMethodEvent,InputMethodListener,HierarchyEvent,HierarchyListener,PaintEvent	LISTENER	HEADLESS_OK	NONE	桌面交互事件：ActionEvent 按钮、MouseEvent 鼠标、KeyEvent 键盘、WindowEvent 窗口、FocusEvent 焦点；桌面客户端交互基础	L2	BIZ	仅桌面客户端用
+# 可选认证（AUTH，远程管理端点登录，L2 功能级）
+javax.security.auth	AUTH	Subject,AuthPermission,PrivateCredentialPermission,SubjectDomainCombiner,Destroyable,DestroyFailedException,Refreshable,RefreshFailedException	SECURITY	SERVICE_OPTIONAL	SILENT_DISABLE	远程端点登录主体：Subject 承载身份与凭证、AuthPermission 授权、Destroyable 凭证销毁；单机无需登录	L2	BIZ	DomainCombiner 仅 SecurityManager 有意义，阶段四评估
+javax.security.auth.login	AUTH	LoginContext,Configuration,LoginException,AccountException,AccountExpiredException,AccountLockedException,AccountNotFoundException,CredentialException,CredentialExpiredException,CredentialNotFoundException,FailedLoginException,AppConfigurationEntry,AppConfigurationEntry$LoginModuleControlFlag,Configuration$Parameters,ConfigurationSpi	SECURITY	SERVICE_OPTIONAL	SILENT_DISABLE	远程端点登录流程：LoginContext 驱动登录、Configuration 配置模块、LoginModule 认证逻辑、异常家族处理失败；单机无需	L2	BIZ	企业级配置（ConfigurationSpi）阶段四评估
+javax.security.auth.callback	AUTH	Callback,CallbackHandler,NameCallback,PasswordCallback,ChoiceCallback,ConfirmationCallback,LanguageCallback,TextInputCallback,TextOutputCallback,UnsupportedCallbackException	SECURITY	SERVICE_OPTIONAL	SILENT_DISABLE	登录交互回调：CallbackHandler 收集凭证、NameCallback/PasswordCallback 用户名口令、TextOutputCallback 提示	L2	BIZ	仅远程登录用
+javax.security.auth.x500	AUTH	X500Principal,X500PrivateCredential	MODEL	SERVICE_OPTIONAL	SILENT_DISABLE	登录主体 X.500 名称：X500Principal 证书主题名称	L2	BIZ	仅证书登录用
+javax.security.auth.spi	AUTH	LoginModule	SECURITY	SERVICE_OPTIONAL	SILENT_DISABLE	登录模块 SPI：LoginModule 定义认证逻辑契约（login/commit/abort/logout），远程端点登录的自研实现点	L2	BIZ	仅远程登录用
+
+# ================================================================
+# v4：联机认证（SASL 核心 L3 + Kerberos/GSS 可选 L2）
+# ================================================================
+javax.security.sasl	REMOTE-AUTH	Sasl,SaslServer,SaslClient,SaslException,AuthenticationException,AuthorizeCallback	SECURITY	SERVICE_OPTIONAL	SILENT_DISABLE	聊天室可插拔认证：Sasl 入口创建服务端/客户端、SaslServer 服务端认证、SaslClient 客户端认证、SaslException/AuthenticationException 处理握手失败、AuthorizeCallback 授权回调；缺认证机制时明文并告警	L3	BIZ	领域回调与 SPI 工厂见下行 L2
+javax.security.sasl	REMOTE-AUTH	SaslServerFactory,SaslClientFactory,RealmCallback,RealmChoiceCallback	SECURITY	SERVICE_OPTIONAL	SILENT_DISABLE	SASL 扩展点：SaslServerFactory/SaslClientFactory 注册自定义机制、RealmCallback/RealmChoiceCallback 领域选择；随认证机制扩展逐类型论证	L2	BIZ	仅自定义机制时用
+javax.security.auth.kerberos	KERBEROS-AUTH	KerberosPrincipal,KerberosKey,KerberosTicket,KeyTab,KerberosCredMessage,EncryptionKey,ServicePermission,DelegationPermission	SECURITY	SERVICE_OPTIONAL	SILENT_DISABLE	可选 Kerberos 身份认证：KerberosPrincipal 身份、KerberosKey/KeyTab 密钥、KerberosTicket 票据、KerberosCredMessage 凭证消息；需 KDC，无 KDC 时降级为 SASL/明文	L2	BIZ	企业级可选，非默认
+org.ietf.jgss	KERBEROS-AUTH	GSSManager,GSSContext,GSSCredential,GSSName,MessageProp,Oid,ChannelBinding,GSSException	SECURITY	SERVICE_OPTIONAL	SILENT_DISABLE	可选 GSS-API：GSSManager 创建上下文、GSSContext 安全上下文、GSSCredential 凭证、GSSName 主体名、MessageProp 消息属性、Oid 机制标识；需 Kerberos 域，无域降级	L2	BIZ	企业级可选

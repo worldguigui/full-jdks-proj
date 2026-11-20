@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="unqualified">
+
+    <xs:element name="world">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="locations">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="location" minOccurs="1" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="stock" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:sequence>
+                                                    <xs:element name="item" minOccurs="0" maxOccurs="unbounded">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="resource" type="xs:string" use="required"/>
+                                                            <xs:attribute name="amount" type="xs:decimal" use="required"/>
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                </xs:sequence>
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="production" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="resource" type="xs:string" use="required"/>
+                                                <xs:attribute name="perDay" type="xs:decimal" use="required"/>
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                    <xs:attribute name="id" type="xs:long" use="required"/>
+                                    <xs:attribute name="kind" use="required">
+                                        <xs:simpleType>
+                                            <xs:restriction base="xs:string">
+                                                <xs:enumeration value="StarSystem"/>
+                                                <xs:enumeration value="Planet"/>
+                                                <xs:enumeration value="OrbitalStation"/>
+                                                <xs:enumeration value="Anomaly"/>
+                                                <xs:enumeration value="Colony"/>
+                                                <xs:enumeration value="Facility"/>
+                                            </xs:restriction>
+                                        </xs:simpleType>
+                                    </xs:attribute>
+                                    <xs:attribute name="name" type="xs:string" use="required"/>
+                                    <xs:attribute name="parent" type="xs:long" use="optional"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <xs:element name="links">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="link" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:attribute name="from" type="xs:long" use="required"/>
+                                    <xs:attribute name="to" type="xs:long" use="required"/>
+                                    <xs:attribute name="kind" use="required">
+                                        <xs:simpleType>
+                                            <xs:restriction base="xs:string">
+                                                <xs:enumeration value="WarpRoute"/>
+                                                <xs:enumeration value="SurfaceRoute"/>
+                                                <xs:enumeration value="InternalLane"/>
+                                            </xs:restriction>
+                                        </xs:simpleType>
+                                    </xs:attribute>
+                                    <xs:attribute name="ticks" type="xs:int" use="required"/>
+                                    <xs:attribute name="risk" type="xs:double" use="optional"/>
+                                    <xs:attribute name="cost" type="xs:decimal" use="optional"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <xs:element name="ships">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="ship" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="cargo" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:sequence>
+                                                    <xs:element name="item" minOccurs="0" maxOccurs="unbounded">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="resource" type="xs:string" use="required"/>
+                                                            <xs:attribute name="amount" type="xs:decimal" use="required"/>
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                </xs:sequence>
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                    <xs:attribute name="id" type="xs:long" use="required"/>
+                                    <xs:attribute name="name" type="xs:string" use="required"/>
+                                    <xs:attribute name="at" type="xs:long" use="required"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <xs:element name="agents" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="agent" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:attribute name="id" type="xs:long" use="required"/>
+                                    <xs:attribute name="name" type="xs:string" use="required"/>
+                                    <xs:attribute name="role" use="required">
+                                        <xs:simpleType>
+                                            <xs:restriction base="xs:string">
+                                                <xs:enumeration value="CREW"/>
+                                                <xs:enumeration value="RESIDENT"/>
+                                                <xs:enumeration value="ENVOY"/>
+                                            </xs:restriction>
+                                        </xs:simpleType>
+                                    </xs:attribute>
+                                    <xs:attribute name="at" type="xs:long" use="required"/>
+                                    <xs:attribute name="trait" use="optional">
+                                        <xs:simpleType>
+                                            <xs:restriction base="xs:string">
+                                                <xs:enumeration value="DILIGENT"/>
+                                                <xs:enumeration value="LAZY"/>
+                                                <xs:enumeration value="STOIC"/>
+                                                <xs:enumeration value="ANXIOUS"/>
+                                            </xs:restriction>
+                                        </xs:simpleType>
+                                    </xs:attribute>
+                                    <xs:attribute name="skill" type="xs:int" use="optional"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="epoch" type="xs:long" use="optional"/>
+            <xs:attribute name="seed" type="xs:long" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

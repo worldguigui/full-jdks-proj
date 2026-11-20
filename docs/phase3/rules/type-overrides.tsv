@@ -1,0 +1,48 @@
+# 阶段三类型级覆盖规则（覆盖 package-rules.tsv 的默认判定）
+# 列：type_binary[,type_binary...]	status	fc_module	system	batch	main_class	reason_code	scenario[	feature]
+#   第 9 列 feature 可选（见 feature-anchors.tsv），留空表示按包级/模块级锚点解析
+# 说明：
+#   1. 第一列可写多个 type_binary（逗号分隔，嵌套类型用 $），共享同一组判定；
+#   2. status=Inherit 表示仅覆盖 module/system/batch/main_class/scenario，状态沿用包级默认；
+#   3. module/system/batch/main_class 写 - 表示沿用包级默认；
+#   4. reason_code 仅 Excluded 必填（BIZ/ENV/ACCESS/DEPRECATED/PREVIEW/SPEC）。
+
+# —— java.awt：包级默认 Planned，逐类型把 GUI 组件/布局/打印属性排除，只保留无头绘图子集 ——
+java.awt.AWTError,java.awt.AWTEvent,java.awt.AWTEventMulticaster,java.awt.AWTException,java.awt.AWTKeyStroke,java.awt.AWTPermission,java.awt.ActiveEvent,java.awt.Adjustable,java.awt.BorderLayout,java.awt.BufferCapabilities,java.awt.BufferCapabilities$FlipContents,java.awt.Button,java.awt.Canvas,java.awt.CardLayout,java.awt.Checkbox,java.awt.CheckboxGroup,java.awt.CheckboxMenuItem,java.awt.Choice,java.awt.Component,java.awt.Component$BaselineResizeBehavior,java.awt.ComponentOrientation,java.awt.Container,java.awt.ContainerOrderFocusTraversalPolicy,java.awt.Cursor,java.awt.DefaultFocusTraversalPolicy,java.awt.DefaultKeyboardFocusManager,java.awt.Desktop,java.awt.Desktop$Action,java.awt.Dialog,java.awt.Dialog$ModalExclusionType,java.awt.Dialog$ModalityType,java.awt.DisplayMode,java.awt.Event,java.awt.EventQueue,java.awt.FileDialog,java.awt.FlowLayout,java.awt.FocusTraversalPolicy,java.awt.Frame,java.awt.GraphicsConfigTemplate,java.awt.GraphicsConfiguration,java.awt.GraphicsDevice,java.awt.GraphicsDevice$WindowTranslucency,java.awt.GridBagConstraints,java.awt.GridBagLayout,java.awt.GridBagLayoutInfo,java.awt.GridLayout,java.awt.IllegalComponentStateException,java.awt.ImageCapabilities,java.awt.ItemSelectable,java.awt.JobAttributes,java.awt.JobAttributes$DefaultSelectionType,java.awt.JobAttributes$DestinationType,java.awt.JobAttributes$DialogType,java.awt.JobAttributes$MultipleDocumentHandlingType,java.awt.JobAttributes$SidesType,java.awt.KeyEventDispatcher,java.awt.KeyEventPostProcessor,java.awt.KeyboardFocusManager,java.awt.Label,java.awt.LayoutManager,java.awt.LayoutManager2,java.awt.List,java.awt.MediaTracker,java.awt.Menu,java.awt.MenuBar,java.awt.MenuComponent,java.awt.MenuContainer,java.awt.MenuItem,java.awt.MenuShortcut,java.awt.MouseInfo,java.awt.PageAttributes,java.awt.PageAttributes$ColorType,java.awt.PageAttributes$MediaType,java.awt.PageAttributes$OrientationRequestedType,java.awt.PageAttributes$OriginType,java.awt.PageAttributes$PrintQualityType,java.awt.Panel,java.awt.PointerInfo,java.awt.PopupMenu,java.awt.PrintGraphics,java.awt.PrintJob,java.awt.Robot,java.awt.ScrollPane,java.awt.ScrollPaneAdjustable,java.awt.Scrollbar,java.awt.SecondaryLoop,java.awt.SplashScreen,java.awt.SystemColor,java.awt.SystemTray,java.awt.Taskbar,java.awt.Taskbar$Feature,java.awt.Taskbar$State,java.awt.TextArea,java.awt.TextComponent,java.awt.TextField,java.awt.TrayIcon,java.awt.TrayIcon$MessageType,java.awt.Window,java.awt.Window$Type	Excluded	-	-	-	-	BIZ	[已探索] GUI 组件、布局管理器、焦点/键鼠事件与打印属性类；纯 CLI 无对应场景，PNG 星图只使用 Graphics2D 无头绘图子集（Graphics2D/Shape/Paint/Stroke/Font/Image 等仍为 Planned）
+
+# —— java.beans：保留配置内省所需子集，排除 JavaBeans 持久化与 GUI 定制类 ——
+java.beans.AppletInitializer,java.beans.Beans,java.beans.Customizer,java.beans.DefaultPersistenceDelegate,java.beans.DesignMode,java.beans.Encoder,java.beans.EventHandler,java.beans.ExceptionListener,java.beans.Expression,java.beans.PersistenceDelegate,java.beans.Statement,java.beans.Visibility,java.beans.XMLDecoder,java.beans.XMLEncoder	Excluded	-	-	-	-	BIZ	[已探索] JavaBeans 持久化（Encoder/Decoder/Statement/Expression）与 GUI 定制（Customizer/DesignMode）无场景；配置内省只保留 Introspector/PropertyDescriptor/变更监听子集
+
+# —— java.util.spi：仅 ToolProvider 用于构建期工具调用，其余 locale/资源包提供者无需求 ——
+java.util.spi.AbstractResourceBundleProvider,java.util.spi.CalendarDataProvider,java.util.spi.CalendarNameProvider,java.util.spi.CurrencyNameProvider,java.util.spi.LocaleNameProvider,java.util.spi.LocaleServiceProvider,java.util.spi.ResourceBundleControlProvider,java.util.spi.ResourceBundleProvider,java.util.spi.TimeZoneNameProvider	Excluded	-	-	-	-	BIZ	[已探索] 自定义 Locale/历法/货币/时区数据提供者无需求，JDK 内置提供者已覆盖 zh-CN/en-US
+
+# —— 关键类型：模块归属与包级默认不同者（不改状态） ——
+java.io.Console	Inherit	fc-cli	命令行交互	M0	fc/cli/io/ConsoleInput.java	-	控制台行读取与口令读取（readPassword 返回字符数组），Tab 补全不可用时降级为行尾建议
+java.io.PrintStream,java.io.PrintWriter	Inherit	fc-cli	命令行交互	M0	fc/cli/io/OutputSink.java	-	统一输出出口，支持 ANSI 关闭、折行与分页
+java.io.File	Inherit	fc-persist	存档与加载	M5	fc/persist/store/SaveLocator.java	-	传统路径 API 与 Path 互转，兼容旧存档目录
+java.nio.file.WatchService,java.nio.file.WatchKey,java.nio.file.WatchEvent,java.nio.file.WatchEvent$Kind,java.nio.file.WatchEvent$Modifier,java.nio.file.StandardWatchEventKinds	Inherit	fc-config	游戏配置	M1	fc/config/watch/ConfigWatcher.java	-	监听配置目录变更，热重载机制数值并提示需要重开的项
+java.util.Scanner	Inherit	fc-cli	命令行交互	M0	fc/cli/command/TokenScanner.java	-	按分隔符/引号切分命令参数，支持交互式粘贴多行
+java.util.Timer,java.util.TimerTask	Inherit	fc-sim	时间与回合推进	M2	fc/sim/tick/BatchTicker.java	-	批推进的看门狗定时器（仅用于交互超时，不参与世界结算）
+java.util.ServiceLoader	Inherit	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/mod/ModLoader.java	-	发现并加载 mod 提供的 EventHandler/RecipeProvider 实现	MOD-LOADER
+java.util.Properties	Inherit	fc-config	游戏配置	M1	fc/config/props/ConfigProperties.java	-	读写 .properties 形式的用户偏好与本地覆盖配置
+java.util.Base64	Inherit	fc-persist	存档与加载	M5	fc/persist/crypto/SaveEncoding.java	-	存档摘要与签名块的文本编码
+java.util.ResourceBundle,java.util.ListResourceBundle,java.util.PropertyResourceBundle,java.util.Locale,java.util.Currency	Inherit	fc-persist	游戏配置	M5	fc/persist/i18n/Messages.java	-	zh-CN/en-US 文本资源与货币/数字本地化
+java.time.Clock	Inherit	fc-sim	时间与回合推进	M2	fc/sim/tick/SimClock.java	-	可注入时钟，测试中用固定时钟消除时间抖动
+java.lang.Thread,java.lang.ThreadGroup,java.lang.ThreadLocal,java.lang.InheritableThreadLocal	Inherit	fc-sim	时间与回合推进	M2	fc/sim/tick/WorkerThreads.java	-	虚拟线程载体与线程局部上下文（当前回合号、随机流）
+java.lang.ProcessBuilder,java.lang.Process	Inherit	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/tools/ExternalToolRunner.java	-	`> export map --open` 生成星图后调用系统查看器打开；无桌面会话时打印路径并退出 0	EXPORT-OPEN
+java.lang.ProcessHandle	Excluded	-	-	-	-	BIZ	[已探索] 不进程巡检、不管理外部进程生命周期：只需启动一次查看器并等待/放弃，ProcessHandle 无对应动作	-
+java.lang.ClassLoader,java.lang.Module,java.lang.Package	Inherit	fc-runtime	启动与模块装配（工程）	M6	fc/runtime/ModuleBootstrap.java	-	模块化启动与 mod 层装配时的类加载边界
+java.sql.DriverManager,java.sql.Driver,java.sql.DriverPropertyInfo,java.sql.DriverAction	Inherit	fc-history	世界历史与日志	M5	fc/history/sql/ChronicleDriverRegistration.java	-	注册自研只读驱动，供 `query` 模式与外部工具连接编年史
+javax.swing.undo.UndoManager,javax.swing.undo.UndoableEditSupport,javax.swing.undo.CompoundEdit,javax.swing.undo.AbstractUndoableEdit,javax.swing.undo.UndoableEdit,javax.swing.undo.StateEdit,javax.swing.undo.StateEditable,javax.swing.undo.CannotUndoException,javax.swing.undo.CannotRedoException	Inherit	fc-cli	命令行交互	M3	fc/cli/command/CommandUndo.java	-	经营指令（建造/编组/预算）的撤销与重做栈，纯模型类，不创建任何 GUI 组件
+
+# —— SecurityManager 体系（JEP 411 已 forRemoval）与依赖它的安全管理类型：不新建安全管理器，改用文件权限 + 命令白名单 ——
+java.lang.SecurityManager,java.lang.ThreadDeath,java.security.AccessController,java.security.AccessControlContext,java.security.AccessControlException,java.security.DomainCombiner,java.security.Policy,java.security.Policy$Parameters,java.security.PolicySpi,java.security.Certificate,java.security.Identity,java.security.IdentityScope,java.security.Signer,java.security.SecurityPermission,java.security.Guard,java.security.GuardedObject,java.rmi.RMISecurityManager,java.rmi.RMISecurityException	Excluded	-	-	-	-	DEPRECATED	[未探索] SecurityManager 与 AccessController 体系自 JDK 17 起标记 forRemoval（JEP 411），新代码不应依赖；权限边界改用存档目录权限、命令白名单与 ObjectInputFilter 白名单实现
+
+# —— 已废弃的遗留 API（阶段一保留在分母，但不为新项目引入） ——
+java.io.LineNumberInputStream,java.io.StringBufferInputStream	Excluded	-	-	-	-	DEPRECATED	[未探索] JDK 1.0 遗留字节流，已被 BufferedInputStream/ByteArrayInputStream 取代
+java.util.Observable,java.util.Observer	Excluded	-	-	-	-	DEPRECATED	[未探索] 观察者模式已被 Flow/PropertyChangeSupport 取代，本项目事件总线用 Tick 内有序队列 + Flow 后置通知，不重复实现
+java.util.logging.LoggingMXBean,javax.management.DefaultLoaderRepository	Excluded	-	-	-	-	DEPRECATED	[未探索] 管理端遗留类型，已被 PlatformLoggingMXBean 与 MBeanServer 查询取代
+java.rmi.registry.RegistryHandler,java.rmi.server.LoaderHandler,java.rmi.server.LogStream,java.rmi.server.Operation,java.rmi.server.RemoteCall,java.rmi.server.RemoteStub,java.rmi.server.ServerRef,java.rmi.server.Skeleton,java.rmi.server.SkeletonMismatchException,java.rmi.server.SkeletonNotFoundException,java.rmi.ServerRuntimeException,java.rmi.server.SocketSecurityException	Excluded	-	-	-	-	DEPRECATED	[未探索] RMI 遗留桩/骨架与安全处理器，已被动态代理与 UnicastRemoteObject 取代；观战通道只使用正式 RMI 类型
+org.xml.sax.Parser,org.xml.sax.DocumentHandler,org.xml.sax.AttributeList,org.xml.sax.HandlerBase,org.xml.sax.helpers.AttributeListImpl,org.xml.sax.helpers.ParserFactory,org.xml.sax.helpers.XMLReaderFactory	Excluded	-	-	-	-	DEPRECATED	[未探索] SAX1 遗留 API，已被 SAX2（XMLReader/DefaultHandler/SAXParserFactory）取代，配置装载只用 SAX2
+
+# —— 剪贴板：区分「数据传输模型」与「系统剪贴板」；只有后者真受无头环境限制 ——

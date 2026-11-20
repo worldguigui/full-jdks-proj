@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  默认世界：16 个地点、16 条航线、3 艘舰船。
+  全部世界数据来自本文件，核心代码不硬编码任何地点/船/资源。
+  航线在 M1 按无向边处理（from/to 可双向通行）。
+-->
+<world name="边境纪事·启程" epoch="0" seed="20261120">
+
+    <locations>
+        <!-- 1 索尔星系（起点星域） -->
+        <location id="1" kind="StarSystem" name="Sol 索尔">
+            <stock>
+                <item resource="supply" amount="200"/>
+                <item resource="food" amount="150"/>
+            </stock>
+        </location>
+        <location id="2" kind="Planet" name="Terra 泰拉" parent="1">
+            <stock>
+                <item resource="food" amount="300"/>
+                <item resource="ore" amount="80"/>
+            </stock>
+            <production resource="food" perDay="1"/>
+        </location>
+        <location id="3" kind="OrbitalStation" name="Luna 站" parent="1">
+            <stock>
+                <item resource="supply" amount="120"/>
+                <item resource="fuel" amount="90"/>
+            </stock>
+            <production resource="supply" perDay="1"/>
+        </location>
+
+        <!-- 4 织女星系 -->
+        <location id="4" kind="StarSystem" name="Vega 织女">
+            <stock>
+                <item resource="fuel" amount="60"/>
+            </stock>
+        </location>
+        <location id="5" kind="Planet" name="Vega Prime" parent="4">
+            <stock>
+                <item resource="ore" amount="140"/>
+            </stock>
+            <production resource="ore" perDay="1"/>
+        </location>
+
+        <!-- 6 猎户之门（异常点） -->
+        <location id="6" kind="Anomaly" name="Orion Gate 猎户之门">
+            <stock>
+                <item resource="fuel" amount="20"/>
+            </stock>
+        </location>
+
+        <!-- 7 参宿七星系 + 殖民地 + 设施 -->
+        <location id="7" kind="StarSystem" name="Rigel 参宿七">
+            <stock>
+                <item resource="supply" amount="80"/>
+            </stock>
+        </location>
+        <location id="8" kind="Colony" name="Rigel Forge 熔炉殖民地" parent="7">
+            <stock>
+                <item resource="ore" amount="120"/>
+                <item resource="food" amount="90"/>
+            </stock>
+        </location>
+        <location id="9" kind="Facility" name="Forge Workshop 锻造工坊" parent="8">
+            <stock>
+                <item resource="ore" amount="30"/>
+                <item resource="food" amount="40"/>
+            </stock>
+            <production resource="ore" perDay="2"/>
+        </location>
+
+        <!-- 10 天狼星系 + 船坞 -->
+        <location id="10" kind="StarSystem" name="Sirius 天狼">
+            <stock>
+                <item resource="fuel" amount="150"/>
+            </stock>
+        </location>
+        <location id="11" kind="OrbitalStation" name="Sirius Dock 天狼船坞" parent="10">
+            <stock>
+                <item resource="fuel" amount="200"/>
+                <item resource="supply" amount="100"/>
+            </stock>
+            <production resource="fuel" perDay="1"/>
+        </location>
+
+        <!-- 12 开普勒带（异常点） -->
+        <location id="12" kind="Anomaly" name="Kepler Belt 开普勒带">
+            <stock>
+                <item resource="ore" amount="60"/>
+            </stock>
+        </location>
+
+        <!-- 13 天津四星系 + 殖民地 + 农场 + 前哨 -->
+        <location id="13" kind="StarSystem" name="Deneb 天津四">
+            <stock>
+                <item resource="supply" amount="70"/>
+            </stock>
+        </location>
+        <location id="14" kind="Colony" name="Deneb Colony 天津四殖民地" parent="13">
+            <stock>
+                <item resource="food" amount="110"/>
+                <item resource="supply" amount="60"/>
+            </stock>
+        </location>
+        <location id="15" kind="Facility" name="Deneb Farm 农业站" parent="14">
+            <stock>
+                <item resource="food" amount="40"/>
+            </stock>
+            <production resource="food" perDay="3"/>
+        </location>
+        <location id="16" kind="OrbitalStation" name="Frontier Outpost 边境前哨" parent="13">
+            <stock>
+                <item resource="fuel" amount="50"/>
+                <item resource="supply" amount="40"/>
+            </stock>
+        </location>
+    </locations>
+
+    <links>
+        <!-- 星域间的曲速航线（构成环形，保证可往返） -->
+        <link from="1" to="4" kind="WarpRoute" ticks="4" risk="0.05" cost="10"/>
+        <link from="4" to="6" kind="WarpRoute" ticks="3" risk="0.20" cost="12"/>
+        <link from="6" to="7" kind="WarpRoute" ticks="5" risk="0.15" cost="14"/>
+        <link from="7" to="10" kind="WarpRoute" ticks="4" risk="0.05" cost="10"/>
+        <link from="10" to="13" kind="WarpRoute" ticks="5" risk="0.10" cost="12"/>
+        <link from="13" to="1" kind="WarpRoute" ticks="6" risk="0.05" cost="15"/>
+        <link from="6" to="12" kind="WarpRoute" ticks="2" risk="0.10" cost="8"/>
+
+        <!-- 星系到行星/站的地面或内部通路 -->
+        <link from="1" to="2" kind="SurfaceRoute" ticks="1" risk="0.01" cost="2"/>
+        <link from="1" to="3" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
+        <link from="4" to="5" kind="SurfaceRoute" ticks="2" risk="0.02" cost="3"/>
+        <link from="7" to="8" kind="SurfaceRoute" ticks="2" risk="0.03" cost="3"/>
+        <link from="8" to="9" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
+        <link from="10" to="11" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
+        <link from="13" to="14" kind="SurfaceRoute" ticks="2" risk="0.02" cost="3"/>
+        <link from="14" to="15" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
+        <link from="13" to="16" kind="InternalLane" ticks="2" risk="0.0" cost="2"/>
+    </links>
+
+    <ships>
+        <ship id="1" name="晨星号" at="1">
+            <cargo>
+                <item resource="fuel" amount="120"/>
+                <item resource="supply" amount="40"/>
+            </cargo>
+        </ship>
+        <ship id="2" name="远航号" at="10">
+            <cargo>
+                <item resource="fuel" amount="90"/>
+                <item resource="ore" amount="20"/>
+            </cargo>
+        </ship>
+        <ship id="3" name="拓荒号" at="7">
+            <cargo>
+                <item resource="fuel" amount="70"/>
+                <item resource="food" amount="30"/>
+            </cargo>
+        </ship>
+    </ships>
+
+    <agents>
+        <!-- 船员：驻 Sol / Sirius / Rigel -->
+        <agent id="1" name="林舟" role="CREW" at="1" trait="DILIGENT" skill="5"/>
+        <agent id="2" name="陈海" role="CREW" at="1" trait="STOIC" skill="4"/>
+        <agent id="3" name="郑雯" role="CREW" at="10" trait="ANXIOUS" skill="6"/>
+        <agent id="4" name="何川" role="CREW" at="10" trait="LAZY" skill="3"/>
+        <agent id="5" name="苏禾" role="CREW" at="7" trait="DILIGENT" skill="4"/>
+        <agent id="6" name="卡岚" role="CREW" at="7" trait="STOIC" skill="5"/>
+
+        <!-- 居民：殖民地与设施 -->
+        <agent id="11" name="麦芽" role="RESIDENT" at="8" trait="DILIGENT" skill="4"/>
+        <agent id="12" name="石婆" role="RESIDENT" at="8" trait="STOIC" skill="3"/>
+        <agent id="13" name="阿岩" role="RESIDENT" at="9" trait="LAZY" skill="2"/>
+        <agent id="14" name="荞苓" role="RESIDENT" at="14" trait="DILIGENT" skill="5"/>
+        <agent id="15" name="老温" role="RESIDENT" at="15" trait="STOIC" skill="4"/>
+        <agent id="16" name="苗青" role="RESIDENT" at="15" trait="ANXIOUS" skill="3"/>
+
+        <!-- 使者：随势力据点 -->
+        <agent id="21" name="伊萨" role="ENVOY" at="4" trait="ANXIOUS" skill="6"/>
+        <agent id="22" name="檀札" role="ENVOY" at="13" trait="STOIC" skill="7"/>
+    </agents>
+</world>

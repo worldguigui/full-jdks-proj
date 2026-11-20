@@ -1,0 +1,65 @@
+﻿# 阶段三 v3·功能锚点（feature-anchors）
+#
+# 目的：把「为什么这些类型必须被使用」落到一个**可验证的功能**上。
+# 每个功能必须声明来源、锚点类型、验收标准、验证方式与优先级；
+# 任何 Planned/Pending 类型都必须显式引用本表中的一个 feature_id。
+#
+# 列：feature_id	feature_name	feature_origin	anchor_type	acceptance_criteria	verification_method	priority
+#   feature_origin = CORE / API_DRIVEN / INFRASTRUCTURE / DEVELOPER_TOOLING
+#   anchor_type    = PLAYER（玩家可见）/ OPERATOR（运营者可验证）/ DEVELOPER（开发者可验证）
+#   verification_method = 命令 / 日志 / 扫描 / 编译 / 运行证据（可多写，逗号分隔）
+#   priority       = P0（核心）/ P1（高）/ P2（中）/ P3（低）/ 待定
+
+# ---------------------------------------------------------------- CORE（游戏核心）
+CORE-WORLD	世界状态与规则基座	CORE	PLAYER	`> map` / `> status` 读出地点、航线、势力、账本；连续 `> next 30` 后世界自洽且可序列化	命令,运行证据	P0
+CORE-MONEY	货币与守恒结算	CORE	PLAYER	`> trade` / `> buy` 前后 credits 与货物总量守恒，BigDecimal 精确到分	命令,运行证据	P0
+CORE-SIM	确定性 tick 管线	CORE	OPERATOR	固定种子下 `> next N` 两次结果逐字节一致；并发阶段顺序稳定	命令,运行证据	P0
+CORE-IO	存档与完整性	CORE	PLAYER	`> save` 后 `> load` 状态一致；改动任一字节后 `> load` 报错	命令,运行证据	P0
+CORE-HISTORY	编年史查询与导出	CORE	PLAYER	`> chronicle --since --actor` 返回筛选后的真实事件并可导出报告	命令,运行证据	P1
+CORE-TEXT	CLI 文本呈现	CORE	PLAYER	`> report` 表格对齐、数字右对齐、长文折行；`--lang` 切换文案	命令,运行证据	P0
+
+# ---------------------------------------------------------------- INFRASTRUCTURE（运行基础设施）
+CORE-CONFIG	配置装载与内省	INFRASTRUCTURE	OPERATOR	改 XML 一个字段后重启行为改变；非法配置给出行列定位错误	命令,运行证据	P0
+LOG-RING	环形缓冲与轮转日志	INFRASTRUCTURE	OPERATOR	`> log tail` 输出最近 N 条；日志文件轮转不丢记录	命令,运行证据	P2
+PREF-STORE	用户偏好存储	INFRASTRUCTURE	OPERATOR	`> prefs set/get` 持久化上次存档槽、语言与面板偏好	命令,运行证据	P2
+SAVE-CRYPTO	存档加密与完整性	INFRASTRUCTURE	OPERATOR	存档 AES-GCM 加密、HMAC 校验；改字节即报错；口令派生不可逆	命令,运行证据	P0
+
+# ---------------------------------------------------------------- API_DRIVEN（API 能力驱动）
+OBS-JMX	运行观测（JMX）	API_DRIVEN	OPERATOR	`> diag` 输出 tick 延迟、线程、堆与 MBean 属性；`> diag dump` 落盘快照	命令,运行证据	P1
+REMOTE-WATCH	远程观战（RMI）	API_DRIVEN	OPERATOR	`> watch serve <port>` 后外部只读客户端可订阅世界状态；关闭后端口释放	命令,运行证据	P2
+REMOTE-JMX	远程管理端点	API_DRIVEN	OPERATOR	`> admin serve` 暴露 JMX 远程端点，`jconsole` 可连接并读指标	命令,运行证据	P3
+TLS-CHANNEL	加密通道（TLS）	API_DRIVEN	OPERATOR	远程端点可启用自签 TLS，未启用时明文且告警	命令,运行证据	P2
+CERT-TRUST	模组签名信任	API_DRIVEN	DEVELOPER	`> mod verify` 校验签名 mod 的证书链与摘要，非法 mod 被拒	命令,运行证据	P2
+XML-DSIG	XML 签名验证	API_DRIVEN	DEVELOPER	`> mod verify --xml` 验证 mod 清单 XML 签名，篡改即失败	命令,运行证据	P3
+JNDI-LOOKUP	命名与服务发现	API_DRIVEN	DEVELOPER	`> res locate <name>` 经命名上下文定位 mod 与配置资源	命令,运行证据	P3
+RES-URI	资源与导出路径标识	INFRASTRUCTURE	PLAYER	`> export` 打印的路径能直接粘贴使用；URI 解析失败给出可读错误	命令,运行证据	P2
+JDBC-QUERY	编年史 SQL 查询	API_DRIVEN	OPERATOR	`> query "SELECT ..."` 经只读 JDBC 驱动查询编年史	命令,运行证据	P2
+RULE-COMPILE	玩家规则编译	API_DRIVEN	PLAYER	`> rule compile <file>` 编译受约束规则，错误行列回显；非法规则被拒	命令,编译	P2
+SCRIPT-ENGINE	脚本规则引擎	API_DRIVEN	PLAYER	`> rule run <script>` 在受限引擎内执行事件规则 DSL	命令,运行证据	P3
+HTTP-TELEMETRY	遥测上传与公告	API_DRIVEN	OPERATOR	`> telemetry push` 上传（可关闭）；离线时静默跳过	命令,运行证据	P3
+MOD-LOADER	模组装载	API_DRIVEN	PLAYER	mods/ 放入实现 jar 后启动，新命令出现且可调用 mod 接口	命令,运行证据	P1
+AUDIO-CUE	事件音效	API_DRIVEN	PLAYER	抵达/故障/重大事件播放 WAV；无混音器静默退出	命令,运行证据	P2
+AUDIO-AMBIENT	氛围乐	API_DRIVEN	PLAYER	切换星域切换音轨；无 MIDI 设备降级静默	命令,运行证据	P3
+MAP-RENDER	星图与报表渲染	API_DRIVEN	PLAYER	`> map --png` 产出含地点/航线/标注的 PNG，文字不重叠	命令,运行证据	P1
+PRINT-EXPORT	打印导出	API_DRIVEN	PLAYER	`> report --print` 渲染到打印服务；无服务降级 PNG/纯文本	命令,运行证据	P3
+CLIPBOARD-EXPORT	剪贴板导出	API_DRIVEN	PLAYER	`> export --clipboard` 复制报告；无头降级为写文件	命令,运行证据	P3
+UNDO-PLAN	经营指令撤销	API_DRIVEN	PLAYER	`> undo` 撤销未提交计划，`> redo` 恢复；不回滚世界时间	命令,运行证据	P1
+
+# ---------------------------------------------------------------- DEVELOPER_TOOLING（开发/测试/诊断工具）
+PROC-ANNOT	注解处理与语言模型	DEVELOPER_TOOLING	DEVELOPER	`fc-audit --proc` 经注解处理器收集类型引用作为覆盖证据	编译,扫描	P2
+AGENT-INSTR	运行时增强（Instrumentation）	DEVELOPER_TOOLING	DEVELOPER	`fc-audit --agent` 经 agent 记录类加载，产出运行期证据	运行证据	P3
+RUNTIME-JLINK	运行时装配与镜像	DEVELOPER_TOOLING	DEVELOPER	jlink 产出可运行镜像，镜像内 `> version` 与完整 JDK 一致	命令,编译	P2
+CORE-TEST	自研测试器	DEVELOPER_TOOLING	DEVELOPER	`fc-testkit` 跑通全部用例，输出失败定位（类#方法 + 断言差异）	命令,运行证据	P0
+
+# ================================================================
+# 本轮新增（补充任务）：桌面管理客户端 + 可选认证
+# ================================================================
+ADMIN-DESKTOP	桌面管理客户端	API_DRIVEN	PLAYER	`> admin-gui` 启动可选桌面客户端，星域/舰队/船员/诊断四面板可读可操作；纯 CLI 环境不启动且不报错；模型层先审计、视觉层后审计	命令,运行证据	P2
+AUTH	远程端点可选登录	API_DRIVEN	OPERATOR	`> watch serve --auth` 后客户端须登录才能订阅；单机模式无需登录	命令,运行证据	P3
+
+# ================================================================
+# v4：联机通信系统（第一阶段聊天室）+ 认证
+# ================================================================
+CHAT	星际远征通信频道（聊天室）	API_DRIVEN	PLAYER	`> chat serve <port>` 起服务端；客户端 `> chat join <host>:<port> <identity>` 后发消息/私聊/成员列表实时同步；历史可查	命令,运行证据	P1
+REMOTE-AUTH	联机可插拔认证（SASL）	API_DRIVEN	OPERATOR	`> chat serve --auth` 后客户端须经 SASL 握手认证才能加入频道；无认证时明文且告警	命令,运行证据	P2
+KERBEROS-AUTH	可选 Kerberos/GSS 身份认证	API_DRIVEN	OPERATOR	`> chat serve --kerberos <realm>` 启用 Kerberos 登录；无 KDC 时降级为 SASL 或明文	命令,运行证据	P3

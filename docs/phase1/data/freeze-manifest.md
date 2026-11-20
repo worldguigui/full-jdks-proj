@@ -27,6 +27,11 @@
 
 ## 3. 文件清单与完整性（SHA-256）
 
+> **校验前提**：上表 SHA-256 均基于 **LF 行尾内容**计算（`FreezeBaseline.java` 以 `\n` 写出）。
+> Windows 默认 `core.autocrlf=true` 会把工作区检出为 CRLF，导致直接对工作区文件取哈希不匹配——这不是数据漂移。
+> 仓库根目录的 `.gitattributes` 已固定 `*.csv` / `*.md` / `*.java` / `*.sh` 为 `eol=lf`，重新检出后哈希可直接复现；
+> 若旧工作区仍为 CRLF，可执行 `git add --renormalize .` 后重新检出，或将内容按 CRLF→LF 归一化后再校验。
+
 | 文件 | 行数（含表头） | 说明 | SHA-256 |
 |---|---|---|---|
 | `coverage-baseline.csv` | 3875 | SE 正式清单 3874 行（分母 3836 + Preview 38） | `884b9a60a938261bfc8837a6cee5bbed6d8511c37a609ca98370792386ffb086` |
@@ -38,11 +43,12 @@
 
 阶段三在 `coverage-baseline.csv` 上**追加** `mapping_status`（Planned/Implemented/Verified/Excluded/Pending）及场景、代码位置、证据、未覆盖原因等列；
 `EXCLUDED_PREVIEW` 行的 mapping_status 固定为 `Excluded`（原因：任务书禁止 Preview API 作为正式实现）。
-四份扩展清单**不进入**覆盖率分母，仅作完整性登记与审计追溯。
+三份扩展清单**不进入**覆盖率分母，仅作完整性登记与审计追溯。
 
 ## 5. 复现
 
 ```bash
 D:/Java/ms-21.0.13.0.2/bin/java tools/FreezeBaseline.java docs/phase1/data
 ```
-工具内含全部冻结常量的硬断言；数据漂移会直接报错而非静默改写。
+工具对冻结常量（类型/包/扩展/Deprecated 计数）做硬断言，任何数量变化都会直接报错而非静默改写；
+上表 SHA-256 用于留痕与人工复核，工具本身不校验历史哈希。若需验证当前工作区是否与冻结内容一致，请按 §3 的 LF 前提比对。

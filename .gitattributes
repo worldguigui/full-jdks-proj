@@ -1,0 +1,6 @@
+# 统一以 LF 存储与检出，保证冻结清单 SHA-256 在 Windows / Linux 上可复现
+* text=auto eol=lf
+*.csv text eol=lf
+*.md  text eol=lf
+*.java text eol=lf
+*.sh  text eol=lf

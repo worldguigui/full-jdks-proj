@@ -1,0 +1,108 @@
+﻿# 阶段三 v3·API 探索台账（api-exploration）
+#
+# 目的：追踪每一个「未纳入」类型（Pending + Excluded）的探索过程，防止"从未探索"与"已探索后排除"混为一谈。
+# 按「能力域 × 探索结论」组织：一行记录一类共享同一探索结论的类型，避免 2292 行空泛重复。
+#
+# 列：capability_domain	type_scope	current_status	candidate_feature	exploration_result	blocker	alternative	next_action
+#   type_scope     = 类型范围（包前缀 + 逗号分隔的排除项；`*` 表示整包；嵌套用 $）
+#   current_status = Pending / Excluded
+#   exploration_result = UNEXPLORED / OPPORTUNITY_FOUND / FEATURE_DESIGNED / TYPE_JUSTIFIED
+#   （TYPE_JUSTIFIED 表示已升 L3 转 Planned，台账保留审计痕迹）
+#
+# 语义：type_scope 用包名或包名.类型 表示；一个能力域可多行。
+
+# ================================================================
+# 一、DEPRECATED（54 类型，forRemoval 或已有正式替代，UNEXPLORED——废弃 API 不做 API 驱动探索）
+# ================================================================
+废弃-安全管理器	java.lang.SecurityManager,java.lang.ThreadDeath,java.security.AccessController,java.security.AccessControlContext,java.security.AccessControlException,java.security.DomainCombiner,java.security.Policy,java.security.Policy$Parameters,java.security.PolicySpi,java.security.Certificate,java.security.Identity,java.security.IdentityScope,java.security.Signer,java.security.SecurityPermission,java.security.Guard,java.security.GuardedObject	Excluded	-	UNEXPLORED	SecurityManager 体系 JEP 411 forRemoval，新系统不得以之为安全基础（已废弃）	改用目录权限+命令白名单+ObjectInputFilter	维持排除
+废弃-RMI桩骨架	java.rmi.RMISecurityManager,java.rmi.RMISecurityException,java.rmi.ServerRuntimeException,java.rmi.registry.RegistryHandler,java.rmi.server.LoaderHandler,java.rmi.server.LogStream,java.rmi.server.Operation,java.rmi.server.RemoteCall,java.rmi.server.RemoteStub,java.rmi.server.ServerRef,java.rmi.server.Skeleton,java.rmi.server.SkeletonMismatchException,java.rmi.server.SkeletonNotFoundException,java.rmi.server.SocketSecurityException	Excluded	-	UNEXPLORED	RMI 遗留桩/骨架已被动态代理与 UnicastRemoteObject 取代（已废弃）	用 UnicastRemoteObject + 动态代理	维持排除
+废弃-遗留IO	java.io.LineNumberInputStream,java.io.StringBufferInputStream	Excluded	-	UNEXPLORED	JDK 1.0 遗留字节流（已废弃）	BufferedInputStream/ByteArrayInputStream	维持排除
+废弃-观察者	java.util.Observable,java.util.Observer	Excluded	-	UNEXPLORED	已被 Flow/PropertyChangeSupport 取代（已废弃）	事件总线用 Flow	维持排除
+废弃-遗留证书	javax.security.cert.Certificate,javax.security.cert.CertificateEncodingException,javax.security.cert.CertificateException,javax.security.cert.CertificateExpiredException,javax.security.cert.CertificateNotYetValidException,javax.security.cert.CertificateParsingException,javax.security.cert.X509Certificate	Excluded	-	UNEXPLORED	被 java.security.cert 取代（已废弃）	java.security.cert	维持排除
+废弃-Applet	java.applet.Applet,java.applet.AppletContext,java.applet.AppletStub,java.applet.AudioClip	Excluded	-	UNEXPLORED	Applet 技术已淘汰（已废弃）	-	维持排除
+废弃-SAX1	org.xml.sax.Parser,org.xml.sax.DocumentHandler,org.xml.sax.AttributeList,org.xml.sax.HandlerBase,org.xml.sax.helpers.AttributeListImpl,org.xml.sax.helpers.ParserFactory,org.xml.sax.helpers.XMLReaderFactory	Excluded	-	UNEXPLORED	SAX1 已被 SAX2 取代（已废弃）	SAX2（XMLReader/DefaultHandler）	维持排除
+废弃-管理遗留	java.util.logging.LoggingMXBean,javax.management.DefaultLoaderRepository	Excluded	-	UNEXPLORED	已被 PlatformLoggingMXBean 与 MBeanServer 取代（已废弃）	PlatformLoggingMXBean	维持排除
+
+# ================================================================
+# 二、Swing 桌面管理客户端（FEATURE_DESIGNED → 逐类型升 L3）
+# ================================================================
+桌面-Swing组件	javax.swing	Excluded	ADMIN-DESKTOP	FEATURE_DESIGNED	独立可选桌面管理客户端：星域/舰队/船员/诊断四面板；模型类与组件类需逐类型区分（须逐类型审计，plaf/渲染器/字体依赖图形环境但桌面客户端本就具备）	纯 CLI 时该客户端不启动	阶段四逐类型 L3
+桌面-Swing表格	javax.swing.table	Excluded	ADMIN-DESKTOP	FEATURE_DESIGNED	船员名册/库存表格：TableModel/TableColumnModel/TableRowSorter（须逐类型：模型类可用，Renderer 仅桌面）	CLI 报表用自研列式渲染	阶段四逐类型 L3
+桌面-Swing树	javax.swing.tree	Excluded	ADMIN-DESKTOP	FEATURE_DESIGNED	星域/势力层级树：TreeModel/TreeNode/TreePath（须逐类型）	LocationGraph 自行表达（CLI 侧）	阶段四逐类型 L3
+桌面-Swing事件	javax.swing.event	Excluded	ADMIN-DESKTOP	FEATURE_DESIGNED	表格/树/列表选择与变更监听：EventListenerList/TableModelListener 等（须逐类型）	CLI 侧事件用 Flow	阶段四逐类型 L3
+桌面-Swing文本	javax.swing.text	Excluded	ADMIN-DESKTOP	FEATURE_DESIGNED	编年史/日志文档模型：Document/Element/StyledDocument（须逐类型；HTML/RTF 编辑器套件无场景）	CLI 日志用环形缓冲	阶段四逐类型 L3
+桌面-Swing外观	javax.swing.plaf.*	Excluded	ADMIN-DESKTOP	UNEXPLORED	可插拔外观体系属主题定制，桌面客户端用默认外观即可（无自定义外观需求）	默认 Metal/Nimbus	维持排除
+
+# ================================================================
+# 三、AWT / 剪贴板 / 拖放 / 无障碍 / 打印（桌面客户端配套 + 数据交换）
+# ================================================================
+桌面-AWT组件	java.awt	Excluded	ADMIN-DESKTOP	FEATURE_DESIGNED	桌面客户端窗口/容器/布局/组件：Component/Container/Frame/LayoutManager（须逐类型：无头绘图已 L3，GUI 组件仅桌面客户端用）	CLI 无 GUI	阶段四逐类型 L3
+桌面-AWT事件	java.awt.event	Excluded	ADMIN-DESKTOP	FEATURE_DESIGNED	桌面交互事件：ActionEvent/MouseEvent/KeyEvent（须逐类型）	-	阶段四逐类型 L3
+数据交换-拖放	java.awt.dnd	Excluded	ADMIN-DESKTOP	OPPORTUNITY_FOUND	桌面客户端拖放导入存档/mod（须逐类型审计）	CLI 用文件路径	阶段四评估
+无障碍	javax.accessibility	Excluded	ADMIN-DESKTOP	OPPORTUNITY_FOUND	桌面客户端无障碍支持（Accessible 接口）（须逐类型，价值有限）	-	阶段四评估
+数据交换-剪贴板	java.awt.datatransfer	Planned	CLIPBOARD-EXPORT	TYPE_JUSTIFIED	报告复制：DataFlavor/Transferable 数据模型 + Clipboard 系统剪贴板（系统剪贴板无头 HeadlessException（证据））	无头降级写文件	阶段四逐类型 L3
+数据交换-打印	javax.print.*	Pending	PRINT-EXPORT	FEATURE_DESIGNED	回合报告打印：PrintService/PrintJob/属性（CI 无打印服务）	降级 PNG/文本	阶段四逐类型 L3
+桌面-桌面集成	java.awt.desktop	Excluded	ADMIN-DESKTOP	OPPORTUNITY_FOUND	桌面客户端用 Desktop 打开文件/浏览器（Desktop.isDesktopSupported 需桌面会话）	CLI 降级打印路径	阶段四评估
+桌面-输入法	java.awt.im.*	Excluded	-	UNEXPLORED	输入法框架属桌面文本输入（价值低，终端/桌面客户端由系统处理）	-	维持排除
+
+# ================================================================
+# 四、安全（JAAS/GSS/SASL，远程管理端点认证）
+# ================================================================
+安全-认证	javax.security.auth.*	Excluded	AUTH	OPPORTUNITY_FOUND	远程管理/观战端点可选登录：Subject/LoginContext（核心程序单机无需认证域）	单机存档口令走 JCA	阶段四评估
+安全-GSS	org.ietf.jgss	Excluded	AUTH	UNEXPLORED	GSS-API 服务企业级 Kerberos 票据（无 Kerberos 域）	-	维持排除
+安全-SASL	javax.security.sasl	Excluded	AUTH	UNEXPLORED	SASL 用于网络协议握手（可选联机走自签 TLS 即可）	-	维持排除
+安全-Kerberos	javax.security.auth.kerberos	Excluded	AUTH	UNEXPLORED	Kerberos 票据无部署场景（单机无域）	-	维持排除
+
+# ================================================================
+# 五、网络 / 远程 / 通道（远程观战 + 遥测）
+# ================================================================
+网络-套接字	java.net	Excluded	REMOTE-WATCH	OPPORTUNITY_FOUND	远程观战 Socket/ServerSocket/InetAddress/Datagram（须逐类型：URI/URL 已 L3，套接字归远程观战）	单机离线可关闭	阶段四评估
+网络-通道	java.nio.channels	Excluded	REMOTE-WATCH	OPPORTUNITY_FOUND	SocketChannel/ServerSocketChannel/Selector 非阻塞远程（须逐类型：FileChannel 已 L3）	-	阶段四评估
+网络-HTTP	java.net.http	Pending	HTTP-TELEMETRY	FEATURE_DESIGNED	HttpClient 遥测上传（离线优先）	静默跳过	阶段四逐类型 L3
+远程-RMI	java.rmi.*	Pending	REMOTE-WATCH	FEATURE_DESIGNED	远程只读观战（序列化过滤安全）	ObjectInputFilter 白名单	阶段四逐类型 L3
+
+# ================================================================
+# 六、命名 / 目录 / 数据访问
+# ================================================================
+命名-上下文	javax.naming	Pending	JNDI-LOOKUP	FEATURE_DESIGNED	真实 fc:// 命名上下文定位资源（须真实命名语义，非自造目录服务）	Path/URI/ServiceLoader	阶段四逐类型 L3
+命名-目录	javax.naming.directory	Pending	JNDI-LOOKUP	FEATURE_DESIGNED	mod 元数据目录树（须真实功能）	-	阶段四逐类型 L3
+命名-LDAP	javax.naming.ldap.*	Excluded	-	OPPORTUNITY_FOUND	LDAP 无目录服务器；LdapName/Rdn 可作命名解析子集（无目录服务器）	-	评估是否仅保留字符串解析子集
+数据-JDBC	java.sql,javax.sql,javax.sql.rowset*	Planned	JDBC-QUERY	TYPE_JUSTIFIED	CSV 档案查询经可选 JDBC Provider；标准接口类型（Connection/Statement/ResultSet）真实使用，Driver 第三方不计入（不自行实现驱动换覆盖）	XPath/Stream 查询	阶段四逐类型 L3（接口类型）
+
+# ================================================================
+# 七、编译 / 脚本 / 运行时
+# ================================================================
+编译-规则	javax.tools	Planned	RULE-COMPILE	TYPE_JUSTIFIED	受信任模组编译；不可信代码明确隔离（非假沙箱）（Compiler 不等于安全沙箱）	白名单+审计	阶段四逐类型 L3
+编译-注解处理	javax.annotation.processing,javax.lang.model*	Planned	PROC-ANNOT	TYPE_JUSTIFIED	注解处理器收集覆盖证据（版本化访问器应收紧为 …14）	-	阶段四逐类型 L3
+脚本-引擎	javax.script	Planned	SCRIPT-ENGINE	TYPE_JUSTIFIED	ScriptEngine API 与 Provider 区分：API 类型真实使用，引擎 Provider 第三方不计入（JDK 无内置引擎）	可选 Provider	阶段四逐类型 L3（API 类型）
+运行时-常量	java.lang.constant,java.lang.runtime	Pending	RULE-COMPILE	FEATURE_DESIGNED	受信任模组编译的常量池描述（须有真实生成代码才可计）	-	阶段四评估
+运行时-Instrumentation	java.lang.instrument	Planned	AGENT-INSTR	TYPE_JUSTIFIED	agent 记录类加载（须 -javaagent 启动参数）	静态扫描	阶段四评估
+
+# ================================================================
+# 八、JMX / 管理
+# ================================================================
+管理-JMX核心	javax.management	Planned(部分)	OBS-JMX	TYPE_JUSTIFIED	已 L3：ObjectName/MBeanServer/StandardMBean（Query/DynamicMBean/权限类排除）	-	完成
+管理-JMX外围	javax.management.relation,javax.management.openmbean,javax.management.modelmbean	Pending	OBS-JMX	FEATURE_DESIGNED	关系/开放类型/声明式 MBean（须真实用途）	-	阶段四逐类型 L3
+管理-JMX监控	javax.management.monitor,javax.management.timer	Pending	OBS-JMX	FEATURE_DESIGNED	现实时间监控（System.nanoTime），与游戏 Stardate 分离（独立时间源须与游戏时间分离）	-	阶段四逐类型 L3
+管理-远程	javax.management.remote*	Planned	REMOTE-JMX	TYPE_JUSTIFIED	远程管理端点（无远程需求时关闭）	-	阶段四逐类型 L3
+
+# ================================================================
+# 九、加密 / 签名（数据交换与验证）
+# ================================================================
+安全-TLS	javax.net.ssl,javax.net	Pending	TLS-CHANNEL	FEATURE_DESIGNED	远程端点自签 TLS（自签 CA 管理）	-	阶段四逐类型 L3
+安全-证书	java.security.cert	Pending	CERT-TRUST	FEATURE_DESIGNED	签名 mod 证书链校验（证书管理复杂）	白名单	阶段四逐类型 L3
+安全-XML签名	javax.xml.crypto*	Planned	XML-DSIG	TYPE_JUSTIFIED	mod 清单 XML 签名验证（与 HMAC 两套机制）	-	阶段四逐类型 L3
+
+# ================================================================
+# 十、其余 SPI / 遗留（UNEXPLORED 或 OPPORTUNITY_FOUND）
+# ================================================================
+SPI-字符集	java.nio.charset.spi	Excluded	-	UNEXPLORED	自定义 CharsetProvider 无需求（-）	-	维持排除
+SPI-文本	java.text.spi	Excluded	-	UNEXPLORED	自定义 Locale 提供者无需求（-）	-	维持排除
+SPI-音频	javax.sound.sampled.spi,javax.sound.midi.spi	Excluded	-	UNEXPLORED	自定义音频设备/格式 SPI 无需求（-）	-	维持排除
+SPI-命名	javax.naming.spi	Pending	JNDI-LOOKUP	FEATURE_DESIGNED	自研 InitialContextFactory（-）	-	阶段四逐类型 L3
+SPI-网络	java.net.spi,java.nio.channels.spi	Pending	REMOTE-WATCH	OPPORTUNITY_FOUND	自研 URL 协议/通道 provider（-）	-	阶段四评估
+SPI-文件	java.nio.file.spi	Pending	CORE-IO	OPPORTUNITY_FOUND	fcfs:// 只读文件系统（Path/Files 已满足）	-	阶段四评估
+遗留-BeanContext	java.beans.beancontext	Excluded	-	UNEXPLORED	遗留 JavaBeans 容器（-）	-	维持排除
+遗留-JavaBeans持久化	java.beans	Excluded	ADMIN-DESKTOP	OPPORTUNITY_FOUND	XMLEncoder/Decoder 导出配置；Introspector 已 L3（须逐类型：持久化类可用于配置导出）	-	阶段四评估
+遗留-DOM可选	org.w3c.dom.events,org.w3c.dom.ranges,org.w3c.dom.views	Excluded	-	UNEXPLORED	DOM 可选模块面向浏览器（-）	-	维持排除
+遗留-XA	javax.transaction.xa	Excluded	-	UNEXPLORED	XA 分布式事务无场景（-）	-	维持排除

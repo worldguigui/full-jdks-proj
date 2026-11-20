@@ -1,0 +1,182 @@
+# 阶段三包级映射规则（177 包，对应冻结清单 coverage-baseline.csv 的包全集）
+# 列：package	status	fc_module	system	batch	main_class	reason_code	scenario
+# status ∈ Planned / Excluded；Excluded 必须有 reason_code（BIZ 业务无关 / ENV 环境限制 / ACCESS 非 public 不可引用 / DEPRECATED 已被取代 / PREVIEW 预览禁用 / SPEC 规范边界）
+# main_class 相对 <fc_module>/src/main/java/；Excluded 行用 -
+# 该表只决定"默认值"，具体类型可由 type-overrides.tsv 覆盖（如 java.awt 中的无头几何/绘图类型）
+java.io	Planned	fc-persist	存档与加载	M5	fc/persist/store/SaveIo.java		ObjectOutputStream/ObjectInputStream 写入 world.dat 与编年史分片，缓冲流+字符编码处理存档文本段
+java.lang	Planned	fc-world	星域与空间结构	M0	fc/world/core/WorldBasics.java		Object 契约、String/Math/System/Thread 基础，值对象与标识类型的公共基座
+java.lang.annotation	Planned	fc-testkit	测试与验证	M0	fc/testkit/FcTest.java		@Retention/@Target/@Documented 定义自研测试与审计注解，编译期语义用于 runner 发现用例
+java.lang.constant	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/compile/RuleClassGenerator.java		运行时生成规则类时用 MethodTypeDesc/ClassDesc 描述签名与常量池条目
+java.lang.foreign	Excluded	-	-	-	-	PREVIEW	[已探索] 整包 25 个类型均为 JDK 21 预览（JEP 442），任务书 §3.3/§7 禁止用于正式实现
+java.lang.invoke	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/mod/ModDispatch.java		MethodHandles/VarHandle 支撑 mod 动作的动态分派与账本字段的无锁原子更新
+java.lang.module	Planned	fc-runtime	启动与模块装配（工程）	M6	fc/runtime/ModuleBootstrap.java		ModuleLayer/ModuleDescriptor 校验 mod 模块层与 jlink 镜像的模块图
+java.lang.ref	Planned	fc-world	星域与空间结构	M2	fc/world/core/ViewCache.java		WeakReference + ReferenceQueue 缓存地点视图，避免长局内存膨胀
+java.lang.reflect	Planned	fc-testkit	测试与验证	M0	fc/testkit/ReflectiveRunner.java		反射发现 @FcTest 方法、注入夹具并校验访问修饰符
+java.lang.runtime	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/compile/ObjectMethodsSupport.java		生成的 record 规则类型用 ObjectMethods.bootstrap 产出 equals/hashCode/toString；TypeSwitch 做动态分派
+java.math	Planned	fc-economy	资源与贸易	M0	fc/economy/ledger/Money.java		BigDecimal 承载价格/债务/库存量，MathContext+RoundingMode 固定舍入，守恒断言精确比较
+java.net	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/net/TelemetryEndpoint.java		URI/InetAddress/Socket/ServerSocket 支撑可选的电讯与观战端点，缺网即降级
+java.net.spi	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/net/FcUrlStreamHandlerProvider.java		自研 URLStreamHandlerProvider 注册 fc:// 协议，供 mod 资源定位
+java.nio	Planned	fc-persist	存档与加载	M5	fc/persist/store/SaveBuffer.java		ByteBuffer 直接缓冲区承载存档块的读写与校验和计算
+java.nio.channels	Planned	fc-persist	存档与加载	M5	fc/persist/store/SaveChannel.java		FileChannel 原子写 + FileLock 双开保护；通道组支撑可选观战的非阻塞收发
+java.nio.channels.spi	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/net/ChannelFactory.java		经 SelectorProvider 统一打开通道，避免直接依赖平台默认实现
+java.nio.charset	Planned	fc-world	星域与空间结构	M0	fc/world/core/TextCodec.java		Charset/StandardCharsets 固定 UTF-8 读写，CharsetDecoder 处理损坏存档的替换策略
+java.nio.charset.spi	Excluded	-	-	-	-	BIZ	[已探索] 自定义 CharsetProvider 无玩法需求，注册私有字符集属为覆盖率造功能
+java.nio.file	Planned	fc-persist	存档与加载	M0	fc/persist/store/SavePaths.java		Path/Files 原子写、目录遍历、WatchService 监听配置热更新
+java.nio.file.attribute	Planned	fc-persist	存档与加载	M5	fc/persist/store/SaveAttributes.java		DOS/POSIX 属性与 ACL 用于存档只读保护与跨平台权限降级
+java.nio.file.spi	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/fs/SaveFileSystemProvider.java		自研只读 FileSystemProvider 以 fcfs:// 暴露存档槽位，供 CLI 浏览与导出
+java.security	Planned	fc-persist	存档与加载	M5	fc/persist/crypto/SaveSecurity.java		MessageDigest/SecureRandom/KeyStore/Provider 支撑存档摘要、口令派生与密钥库
+java.security.cert	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/mod/CertChainVerifier.java		X.509 证书链解析与校验，验证 mod 包签名者身份
+java.security.interfaces	Planned	fc-persist	存档与加载	M5	fc/persist/crypto/KeyMaterial.java		RSA/EC 公私钥接口承载存档与 mod 签名密钥
+java.security.spec	Planned	fc-persist	存档与加载	M5	fc/persist/crypto/KeySpecs.java		X509EncodedKeySpec/ECPoint 等密钥规格在存档与 mod 签名间传递
+java.text	Planned	fc-cli	命令行交互	M0	fc/cli/text/ReportFormat.java		MessageFormat/DecimalFormat/Collator/BreakIterator 做命令输出、数字与中文排序
+java.text.spi	Excluded	-	-	-	-	BIZ	[已探索] 自定义 Collator/DateFormat 提供者无需求，Locale 数据由 JDK 自带已足够
+java.time	Planned	fc-world	星域与空间结构	M0	fc/world/time/Stardate.java		LocalDate/Duration/Instant 承载单一时间轴与存档时间戳
+java.time.chrono	Planned	fc-world	星域与空间结构	M2	fc/world/time/ExpeditionChronology.java		自研「启程历」Chronology/ChronoLocalDate/Era，与 ISO 历法互转
+java.time.format	Planned	fc-cli	命令行交互	M0	fc/cli/text/StardateFormat.java		DateTimeFormatter 输出启程历日期（含自定义格式与本地化）
+java.time.temporal	Planned	fc-world	星域与空间结构	M1	fc/world/time/TemporalMath.java		TemporalAdjuster/ChronoUnit/TemporalField 做时间推进与星象周期对齐
+java.time.zone	Planned	fc-world	星域与空间结构	M2	fc/world/time/StarZoneRules.java		ZoneRules/ZoneOffsetTransition 表达各星系本地时与静默区时差
+java.util	Planned	fc-world	星域与空间结构	M0	fc/world/core/WorldCollections.java		集合/Map/EnumSet/Optional/Collections 工具构成世界状态容器
+java.util.concurrent	Planned	fc-sim	时间与回合推进	M2	fc/sim/tick/TickPipeline.java		虚拟线程执行 Agent 决策、固定顺序汇合、SubmissionPublisher 做 tick 后报告投递
+java.util.concurrent.atomic	Planned	fc-sim	时间与回合推进	M2	fc/sim/tick/ConcurrentCounters.java		AtomicLong/LongAdder 统计回合指标，避免并发计数竞争
+java.util.concurrent.locks	Planned	fc-sim	时间与回合推进	M2	fc/sim/tick/DomainLocks.java		ReentrantReadWriteLock 保护共享账本，固定加锁顺序防死锁
+java.util.function	Planned	fc-world	星域与空间结构	M0	fc/world/rules/Modifiers.java		Function/Predicate/Supplier/BiFunction 表达科技修饰器与事件条件
+java.util.jar	Planned	fc-persist	存档与加载	M5	fc/persist/store/SaveContainer.java		JarOutputStream/JarEntry/MANIFEST.MF 构造加密存档容器
+java.util.random	Planned	fc-sim	时间与回合推进	M2	fc/sim/random/RandomStreams.java		RandomGeneratorFactory 按子系统派生可跳跃随机流，保证同种子重放
+java.util.regex	Planned	fc-cli	命令行交互	M0	fc/cli/command/CommandLexer.java		Pattern/Matcher 解析命令、参数与过滤表达式
+java.util.spi	Planned	fc-runtime	启动与模块装配（工程）	M6	fc/runtime/ToolLayer.java		ToolProvider 在构建期调用 jlink/javac 工具；其余 locale 提供者类由类型级覆盖排除
+java.util.stream	Planned	fc-world	星域与空间结构	M1	fc/world/query/WorldQueries.java		Stream/Collectors 做舰队、船员、库存的声明式查询与聚合
+java.util.zip	Planned	fc-persist	存档与加载	M5	fc/persist/store/SaveCompression.java		Deflater/GZIP/CRC32/Adler32 压缩存档块并校验完整性
+javax.crypto	Planned	fc-persist	存档与加载	M5	fc/persist/crypto/SaveCipher.java		AES-GCM 加密存档正文，PBKDF2 派生口令密钥，Mac 校验篡改
+javax.crypto.interfaces	Planned	fc-persist	存档与加载	M5	fc/persist/crypto/PasswordKeys.java		PBEKey/DHKey 接口承载口令派生与密钥协商结果
+javax.crypto.spec	Planned	fc-persist	存档与加载	M5	fc/persist/crypto/CipherSpecs.java		GCMParameterSpec/SecretKeySpec/PBEParameterSpec 配置加密参数
+javax.net	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/net/SocketFactories.java		SocketFactory 统一创建电讯/观战连接，便于注入测试替身
+javax.net.ssl	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/net/TlsChannel.java		SSLContext/SSLEngine/TrustManager 支撑可选联机的自签证书加密通道
+javax.security.auth	Excluded	-	-	-	-	BIZ	[已探索] 单机 CLI 无认证域与 Subject 传播需求；存档口令走 JCA（javax.crypto）而非 JAAS
+javax.security.auth.callback	Excluded	-	-	-	-	BIZ	[已探索] CallbackHandler 仅服务于 JAAS 登录，本项目无 JAAS 登录流程
+javax.security.auth.login	Excluded	-	-	-	-	BIZ	[已探索] LoginContext/Configuration 属企业登录配置，单机游戏无此场景
+javax.security.auth.spi	Excluded	-	-	-	-	BIZ	[已探索] LoginModule SPI 属 JAAS 扩展点，无自定义登录模块需求
+javax.security.auth.x500	Excluded	-	-	-	-	BIZ	[已探索] X500Principal 服务于 JAAS Subject 与证书主题，本项目证书校验直接走 java.security.cert
+javax.security.cert	Excluded	-	-	-	-	DEPRECATED	[未探索] 包内 7 个类型全部 @Deprecated(forRemoval)，已被 java.security.cert 取代
+javax.annotation.processing	Planned	fc-audit	构建与覆盖审计（工程）	M6	fc/audit/proc/ApiUsageProcessor.java		注解处理器收集 @UsesApi 标注与编译单元信息，作为覆盖审计的补充证据
+javax.lang.model	Planned	fc-audit	构建与覆盖审计（工程）	M6	fc/audit/proc/ModelAccess.java		AnnotatedConstruct/SourceVersion 等语言模型入口，支撑处理器读写元素
+javax.lang.model.element	Planned	fc-audit	构建与覆盖审计（工程）	M6	fc/audit/proc/ElementScan.java		Element/TypeElement/ExecutableElement 遍历源码元素，统计类型引用
+javax.lang.model.type	Planned	fc-audit	构建与覆盖审计（工程）	M6	fc/audit/proc/TypeMirrorScan.java		TypeMirror/DeclaredType/TypeVisitor 解析类型引用，区分直接使用与继承获得
+javax.lang.model.util	Planned	fc-audit	构建与覆盖审计（工程）	M6	fc/audit/proc/ModelUtils.java		Elements/Types/ElementFilter/visitor 基类支撑元素与类型模型遍历
+javax.tools	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/compile/RuleCompiler.java		JavaCompiler/StandardJavaFileManager/DiagnosticCollector 运行时编译玩家规则与 mod
+java.awt.datatransfer	Excluded	fc-extensions	桌面管理客户端	M6	fc/ext/desktop/ClipboardBridge.java	BIZ	[已探索] 桌面客户端剪贴板/数据交换（type-keep 明确清单重开为 L3）
+java.applet	Excluded	-	-	-	-	DEPRECATED	[未探索] Applet 技术已被淘汰，4 个类型全部 @Deprecated(forRemoval)，无 CLI 玩法场景
+java.awt	Planned	fc-cli	命令行交互	M5	fc/cli/render/StarMapCanvas.java		仅取无头可用的绘图子集（Graphics2D/Color/Font/Shape/Paint/Stroke）渲染 PNG 星图；容器与组件类由类型级覆盖排除
+java.awt.color	Planned	fc-cli	命令行交互	M5	fc/cli/render/ColorProfiles.java		ColorSpace/ICC_Profile 管理星图配色与色域转换
+java.awt.desktop	Excluded	-	-	-	-	BIZ	[已探索] 桌面集成（打开文件/邮件/浏览）与纯 CLI 定位无关，属业务无关；Desktop.isDesktopSupported()=false 亦为事实，但不作为排除判据
+java.awt.dnd	Excluded	-	-	-	-	BIZ	[已探索] 拖放属 GUI 交互，纯 CLI 无拖放语义
+java.awt.event	Excluded	-	-	-	-	BIZ	[已探索] AWT 事件模型绑定 GUI 组件，CLI 输入走自研行编辑器
+java.awt.font	Planned	fc-cli	命令行交互	M5	fc/cli/render/StarmapFonts.java		Font/FontRenderContext/GlyphVector/TextLayout 在 PNG 星图上排版标签（含中文回退）
+java.awt.geom	Planned	fc-cli	命令行交互	M5	fc/cli/render/OrbitGeometry.java		AffineTransform/Path2D/Area/Arc2D 绘制航线、轨道与势力边界
+java.awt.im	Excluded	-	-	-	-	BIZ	[已探索] 输入法框架属 GUI 文本输入，CLI 由终端处理输入
+java.awt.im.spi	Excluded	-	-	-	-	BIZ	[已探索] 输入法引擎 SPI 无自定义输入法需求
+java.awt.image	Planned	fc-cli	命令行交互	M5	fc/cli/render/BitmapOps.java		BufferedImage/Raster/ColorModel/ConvolveOp 合成星图位图与图例
+java.awt.image.renderable	Planned	fc-cli	命令行交互	M5	fc/cli/render/ScalableMap.java		RenderableImage/ContextualRenderedImageFactory 按导出尺寸缩放星图
+java.awt.print	Excluded	-	-	-	-	BIZ	[已探索] 打印不增加玩法：报告与星图导出已由 XML/XSLT/PNG 覆盖；AWT 打印还需图形环境，但排除判据是业务无关
+java.beans	Planned	fc-config	游戏配置	M5	fc/config/introspect/ConfigProperties.java		以 Introspector/PropertyDescriptor 暴露配置项，供 `config` 命令列出与修改；beancontext 与 GUI 相关类由类型级覆盖排除
+java.beans.beancontext	Excluded	-	-	-	-	BIZ	[已探索] BeanContext 属遗留 JavaBeans 容器体系，与配置内省无关
+javax.accessibility	Excluded	-	-	-	-	BIZ	[已探索] 无障碍支持服务于 GUI 组件树，纯 CLI 无对应结构
+javax.imageio	Planned	fc-cli	命令行交互	M5	fc/cli/render/ImageExporter.java		ImageIO 读写 PNG/TIFF，导出星图与统计图
+javax.imageio.event	Planned	fc-cli	命令行交互	M5	fc/cli/render/ExportProgress.java		IIOReadProgressListener/IIOWriteProgressListener 驱动导出进度提示
+javax.imageio.metadata	Planned	fc-cli	命令行交互	M5	fc/cli/render/PngMetadata.java		IIOMetadata 在 PNG 文本块写入存档指纹与编年史摘要
+javax.imageio.plugins.bmp	Planned	fc-cli	命令行交互	M5	fc/cli/render/BmpOptions.java		BMPImageWriteParam 提供无压缩位图导出选项
+javax.imageio.plugins.jpeg	Planned	fc-cli	命令行交互	M5	fc/cli/render/JpegOptions.java		JPEGImageWriteParam 控制星图压缩质量
+javax.imageio.plugins.tiff	Planned	fc-cli	命令行交互	M5	fc/cli/render/TiffOptions.java		TIFF 写入参数与元数据，导出可印刷星图
+javax.imageio.spi	Planned	fc-cli	命令行交互	M5	fc/cli/render/WriterRegistry.java		IIORegistry/ImageWriterSpi 发现并排序可用编码器
+javax.imageio.stream	Planned	fc-cli	命令行交互	M5	fc/cli/render/ImageStreams.java		ImageInputStream/ImageOutputStream 处理导出文件的随机读写
+javax.print	Excluded	-	-	-	-	BIZ	[已探索] 无打印产品需求：报告与星图导出已由 XML/XSLT/PNG 覆盖，不建打印子系统；本机虽有 2 个 PDF 虚拟打印服务（env-probe.txt），但可用性不是采用理由
+javax.print.attribute	Excluded	-	-	-	-	BIZ	[已探索] 打印属性容器只在打印链路中有意义，随打印域一并排除（业务无关）
+javax.print.attribute.standard	Excluded	-	-	-	-	BIZ	[已探索] 标准打印属性（纸张/份数/分辨率）只在打印链路中有意义，随打印域一并排除（业务无关）
+javax.print.event	Excluded	-	-	-	-	BIZ	[已探索] 打印事件监听依赖打印作业，随打印域一并排除（业务无关）
+javax.sound.midi	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/audio/MidiScore.java		Sequence/Track/MidiEvent 生成事件提示音与氛围乐，MidiSystem 无设备时降级为不播放
+javax.sound.midi.spi	Excluded	-	-	-	-	BIZ	[已探索] 自定义 MIDI 设备/文件读写 SPI 无需求，内置提供者已足够
+javax.sound.sampled	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/audio/SfxPlayer.java		AudioSystem/AudioFormat/AudioInputStream 播放与转码 WAV 音效，无混音器时静音降级
+javax.sound.sampled.spi	Excluded	-	-	-	-	BIZ	[已探索] 自定义音频格式/设备 SPI 无需求，内置提供者已足够
+javax.swing	Excluded	-	-	-	-	BIZ	[已探索] Swing 组件体系属 GUI，纯 CLI 不使用；命令撤销所用的非 GUI 模型见 javax.swing.undo
+javax.swing.border	Excluded	-	-	-	-	BIZ	[已探索] Swing 边框绘制属 GUI 视觉，CLI 无对应概念
+javax.swing.colorchooser	Excluded	-	-	-	-	BIZ	[已探索] 颜色选择器属 GUI 对话框
+javax.swing.event	Excluded	-	-	-	-	BIZ	[已探索] Swing 事件监听绑定 GUI 组件；CLI 事件通知走自研订阅与 Flow
+javax.swing.filechooser	Excluded	-	-	-	-	BIZ	[已探索] 文件选择对话框属 GUI
+javax.swing.plaf	Excluded	-	-	-	-	BIZ	[已探索] 可插拔外观属 GUI 主题体系
+javax.swing.plaf.basic	Excluded	-	-	-	-	BIZ	[已探索] Basic 外观实现属 GUI 主题体系
+javax.swing.plaf.metal	Excluded	-	-	-	-	BIZ	[已探索] Metal 外观实现属 GUI 主题体系
+javax.swing.plaf.multi	Excluded	-	-	-	-	BIZ	[已探索] 多路外观委托属 GUI 主题体系
+javax.swing.plaf.nimbus	Excluded	-	-	-	-	BIZ	[已探索] Nimbus 外观实现属 GUI 主题体系
+javax.swing.plaf.synth	Excluded	-	-	-	-	BIZ	[已探索] Synth 外观属 GUI 主题体系
+javax.swing.table	Excluded	-	-	-	-	BIZ	[已探索] 表格模型与 GUI 表格控件耦合，CLI 报表由自研列式渲染器输出
+javax.swing.text	Excluded	-	-	-	-	BIZ	[已探索] Swing 文档模型服务 GUI 文本组件，CLI 文本输出走 StringBuilder 与折行器
+javax.swing.text.html	Excluded	-	-	-	-	BIZ	[已探索] HTML 文档模型与编辑器套件属 GUI 域
+javax.swing.text.html.parser	Excluded	-	-	-	-	BIZ	[已探索] HTML 解析器仅为 Swing HTML 视图服务；本项目 HTML 报告由 XML/XSLT 生成
+javax.swing.text.rtf	Excluded	-	-	-	-	BIZ	[已探索] RTF 编辑器套件属 GUI 文档域
+javax.swing.tree	Excluded	-	-	-	-	BIZ	[已探索] 树模型与 GUI 树控件耦合；地点树由 fc-world 的 LocationGraph 自行表达
+javax.swing.undo	Planned	fc-cli	命令行交互	M3	fc/cli/command/CommandUndo.java		UndoManager/CompoundEdit/UndoableEdit 实现经营指令的撤销与重做（纯模型，无 GUI 依赖）
+java.lang.instrument	Planned	fc-audit	构建与覆盖审计（工程）	M6	fc/audit/agent/UsageAgent.java		Java agent 用 Instrumentation/ClassFileTransformer 记录类加载，提供运行期使用证据
+java.util.logging	Planned	fc-history	世界历史与日志	M2	fc/history/log/RingBufferHandler.java		Logger/Handler/Formatter 构建环形缓冲+文件轮转的运行日志
+java.lang.management	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/jmx/PlatformMetrics.java		MemoryMXBean/ThreadMXBean/GarbageCollectorMXBean 上报长局资源指标
+javax.management	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/jmx/WorldMBeanServer.java		MBeanServer/ObjectName/StandardMBean 把世界指标暴露为可观测 MBean
+javax.management.loading	Excluded	-	-	-	-	BIZ	[已探索] MLet 远程类加载体系（5 个类型已废弃）与 mod 加载方案冲突，无使用场景
+javax.management.modelmbean	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/jmx/ModelMBeanBridge.java		RequiredModelMBean/ModelMBeanInfo 把领域对象适配为声明式 MBean
+javax.management.monitor	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/jmx/ThresholdMonitors.java		CounterMonitor/GaugeMonitor 对燃料、人口等指标做阈值告警
+javax.management.openmbean	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/jmx/OpenTypes.java		CompositeData/TabularData/OpenType 以开放类型导出世界快照
+javax.management.relation	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/jmx/FactionRelations.java		RelationService/RoleInfo 维护势力关系 MBean 图
+javax.management.remote	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/jmx/RemoteConsole.java		JMXConnectorServer 暴露远程观测端点（可关闭）
+javax.management.timer	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/jmx/ScheduledTicks.java		TimerMBean 周期触发批推进（观测用途，不参与重放）
+javax.management.remote.rmi	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/jmx/RmiConnector.java		RMIConnector/RMIJRMPServerImpl 提供 RMI 传输的观测端点
+javax.naming	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/jndi/ModContext.java		自研 InitialContext/Context 以 fc:// 命名空间定位 mod 与配置资源
+javax.naming.directory	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/jndi/DirectoryTree.java		Attributes/BasicAttributes/DirContext 表达 mod 元数据目录树
+javax.naming.event	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/jndi/ModNamespaceEvents.java		NamespaceChangeListener 在 mod 资源变更时通知缓存失效
+javax.naming.ldap	Excluded	-	-	-	-	BIZ	[已探索] 无目录服务需求；原「mod 资源定位」理由不成立——资源定位用 Path/URI/ServiceLoader，不套 LDAP 模型（业务无关，非环境限制）
+javax.naming.ldap.spi	Excluded	-	-	-	-	BIZ	[已探索] LDAP 提供者 SPI 随 LDAP 域一并排除（业务无关，非环境限制）
+javax.naming.spi	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/jndi/ContextFactory.java		ObjectFactory/InitialContextFactory 注册 fc:// 对象工厂，支撑 mod 资源反序列化
+java.net.http	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/net/TelemetryClient.java		HttpClient/HttpRequest/WebSocket 上传遥测与拉取公告，离线即跳过
+java.util.prefs	Planned	fc-persist	存档与加载	M5	fc/persist/prefs/UiPreferences.java		Preferences 记忆上次存档槽、语言与面板偏好
+java.rmi	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/remote/WatchService.java		Remote/UnicastRemoteObject 暴露只读观战接口（可关闭）
+java.rmi.dgc	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/remote/LeaseGuard.java		Lease/VMID 管理远程观战会话租约
+java.rmi.registry	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/remote/WatchRegistry.java		LocateRegistry/Registry 注册观战服务名
+java.rmi.server	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/remote/RemoteExports.java		UnicastRemoteObject/RMIClassLoader/ServerRef 管理导出与序列化过滤
+javax.rmi.ssl	Planned	fc-extensions	扩展与模组基础设施（工程）	M6	fc/ext/remote/RmiTlsSockets.java		SslRMIClientSocketFactory/SslRMIServerSocketFactory 加密观战通道
+javax.script	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/script/FcScriptEngine.java		自研 ScriptEngine/ScriptEngineFactory 提供事件规则 DSL
+javax.security.auth.kerberos	Excluded	fc-extensions	联机认证	M6	fc/ext/auth/KerberosLogin.java	BIZ	[已探索] 可选 Kerberos 认证，需 KDC；无域降级 SASL/明文（type-keep 明确清单重开）
+org.ietf.jgss	Excluded	fc-extensions	联机认证	M6	fc/ext/auth/GssSecurityContext.java	BIZ	[已探索] 可选 GSS-API，需 Kerberos 域（type-keep 明确清单重开）
+javax.security.sasl	Excluded	fc-extensions	联机认证	M6	fc/ext/auth/SaslHandshake.java	BIZ	[已探索] 聊天室可插拔认证握手（type-keep 明确清单重开核心为 L3）
+java.sql	Planned	fc-history	世界历史与日志	M5	fc/history/sql/ChronicleJdbcDriver.java		自研只读 JDBC 驱动实现 Connection/Statement/ResultSet，供 `query` 模式用 SQL 查编年史
+javax.sql	Planned	fc-history	世界历史与日志	M5	fc/history/sql/ChronicleDataSource.java		DataSource/RowSet 抽象支撑编年史查询的数据源装配
+javax.sql.rowset	Planned	fc-history	世界历史与日志	M5	fc/history/sql/ChronicleRowSets.java		CachedRowSet/FilteredRowSet 物化查询结果并支持排序分页
+javax.sql.rowset.serial	Planned	fc-history	世界历史与日志	M5	fc/history/sql/SerialRows.java		SerialBlob/SerialArray 承载编年史中的二进制附件与数组列
+javax.sql.rowset.spi	Planned	fc-history	世界历史与日志	M5	fc/history/sql/XmlRowSetIo.java		XmlReader/XmlWriter/SyncFactory 把查询结果导出为 XML
+javax.transaction.xa	Excluded	-	-	-	-	BIZ	[已探索] XA 分布式事务面向多资源管理器，单机游戏无此场景
+javax.xml	Planned	fc-config	游戏配置	M1	fc/config/xml/XmlConstants.java		XMLConstants 固定禁用外部实体与 DTD，保障配置解析安全
+javax.xml.catalog	Planned	fc-config	游戏配置	M1	fc/config/xml/ConfigCatalog.java		Catalog/CatalogFeatures 把配置的 XSD 与实体解析到本地资源
+javax.xml.datatype	Planned	fc-config	游戏配置	M1	fc/config/xml/StardateXml.java		DatatypeFactory/Duration 在配置与编年史 XML 中表达时间量
+javax.xml.namespace	Planned	fc-config	游戏配置	M1	fc/config/xml/ConfigQName.java		QName/NamespaceContext 支撑配置与 XPath 的命名空间处理
+javax.xml.parsers	Planned	fc-config	游戏配置	M1	fc/config/xml/ConfigParser.java		DocumentBuilderFactory/SAXParserFactory 装载地点、配方、事件配置
+javax.xml.stream	Planned	fc-config	游戏配置	M1	fc/config/xml/ConfigStaxReader.java		XMLStreamReader/Writer 流式读取大配置与写出存档清单
+javax.xml.stream.events	Planned	fc-config	游戏配置	M1	fc/config/xml/ConfigEvents.java		StartElement/Attribute/Characters 事件对象驱动配置流式校验
+javax.xml.stream.util	Planned	fc-config	游戏配置	M1	fc/config/xml/StaxFilters.java		XMLEventReader/StreamReaderDelegate 装饰与过滤配置事件流
+javax.xml.transform	Planned	fc-history	世界历史与日志	M5	fc/history/report/XsltReports.java		TransformerFactory/Templates 把编年史 XML 转成可读报告
+javax.xml.transform.dom	Planned	fc-history	世界历史与日志	M5	fc/history/report/DomSources.java		DOMSource/DOMResult 在 DOM 与转换管线间传递编年史树
+javax.xml.transform.sax	Planned	fc-history	世界历史与日志	M5	fc/history/report/SaxPipelines.java		SAXSource/SAXResult 流式转换大编年史
+javax.xml.transform.stax	Planned	fc-history	世界历史与日志	M5	fc/history/report/StaxPipelines.java		StAXSource/StAXResult 转换与流式解析衔接
+javax.xml.transform.stream	Planned	fc-history	世界历史与日志	M5	fc/history/report/StreamPipelines.java		StreamSource/StreamResult 以文件流做报告输入输出
+javax.xml.validation	Planned	fc-config	游戏配置	M1	fc/config/xml/ConfigValidator.java		SchemaFactory/Schema/Validator 按 XSD 校验配置与存档清单
+javax.xml.xpath	Planned	fc-history	世界历史与日志	M5	fc/history/query/ChronicleXPath.java		XPath/XPathExpression 按时间/地点/人物检索编年史
+org.w3c.dom	Planned	fc-config	游戏配置	M1	fc/config/xml/ConfigDom.java		DOM 树承载配置与编年史导出，支持按节点遍历与改写
+org.w3c.dom.bootstrap	Planned	fc-config	游戏配置	M1	fc/config/xml/DomImplementationBootstrap.java		DOMImplementationRegistry 解析并获取 DOM 实现
+org.w3c.dom.events	Excluded	-	-	-	-	BIZ	[已探索] DOM 事件模型面向浏览器式交互，配置文件为只读装载，无事件需求
+org.w3c.dom.ls	Planned	fc-config	游戏配置	M1	fc/config/xml/DomSerialization.java		DOMImplementationLS/LSSerializer 规范化写出配置与存档 XML
+org.w3c.dom.ranges	Excluded	-	-	-	-	BIZ	[已探索] DOM Range 面向富文本编辑，编年史检索用 XPath 与自有切片即可
+org.w3c.dom.traversal	Planned	fc-config	游戏配置	M1	fc/config/xml/DomTraversal.java		NodeIterator/TreeWalker 遍历配置树做校验与差异比对
+org.w3c.dom.views	Excluded	-	-	-	-	BIZ	[已探索] DOM 视图接口服务于浏览器渲染，无使用场景
+org.xml.sax	Planned	fc-config	游戏配置	M1	fc/config/xml/SaxLoader.java		SAXParser/ContentHandler/ErrorHandler 流式装载大配置文件
+org.xml.sax.ext	Planned	fc-config	游戏配置	M1	fc/config/xml/SaxExtensions.java		LexicalHandler/DeclHandler 获取注释与实体信息用于配置溯源
+org.xml.sax.helpers	Planned	fc-config	游戏配置	M1	fc/config/xml/SaxHelpers.java		DefaultHandler/XMLReaderFactory/AttributesImpl 简化处理器实现
+javax.xml.crypto	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/mod/XmlSignatureSupport.java		XMLCryptoContext/KeySelector 支撑 mod 清单的 XML 签名验证
+javax.xml.crypto.dom	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/mod/DomCryptoContext.java		DOMStructure/DOMURIReference 把签名结构映射到 DOM 节点
+javax.xml.crypto.dsig	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/mod/XmlDsigVerifier.java		XMLSignatureFactory/XMLSignature/Reference 校验 mod 包签名
+javax.xml.crypto.dsig.dom	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/mod/DomValidateContext.java		DOMValidateContext/DOMSignContext 绑定待验签 DOM 与密钥
+javax.xml.crypto.dsig.keyinfo	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/mod/KeyInfoResolver.java		KeyInfo/X509Data/KeyValue 解析签名中的证书与公钥
+javax.xml.crypto.dsig.spec	Planned	fc-extensions	扩展与模组基础设施（工程）	M5	fc/ext/mod/DigestSpecs.java		DigestMethodParameterSpec/TransformParameterSpec 配置摘要与变换参数

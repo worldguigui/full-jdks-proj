@@ -1,0 +1,9 @@
+# 阶段三 v3 映射自检证据（自动生成）
+
+- 行数：3874（期望 3874）
+- 分母行：3836；Planned 1913；Pending 735；Excluded 1188
+- 论证层级：{L1=608, L2=735, L3=2493}
+- 功能来源：{API_DRIVEN=1292, CORE=807, DEVELOPER_TOOLING=184, INFRASTRUCTURE=365}
+- 锚点类型：{DEVELOPER=376, OPERATOR=968, PLAYER=1304}
+- 原因码：{BIZ=1134, DEPRECATED=54}
+- 覆盖率：类型级 49.87%；包级 61.93%；完整包 48.86%；模块级 90.00%
