@@ -1,0 +1,50 @@
+== 全量差异审计（范围：21 模块）==
+官方文档 java.* 类型条目: 3780（唯一 key 3780）
+扫描器基准类型:          3887
+缺失（文档有/扫描无）:   9
+额外（扫描有/文档无）:   116
+种类族不符:              0
+无法判断条目:            0
+文档范围外条目(jdk.*等): 663；范围外包: 45
+包级差异: docs-only 0, scan-only 0
+-- 缺失样例 --
+java.awt.dnd.DropTarget.DropTargetAutoScroller
+java.beans.beancontext.BeanContextServicesSupport.BCSSServiceProvider
+java.beans.beancontext.BeanContextSupport.BCSIterator
+java.security.cert.CertPath.CertPathRep
+java.security.cert.Certificate.CertificateRep
+javax.swing.DefaultRowSorter.ModelWrapper
+javax.swing.JTree.EmptySelectionModel
+javax.swing.plaf.nimbus.AbstractRegionPainter.PaintContext
+javax.swing.plaf.nimbus.AbstractRegionPainter.PaintContext.CacheMode
+-- 额外样例 --
+java.util.concurrent.locks.AbstractQueuedLongSynchronizer.ConditionObject
+java.util.concurrent.locks.AbstractQueuedSynchronizer.ConditionObject
+javax.swing.GroupLayout.Group
+javax.swing.GroupLayout.ParallelGroup
+javax.swing.GroupLayout.SequentialGroup
+javax.swing.JComponent.AccessibleJComponent
+javax.swing.plaf.basic.BasicColorChooserUI.PropertyHandler
+javax.swing.plaf.basic.BasicComboBoxUI.ComboBoxLayoutManager
+javax.swing.plaf.basic.BasicComboBoxUI.FocusHandler
+javax.swing.plaf.basic.BasicComboBoxUI.ItemHandler
+javax.swing.plaf.basic.BasicComboBoxUI.KeyHandler
+javax.swing.plaf.basic.BasicComboBoxUI.ListDataHandler
+javax.swing.plaf.basic.BasicComboBoxUI.PropertyChangeHandler
+javax.swing.plaf.basic.BasicComboPopup.InvocationKeyHandler
+javax.swing.plaf.basic.BasicComboPopup.ListDataHandler
+javax.swing.plaf.basic.BasicDesktopIconUI.MouseInputHandler
+javax.swing.plaf.basic.BasicInternalFrameTitlePane.CloseAction
+javax.swing.plaf.basic.BasicInternalFrameTitlePane.IconifyAction
+javax.swing.plaf.basic.BasicInternalFrameTitlePane.MaximizeAction
+javax.swing.plaf.basic.BasicInternalFrameTitlePane.MoveAction
+javax.swing.plaf.basic.BasicInternalFrameTitlePane.PropertyChangeHandler
+javax.swing.plaf.basic.BasicInternalFrameTitlePane.RestoreAction
+javax.swing.plaf.basic.BasicInternalFrameTitlePane.SizeAction
+javax.swing.plaf.basic.BasicInternalFrameTitlePane.SystemMenuBar
+javax.swing.plaf.basic.BasicInternalFrameTitlePane.TitlePaneLayout
+javax.swing.plaf.basic.BasicInternalFrameUI.InternalFrameLayout
+javax.swing.plaf.basic.BasicInternalFrameUI.InternalFramePropertyChangeListener
+javax.swing.plaf.basic.BasicListUI.FocusHandler
+javax.swing.plaf.basic.BasicListUI.ListDataHandler
+javax.swing.plaf.basic.BasicListUI.ListSelectionHandler
