@@ -9,6 +9,7 @@ import fc.diplomacy.DiplomacyService;
 import fc.diplomacy.GoalService;
 import fc.economy.LoanService;
 import fc.economy.TradeService;
+import fc.extensions.ChatRelay;
 import fc.extensions.MapAtlas;
 import fc.extensions.RemoteJmx;
 import fc.extensions.Soundtrack;
@@ -150,6 +151,8 @@ public final class Cli {
                     "按当前世界状态生成确定性 MIDI 配乐或 WAV"),
             new Cmd("jmx", List.of(), "jmx [start [端口]|status|stop]",
                     "回环 JMX 管理端点（jconsole 可连接，仅本机）"),
+            new Cmd("chat", List.of(), "chat open [端口]|say <昵称> <文本>|history [条数]|roster|close",
+                    "本机聊天室中继：TCP 消息面 + RMI 控制面（仅回环）"),
             new Cmd("vault", List.of("archive"), "vault [write|list|check|watch] [目录]",
                     "档案库：编年史快照镜像、索引校验与变更监视"),
             new Cmd("seal", List.of(), "seal <文件> [输出]",
@@ -174,6 +177,7 @@ public final class Cli {
     private final GoalService goals;
     private final Supplier<TickContext> tickContexts;
     private RemoteJmx.Server jmx;
+    private ChatRelay chat;
 
     public Cli(GameLoop loop) {
         this(loop, null, null, null, null);
@@ -255,6 +259,7 @@ public final class Cli {
             case "music" -> doMusic(tokens);
             case "vault" -> doVault(tokens);
             case "jmx" -> doJmx(tokens);
+            case "chat" -> doChat(tokens);
             case "seal" -> doSeal(tokens);
             case "unseal" -> doUnseal(tokens);
             case "sign" -> doSign(tokens);
@@ -262,6 +267,7 @@ public final class Cli {
             case "help" -> help();
             case "quit" -> {
                 closeJmx();
+                closeChat();
                 yield "bye";
             }
             default -> "未知命令: " + tokens.get(0) + "（输入 help 查看全部 " + COMMANDS.size() + " 条命令）";
@@ -573,6 +579,113 @@ public final class Cli {
         }
     }
 
+    /** 本机聊天室中继：TCP 消息面 + RMI 控制面；不进入重放日志。 */
+    private String doChat(List<String> tokens) {
+        String action = tokens.size() >= 2 ? tokens.get(1).toLowerCase(java.util.Locale.ROOT)
+                : "open";
+        try {
+            return switch (action) {
+                case "open", "start" -> {
+                    if (chat != null && chat.isRunning()) {
+                        yield "聊天室中继已在运行 → " + chat.endpoint();
+                    }
+                    int port = 0;
+                    if (tokens.size() >= 3) {
+                        try {
+                            port = Integer.parseInt(tokens.get(2));
+                        } catch (NumberFormatException e) {
+                            yield "端口必须是整数：" + tokens.get(2);
+                        }
+                    }
+                    chat = ChatRelay.start(port);
+                    yield "聊天室中继已启动 → " + chat.endpoint()
+                            + "\n  控制面 " + chat.controlEndpoint()
+                            + "\n  协议 NICK <昵称> / MSG <文本> / WHO / HIST / QUIT（仅回环）";
+                }
+                case "say", "send" -> {
+                    if (chat == null || !chat.isRunning()) {
+                        yield "聊天室中继未启动（chat open [端口]）";
+                    }
+                    if (tokens.size() < 4) {
+                        yield "用法：chat say <昵称> <文本>";
+                    }
+                    String nick = tokens.get(2);
+                    String text = String.join(" ", tokens.subList(3, tokens.size()));
+                    try (ChatRelay.Client client = chat.connect()) {
+                        client.readLine();
+                        client.send("NICK " + nick);
+                        String joined = client.readLine();
+                        if (joined == null || !joined.startsWith("OK")) {
+                            yield "加入失败：" + joined;
+                        }
+                        client.send("MSG " + text);
+                        String echoed = null;
+                        for (String line; (line = client.readLine()) != null; ) {
+                            if (line.startsWith("MSG ")) {
+                                echoed = line;
+                                break;
+                            }
+                        }
+                        client.send("QUIT");
+                        yield "已发送 → " + (echoed == null ? text : echoed);
+                    }
+                }
+                case "history", "hist" -> {
+                    if (chat == null || !chat.isRunning()) {
+                        yield "聊天室中继未启动（chat open [端口]）";
+                    }
+                    int limit = 10;
+                    if (tokens.size() >= 3) {
+                        try {
+                            limit = Integer.parseInt(tokens.get(2));
+                        } catch (NumberFormatException e) {
+                            yield "条数必须是整数：" + tokens.get(2);
+                        }
+                    }
+                    var history = chat.history(limit);
+                    StringBuilder sb = new StringBuilder("---- 聊天记录 ")
+                            .append(history.size()).append(" 条 ----");
+                    for (ChatRelay.Message message : history) {
+                        sb.append("\n  #").append(message.sequence()).append(' ')
+                                .append(message.nick()).append("：").append(message.text());
+                    }
+                    yield sb.toString();
+                }
+                case "roster", "who" -> {
+                    if (chat == null || !chat.isRunning()) {
+                        yield "聊天室中继未启动（chat open [端口]）";
+                    }
+                    var roster = chat.roster();
+                    StringBuilder sb = new StringBuilder("---- 聊天室在线 ")
+                            .append(roster.size()).append(" 人 ----");
+                    for (ChatRelay.Member member : roster) {
+                        sb.append("\n  #").append(member.id()).append(' ')
+                                .append(member.nick());
+                    }
+                    yield sb.append("\n  消息 ").append(chat.messageCount()).append(" 条")
+                            .toString();
+                }
+                case "close", "stop" -> {
+                    if (chat == null) {
+                        yield "聊天室中继未启动";
+                    }
+                    closeChat();
+                    yield "聊天室中继已停止";
+                }
+                default -> "用法：chat open [端口]|say <昵称> <文本>|history [条数]|roster|close";
+            };
+        } catch (IOException | IllegalArgumentException e) {
+            return "聊天室操作失败：" + e.getMessage();
+        }
+    }
+
+    private void closeChat() {
+        if (chat != null) {
+            chat.close();
+            chat = null;
+        }
+    }
+
     /** 封存文件：PKCS#12 密钥库中的 AES-256 密钥 + GCM，失败不改动原文件。 */
     private String doSeal(List<String> tokens) {
         if (tokens.size() < 2) {
@@ -592,7 +705,7 @@ public final class Cli {
         } catch (IOException | IllegalArgumentException e) {
             return "封存失败：" + e.getMessage();
         } finally {
-            java.util.Arrays.fill(password, ' ');
+            java.util.Arrays.fill(password, '\0');
         }
     }
 
@@ -616,7 +729,7 @@ public final class Cli {
         } catch (IOException | IllegalArgumentException e) {
             return "解封失败：" + e.getMessage();
         } finally {
-            java.util.Arrays.fill(password, ' ');
+            java.util.Arrays.fill(password, '\0');
         }
     }
 

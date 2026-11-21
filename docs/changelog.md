@@ -5,6 +5,24 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.5.8 2026-11-21 阶段五 M13：联机通信第一阶段与聊天室中继
+
+1. **TCP 消息面**：`fc.extensions.ChatRelay` 只绑定回环地址，以 UTF-8 行协议提供
+   `NICK`/`MSG`/`WHO`/`HIST`/`PING`/`QUIT`；服务端推送 `WELCOME`/`OK`/`JOIN`/`MSG`/
+   `PART`/`ROSTER`/`HISTORY`/`PONG`/`ERROR`，每条消息带全局递增序号。
+2. **并发模型**：`ServerSocket` + 虚拟线程逐连接处理，`ConcurrentHashMap` 维护在线成员与
+   昵称占用，`AtomicLong` 分配成员号与消息序号；昵称大小写不敏感去重，消息与历史条数有上限。
+3. **历史与成员表**：进程内保留最近 `historyLimit` 条消息（默认 200），`WHO`/`HIST` 可查；
+   中继身份（`id == 0`）可广播系统公告。
+4. **RMI 控制面**：成员表、消息计数与广播能力通过本机 RMI 注册表暴露为 `fc-chat-control`；
+   消息面与控制面都只使用回环套接字工厂，不做跨机暴露。
+5. **CLI**：新增 `chat open [端口]|say <昵称> <文本>|history [条数]|roster|close`；
+   `say` 走真实 TCP 往返，命令不进入重放日志，退出时统一关闭中继。
+6. **测试**：新增 `ChatRelayTest` 6 个用例与运行时 1 个集成用例；当前共 21 个套件、
+   200 个用例通过；既有测试未删除、未跳过、未放宽。
+7. **审计基线**：类型 472/3836（12.3%）、包 69/176（39.2%）、模块 11/20、320 个 class、
+   Preview 违规 0。
+
 ## v0.5.7 2026-11-21 阶段五 M12：回环 JMX 远程管理
 
 1. **RMI 注册表**：`fc.extensions.RemoteJmx` 把平台 `MBeanServer` 暴露到本机 RMI 注册表，

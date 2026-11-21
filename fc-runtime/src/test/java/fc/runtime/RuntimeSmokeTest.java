@@ -217,6 +217,36 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void chatRelayAcceptsMessagesAndStaysOutOfReplayLog() {
+        RuntimeSession session = boot();
+        try {
+            String started = session.execute("chat open 0");
+            assert started.contains("聊天室中继已启动") : started;
+            assert started.contains("fc://chat/loopback:") : started;
+            assert started.contains("rmi://127.0.0.1:") : started;
+
+            String sent = session.execute("chat say 舰长 你好，边境");
+            assert sent.contains("已发送") : sent;
+            assert sent.contains("你好，边境") : sent;
+
+            String history = session.execute("chat history 5");
+            assert history.contains("聊天记录") : history;
+            assert history.contains("舰长") && history.contains("你好，边境") : history;
+
+            String roster = session.execute("chat roster");
+            assert roster.contains("在线 0 人") : roster;
+            assert roster.contains("消息 1 条") : roster;
+
+            assert session.execute("chat close").contains("已停止") : "应停止中继";
+            assert session.execute("chat roster").contains("未启动") : "停止后应报告未启动";
+        } finally {
+            session.execute("chat close");
+        }
+        assert session.commandHistory().stream().noneMatch(c -> c.startsWith("chat"))
+                : "聊天室命令不应进入重放日志";
+    }
+
+    @FcTest
     public void sealAndUnsealEvidenceRoundTrip() throws Exception {
         RuntimeSession session = boot();
         Path dir = Files.createTempDirectory("fc-runtime-seal-");
