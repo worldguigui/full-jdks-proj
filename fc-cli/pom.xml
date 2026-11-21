@@ -57,5 +57,9 @@
             <groupId>fc</groupId>
             <artifactId>fc-extensions</artifactId>
         </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-auth</artifactId>
+        </dependency>
     </dependencies>
 </project>

@@ -28,7 +28,7 @@ M5 不改变 M4 已确定的 Tick、RNG 与账本不变量；所有新增能力�
 事件实现细节固化进磁盘格式；世界规则变化时由格式版本显式拒绝，而不是静默读出半个世界。
 
 以下命令不进入重放日志：`save`、`load`、`saves`、`hash`、`help`、`quit`、`exit`；
-后续加入的 `query`、`export`、`atlas`（别名 `chart`）、`music`（别名 `soundtrack`）、`vault`（别名 `archive`）、`seal`、`unseal`、`sign`、`verify`、`jmx`、`chat`、`res`、`trust`、`script`、`manifest` 同样排除
+后续加入的 `query`、`export`、`atlas`（别名 `chart`）、`music`（别名 `soundtrack`）、`vault`（别名 `archive`）、`seal`、`unseal`、`sign`、`verify`、`jmx`、`chat`、`res`、`trust`、`script`、`manifest`、`workbench`、`auth`、`diagnostics` 同样排除
 （`export`/`atlas`/`music`/`vault`/`seal`/`unseal`/`sign` 会写文件，`watch` 还会阻塞，读档时不得重复执行）。
 其余纯查询命令仍会记录，这是格式的既定语义。
 其余命令按输入顺序原样记录；纯查询命令虽不改变状态，但保留在日志中不影响重放结果，
@@ -124,6 +124,9 @@ public interface FrontierMod {
 | XA 双写 | `TwoPhaseFiles` / `FileXaResource` / `FcXid` | 自研 `XAResource` 文件分支：prepare 暂存 + 恢复日志，commit 原子发布；`export` 两个路径时全成或全不成 |
 | 货单剪贴板 | `CargoManifest` / `LocalClipboard` / `ManifestTransfer` | `Transferable` 货单 + 进程内 `Clipboard`；所有权通知、`FlavorEvent`、`SystemFlavorMap` 原生名与 MIME 校验 |
 | 指挥终端 | `fc-tui` / `ConsoleHost` / `SplitConsoleServer` / `ConsoleClient` | 单窗口 TUI 或双窗口模式（只读可视化 + 独立 CLI 窗口）；CLI 命令完整输出、回环令牌接入、存档/读档由宿主统一执行 |
+| 诊断 Agent | `fc-agent` / `Diagnostics` | `-javaagent` Premain、类加载/转换观察、JMX 诊断 MBean、浅层大小；不修改字节码 |
+| 认证 | `fc-auth` / `SaslAuthenticator` / `GssAuthenticator` | SASL FC-CHALLENGE 多轮认证与 Callback；Kerberos/GSS 探测与上下文入口，无环境诚实降级 |
+| 离线工作台 | `ChronicleWorkbench` | CachedRowSet 离线结果、Filtered/Join/WebRowSet、版本化 XML 导入导出 |
 | 回环 JMX | `RemoteJmx` | 本机 RMI 注册表 + `RMIConnectorServer`，只监听回环；`start/status/stop/beans` 与 `QueryExp` 筛选；只读属性写入按 JMX 语义返回空列表 |
 | 聊天室中继 | `ChatRelay` | 回环 TCP 行协议（NICK/MSG/WHO/HIST/PING/QUIT）+ 虚拟线程；RMI 控制面 `fc-chat-control` 暴露成员表与广播 |
 | 脚本 | `FcScriptEngine` / `FcScriptEngineFactory` | 自研 `javax.script` 引擎（ServiceLoader 注册）：`set`/`echo`/`repeat`、变量替换、预编译；脚本展开的命令逐条进入重放日志 |
@@ -193,6 +196,8 @@ java -cp fc-audit/target/classes fc.audit.AuditMain --out docs/audit
 | `fc-runtime` | 启动参数、`mods/` 装载、存档/读档/PNG 命令、JMX 与端点生命周期 |
 | `fc-cli` | 仅补充 help 中的启动器命令说明；游戏命令仍是唯一清单 |
 | `fc-tui` | 独立全屏终端客户端；只依赖 `fc-world`/`fc-history`，通过 `TuiGame` 接入运行时 |
+| `fc-agent` | 独立诊断 Agent；不依赖游戏模块，通过 -javaagent 外部加载 |
+| `fc-auth` | 独立可选认证模块；`fc-cli` 按需依赖 |
 
 `fc-audit` 移到反应堆最后，使完整审计能看到所有模块的 `target/classes`。
 
@@ -205,6 +210,9 @@ java -cp fc-audit/target/classes fc.audit.AuditMain --out docs/audit
 | `fc-extensions` `TelemetryMBeansTest` | 5 | 属性/命令通知与过滤、动态 MBean 快照、GaugeMonitor 阈值通知、Timer 心跳、QueryExp 目录筛选 |
 | `fc-extensions` `TwoPhaseFilesTest` | 5 | XA 双写提交、prepare 失败全回滚、重启恢复日志、协议错误与同 RM、单阶段提交与参数校验 |
 | `fc-extensions` `ManifestTransferTest` | 4 | 货单 flavor/文本回退、剪贴板所有权与 FlavorEvent、FlavorMap 原生名与 MIME 校验、空剪贴板 |
+| `fc-agent` `AgentProbe` | 4 | -javaagent MBean、能力/类列表、浅层大小、未知目标拒绝 |
+| `fc-auth` `AuthTest` | 6 | 机制发现、多轮认证、失败路径、Callback、释放、Kerberos 降级 |
+| `fc-history` `ChronicleWorkbenchTest` | 5 | CachedRowSet、过滤、排序分页、WebRowSet 版本校验、Join |
 | `fc-tui` `TuiEngineTest` | 11 | 总览渲染、CLI 页面/详情、命令桥接、差量刷新、ANSI 重建、页面无残留、回显清除、宽度/ASCII、尺寸变化、失败恢复、待办阻塞提示 |
 | `fc-runtime` `SplitConsoleTest` | 4 | 令牌拒绝、完整 help/log 输出、ConsoleClient 子进程往返、quit 停止宿主 |
 | `fc-extensions` `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |

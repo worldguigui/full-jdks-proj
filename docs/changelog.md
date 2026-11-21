@@ -5,6 +5,41 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.10.0 2026-11-21 阶段五 M21：诊断 Agent、认证中心与离线数据工作台
+
+1. **运行时诊断 Agent**：新增独立 `fc-agent` 模块与 `-javaagent` 入口。
+   `FcAgent.premain` 注册观察型 `ClassFileTransformer`（不改字节码）与
+   `fc.agent:type=Diagnostics` MBean；提供已加载/累计加载/卸载类数、转换次数、
+   重定义/重转换能力、采样时间、加载类名样本与 `getObjectSize` 浅层大小。
+   CLI `diagnostics`（别名 `diag`）在 Agent 未加载时明确提示；不提供动态 Attach，
+   也不执行未经核实的热替换。
+2. **SASL 认证中心**：新增独立 `fc-auth` 模块。`SaslAuthenticator` 用标准
+   `Sasl.createSaslClient/Server` 与 JCA Provider 注册自包含 `FC-CHALLENGE`
+   （nonce + HMAC-SHA256，不传明文口令）；`LocalCallbacks` 处理
+   Name/Password/Realm/AuthorizeCallback；认证结果统一为 `AuthIdentity`。
+   支持机制发现、多轮 Token、错误口令/未知用户/不支持机制/授权不匹配与资源释放。
+   CLI `auth mechanisms|sasl|kerberos|status` 提供入口，单机启动不依赖认证。
+3. **Kerberos/GSS 入口**：`GssAuthenticator` 用 `GSSManager`/`GSSContext`/`GSSName`/
+   `GSSCredential`/`Oid`/`MessageProp` 建立上下文与关闭释放；
+   `KerberosEnvironment` 通过 `KerberosPrincipal`/`KeyTab` 探测 realm/KDC/keytab/
+   服务主体。没有 KDC 时只报告未就绪，GSS 失败保留 major/minor 码，不伪造成功。
+4. **离线编年史工作台**：新增 `ChronicleWorkbench`，复用只读 JDBC 驱动装载
+   `CachedRowSet`；连接关闭后支持过滤（`FilteredRowSet` + `Predicate`）、
+   复制排序、分页、与地点目录 `JoinRowSet` 连接；`WebRowSet` 标准 XML 导入导出，
+   每行带 `schema_version=fc-workbench/1`，导入校验必需列/元数据/版本，
+   非法 XML 与不兼容版本以 `SQLException` 拒绝。CLI `workbench show|filter|sort|
+   join|export|import` 入口完整可用。
+5. **构建与依赖**：新增 `fc-agent`/`fc-auth` 模块；`fc-cli` 可选依赖认证，
+   `fc-agent` 为独立 Agent JAR（Manifest `Premain-Class` 等）。可选能力全部
+   不参与核心单机启动。
+6. **测试**：新增 `AgentProbe` 4 例（真实 `-javaagent` JVM）、`AuthTest` 6 例、
+   `ChronicleWorkbenchTest` 5 例，运行时集成用例增加；当前共 33 个套件、
+   273 个用例通过，未删除/跳过/放宽既有测试。
+7. **审计基线**：类型 628/3836（16.4%）、包 88/176（50.0%）、模块 **20/20**、
+   417 个 class、Preview 违规 0；四个目标模块均进入真实功能链路。
+8. **文档**：新增 `docs/features/runtime-tooling.md`（启动、命令、API 对照、
+   外部环境与降级说明）。README 仍按项目规则保持冻结，版本记录在本文件与提交信息中。
+
 ## v0.9.4 2026-11-21 阶段五 M20 修订：独立 CLI 窗口 UTF-8 编码
 
 1. **修复 CLI 窗口乱码**：Windows 新控制台默认可能是本地代码页（如 936）；

@@ -335,6 +335,36 @@ TUI 画布。
 - **生命周期**：单窗口 `quit`/EOF 恢复终端；双窗口由 CLI 的 `quit` 通知宿主停止，
   TUI 退出并关闭控制台服务。
 
+### 3.18 运行时诊断 Agent（fc-agent）
+
+`fc-agent` 是独立 Java Agent JAR，`Premain-Class=fc.agent.FcAgent`；
+通过 `-javaagent:...-agent.jar[=limit=N]` 启动。它只添加观察型
+`ClassFileTransformer`（返回 null，不修改字节码），注册
+`fc.agent:type=Diagnostics` Standard MBean，暴露类加载/转换统计、重定义/重转换
+能力、采样时间、类名样本与 `getObjectSize` 浅层大小（明确不是完整对象图）。
+没有 `agentmain`/Attach，也不执行 redefine/retransform。Agent 未加载时游戏照常
+运行，`diagnostics` 命令给出 `-javaagent` 启动提示。
+
+### 3.19 SASL / Kerberos 认证中心（fc-auth）
+
+`fc-auth` 不依赖核心模块，提供可选认证服务：`SaslAuthenticator` 用标准
+`Sasl.createSaslClient/Server` 建立双方，内置 `FC-CHALLENGE`（nonce +
+HMAC-SHA256，不传明文口令）并由 JCA Provider 注册；`LocalCallbacks` 处理
+Name/Password/Realm/Authorize Callback；成功后返回统一 `AuthIdentity`。
+`GssAuthenticator` 用 `GSSManager`/`GSSContext`/`Oid` 提供 Kerberos 上下文入口，
+`KerberosEnvironment` 探测 realm/KDC/keytab/主体；无环境时明确未就绪，
+GSS 失败保留错误码，绝不伪造认证成功。认证服务不参与单机启动。
+
+### 3.20 离线编年史数据工作台（java.sql.rowset）
+
+`ChronicleWorkbench` 复用只读 JDBC 驱动装载 `CachedRowSet`，连接关闭后仍可
+分页、过滤（`FilteredRowSet` + `Predicate`）、复制排序、与地点目录
+`JoinRowSet` 连接；`WebRowSet` 负责标准 XML 导入导出，每行带
+`schema_version=fc-workbench/1`，导入时校验必需列/版本/元数据，非法输入以
+`SQLException` 拒绝。CLI `workbench show|filter|sort|join|export|import`
+提供用户入口，不进入重放日志。JDK 的 `FilteredRowSet.size()` 不反映过滤结果，
+工作台以实际遍历计数；`CachedRowSetImpl` 插入/遍历顺序相反，内部逆序写入。
+
 ## 4. 模块与依赖
 
 ```
@@ -363,9 +393,11 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 | `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册/回环远程管理/通知与监视器、真实时间心跳、聊天室中继、fc:// 命名上下文、TLS 与证书信任、Frontier Script、XA 两阶段文件事务、货单剪贴板、HTTP、音频 | 已实现（M5+） |
 | `fc-runtime` | 装配、REPL 与 `--tui` 客户端启动、存档/读档、PNG、Mod 装载、遥测与状态端点、单文件 jar | 已实现 |
 | `fc-testkit` | 注解 + 反射的零依赖测试框架 | 已实现 |
+| `fc-agent` | 独立诊断 Java Agent：类加载/转换观察、JMX 诊断 MBean、浅层大小 | 已实现（可选） |
+| `fc-auth` | 可选 SASL FC-CHALLENGE 认证与 Kerberos/GSS 探测/上下文入口 | 已实现（可选） |
 | `fc-audit` | API 覆盖审计（classfile 常量池 → 证据） | 已实现（M5） |
 
-依赖方向：`fc-world ← fc-config ← fc-sim / 领域模块 ← fc-cli / fc-runtime`。领域模块之间不互相依赖；跨域协作通过 `WorldState` 与 `GameEvent`。`fc-persist` 只依赖 JDK；`fc-extensions` 依赖 JDK 与 `fc-world`/`fc-sim`/`fc-config`（`fc-cli` 仅为 `atlas` 制图与 `music` 配乐依赖它，无反向依赖）；`fc-tui` 只依赖 `fc-world`/`fc-history`，通过 `TuiGame` 接口与运行时解耦，`fc-runtime` 负责注入适配器；`fc-audit` 独立。`fc-testkit` 只作为测试作用域依赖。`fc-audit` 位于反应堆最后，确保审计能读取全部模块产物。
+依赖方向：`fc-world ← fc-config ← fc-sim / 领域模块 ← fc-cli / fc-runtime`。领域模块之间不互相依赖；跨域协作通过 `WorldState` 与 `GameEvent`。`fc-persist` 只依赖 JDK；`fc-extensions` 依赖 JDK 与 `fc-world`/`fc-sim`/`fc-config`（`fc-cli` 仅为 `atlas` 制图与 `music` 配乐依赖它，无反向依赖）；`fc-tui` 只依赖 `fc-world`/`fc-history`，通过 `TuiGame` 接口与运行时解耦，`fc-runtime` 负责注入适配器；`fc-auth` 与 `fc-agent` 独立，`fc-cli` 可选依赖 `fc-auth`，Agent 通过 `-javaagent` 外部加载；`fc-audit` 独立。`fc-testkit` 只作为测试作用域依赖。`fc-audit` 位于反应堆最后，确保审计能读取全部模块产物。
 
 ## 5. 运行时装配
 
@@ -381,6 +413,8 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 7. 若给出 `--tui`，以 `TuiGame` 适配器启动全屏指挥终端（命令仍走
    `RuntimeSession`，每条命令刷新遥测）；否则进入 REPL；
 8. REPL 中 `save`/`load`/`saves`/`png` 由运行时拦截，其余命令交给 `Cli`。
+9. 可选能力：`-javaagent` 加载诊断 Agent；`auth` 使用 SASL/Kerberos；
+   `workbench` 使用 RowSet 离线工作台。缺失 Agent 或 KDC 时游戏仍正常运行。
 
 存档/读档复用同一 `assemble` 路径：读档时按存档中的世界来源重新装配，再按序重放命令并核验哈希。所有世界数据来自配置，核心代码不硬编码地点、舰船、货物或配方。`RuntimeSession` 与 REPL 分离，使集成测试可以复用完全相同的装配路径。
 
@@ -397,7 +431,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 15.3%、包 46.6%、模块 16/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 16.4%、包 50.0%、模块 20/20。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。

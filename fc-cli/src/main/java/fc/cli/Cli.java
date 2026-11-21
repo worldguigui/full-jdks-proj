@@ -23,6 +23,11 @@ import fc.extensions.SecureChannel;
 import fc.extensions.Soundtrack;
 import fc.extensions.TwoPhaseFiles;
 import fc.extensions.TrustAuthority;
+import fc.auth.AuthIdentity;
+import fc.auth.GssAuthenticator;
+import fc.auth.KerberosEnvironment;
+import fc.auth.SaslAuthenticator;
+import fc.auth.UserDirectory;
 import fc.fleet.CrewService;
 import fc.fleet.MaintenanceService;
 import fc.fleet.VoyageService;
@@ -33,6 +38,7 @@ import fc.history.query.ChronicleQuery;
 import fc.history.seal.EvidenceSeal;
 import fc.history.sign.EvidenceSignature;
 import fc.history.vault.ChronicleVault;
+import fc.history.workbench.ChronicleWorkbench;
 import fc.science.ResearchService;
 import fc.science.SurveyService;
 import fc.sim.DecisionResolver;
@@ -54,6 +60,8 @@ import fc.world.SupplyLine;
 import fc.world.Treaty;
 import fc.world.WorldState;
 import fc.world.time.Stardate;
+
+import javax.sql.rowset.CachedRowSet;
 
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.ClipboardOwner;
@@ -169,6 +177,16 @@ public final class Cli {
                     "导出编年史；给两个路径时用 XA 两阶段提交做双份留档"),
             new Cmd("atlas", List.of("chart"), "atlas [png|jpeg] [路径]",
                     "星图工坊：带图例/罗盘/缩略图的 PNG/JPEG 制图"),
+            new Cmd("auth", List.of(),
+                    "auth [mechanisms|sasl <用户> <口令> [授权身份]|kerberos|status]",
+                    "可选 SASL/Kerberos 认证服务（本地单机启动不依赖）"),
+            new Cmd("diagnostics", List.of("diag"),
+                    "diagnostics [status|classes [前缀]|capabilities|memory <对象>]",
+                    "运行时诊断 Agent：类加载/转换统计与浅层大小（需 -javaagent 启动）"),
+            new Cmd("workbench", List.of("data"),
+                    "workbench [show [页] [每页]|filter k=v...|sort <列> [asc|desc] [k=v...]|"
+                            + "join [k=v...]|export <文件> [k=v...]|import <文件>]",
+                    "离线编年史工作台：CachedRowSet 过滤/排序/分页、JoinRowSet、WebRowSet XML"),
             new Cmd("music", List.of("soundtrack"), "music [mid|wav] [路径]",
                     "按当前世界状态生成确定性 MIDI 配乐或 WAV"),
             new Cmd("jmx", List.of(),
@@ -300,6 +318,9 @@ public final class Cli {
             case "query" -> doQuery(tokens);
             case "export" -> doExport(tokens);
             case "atlas" -> doAtlas(tokens);
+            case "workbench" -> doWorkbench(tokens);
+            case "diagnostics" -> doDiagnostics(tokens);
+            case "auth" -> doAuth(tokens);
             case "music" -> doMusic(tokens);
             case "vault" -> doVault(tokens);
             case "jmx" -> doJmx(tokens);
@@ -471,6 +492,235 @@ public final class Cli {
         } catch (IOException e) {
             return "导出失败：" + e.getMessage();
         }
+    }
+
+    /** 可选认证服务：SASL 演示交换与 Kerberos 环境探测；不参与核心启动。 */
+    private String doAuth(List<String> tokens) {
+        String action = tokens.size() >= 2
+                ? tokens.get(1).toLowerCase(java.util.Locale.ROOT) : "status";
+        try {
+            return switch (action) {
+                case "mechanisms" -> {
+                    SaslAuthenticator.Mechanisms sasl = SaslAuthenticator.mechanisms();
+                    KerberosEnvironment.GssProbe gss = GssAuthenticator.probe();
+                    yield "SASL 机制 → 客户端 " + sasl.client() + "｜服务端 "
+                            + sasl.server() + "\nGSS → " + gss.summary();
+                }
+                case "sasl" -> {
+                    if (tokens.size() < 4) {
+                        yield "用法：auth sasl <用户> <口令> [授权身份]";
+                    }
+                    String user = tokens.get(2);
+                    char[] password = tokens.get(3).toCharArray();
+                    String authz = tokens.size() >= 5 ? tokens.get(4) : null;
+                    String realm = System.getProperty("fc.auth.realm", "frontier");
+                    UserDirectory directory = UserDirectory.of(demoUsers());
+                    try {
+                        AuthIdentity identity = SaslAuthenticator.authenticate(
+                                "FC-CHALLENGE", user, password, authz, realm, directory);
+                        yield "SASL 认证成功 → " + identity + "（realm " + identity.realm()
+                                + "）\n  该身份仅用于认证上下文，不自动获得 Mod/服务器管理权限。";
+                    } finally {
+                        java.util.Arrays.fill(password, '\0');
+                    }
+                }
+                case "kerberos" -> {
+                    KerberosEnvironment.GssProbe probe = GssAuthenticator.probe();
+                    StringBuilder sb = new StringBuilder("Kerberos 探测 → ")
+                            .append(probe.summary());
+                    sb.append("\n  ").append(probe.readyForLogin()
+                            ? "本地配置允许尝试登录；实际结果仍取决于 KDC 与票据。"
+                            : "未就绪：不会伪造认证成功。");
+                    sb.append("\n  配置：-Djava.security.krb5.realm=<REALM> ")
+                            .append("-Djava.security.krb5.kdc=<KDC> ")
+                            .append("-Dfc.auth.gss.service=<service/host@REALM> ")
+                            .append("[ -Dfc.auth.gss.keytab=<keytab> ]");
+                    yield sb.toString();
+                }
+                case "status" -> {
+                    SaslAuthenticator.Mechanisms sasl = SaslAuthenticator.mechanisms();
+                    KerberosEnvironment.GssProbe gss = GssAuthenticator.probe();
+                    yield "认证服务 → SASL 客户端 " + sasl.client() + "｜服务端 "
+                            + sasl.server() + "\n  GSS " + gss.summary()
+                            + "\n  单机模式不依赖认证服务；未认证连接不会获得管理权限。";
+                }
+                default -> "用法：auth [mechanisms|sasl <用户> <口令> [授权身份]|kerberos|status]";
+            };
+        } catch (javax.security.sasl.SaslException e) {
+            return "认证失败：" + e.getMessage();
+        } catch (RuntimeException e) {
+            return "认证服务错误：" + e.getMessage();
+        }
+    }
+
+    /** 本地演示账号；可用系统属性覆盖 captain 的账号/口令。 */
+    private static java.util.Map<String, String> demoUsers() {
+        String user = System.getProperty("fc.auth.demo.user", "captain");
+        String password = System.getProperty("fc.auth.demo.password", "frontier");
+        return java.util.Map.of(user, password, "crew", "patrol");
+    }
+
+    /** 诊断 Agent 的 CLI 入口；Agent 未加载时明确提示，游戏照常运行。 */
+    private String doDiagnostics(List<String> tokens) {
+        String action = tokens.size() >= 2
+                ? tokens.get(1).toLowerCase(java.util.Locale.ROOT) : "status";
+        try {
+            var server = java.lang.management.ManagementFactory.getPlatformMBeanServer();
+            var name = new javax.management.ObjectName("fc.agent:type=Diagnostics");
+            if (!server.isRegistered(name)) {
+                return "诊断 Agent 未加载。启动时添加：\n"
+                        + "  -javaagent:fc-agent/target/fc-agent-0.1.0-SNAPSHOT-agent.jar\n"
+                        + "Agent 未加载不影响游戏运行；diagnostics 不进入重放日志。";
+            }
+            return switch (action) {
+                case "status" -> "诊断 Agent 运行中 → " + name + "\n"
+                        + "  已加载类 " + server.getAttribute(name, "LoadedClassCount")
+                        + "｜累计加载 " + server.getAttribute(name, "TotalLoadedClassCount")
+                        + "｜卸载 " + server.getAttribute(name, "UnloadedClassCount") + "\n"
+                        + "  观察到的类转换 " + server.getAttribute(name, "TransformationCount")
+                        + "｜采样 " + server.getAttribute(name, "SampleTime");
+                case "classes" -> {
+                    String[] names = (String[]) server.getAttribute(name, "ClassNames");
+                    String prefix = tokens.size() >= 3 ? tokens.get(2) : "";
+                    int shown = 0;
+                    StringBuilder sb = new StringBuilder("---- 已加载类（样本 " + names.length
+                            + " / 上限 " + server.getAttribute(name, "ClassListLimit") + "）----");
+                    for (String className : names) {
+                        if (!prefix.isBlank() && !className.startsWith(prefix)) {
+                            continue;
+                        }
+                        if (shown >= 60) {
+                            sb.append("\n  … 仅显示前 60 条，可用前缀过滤");
+                            break;
+                        }
+                        sb.append("\n  ").append(className);
+                        shown++;
+                    }
+                    yield sb.append("\n  共显示 ").append(shown).append(" 条").toString();
+                }
+                case "capabilities" -> "诊断能力 →\n  类重定义 "
+                        + server.getAttribute(name, "RedefinitionSupported")
+                        + "｜类重转换 " + server.getAttribute(name, "RetransformationSupported")
+                        + "\n  Agent 参数：" + server.getAttribute(name, "AgentArguments")
+                        + "\n  说明：Agent 只观察类加载，不修改字节码。";
+                case "memory" -> {
+                    String target = tokens.size() >= 3 ? tokens.get(2) : "";
+                    if (target.isBlank()) {
+                        yield "用法：diagnostics memory <diagnostics|transformer|sample>";
+                    }
+                    Object size = server.invoke(name, "estimateShallowSize",
+                            new Object[] {target}, new String[] {"java.lang.String"});
+                    yield "浅层大小估算（" + target + "）：" + size + " 字节\n"
+                            + "  这是 JVM 的 getObjectSize 结果，不包含引用对象图，不是完整内存占用。";
+                }
+                default -> "用法：diagnostics [status|classes [前缀]|capabilities|memory <对象>]";
+            };
+        } catch (javax.management.JMException | RuntimeException e) {
+            return "诊断失败：" + e.getMessage();
+        }
+    }
+
+    /** 离线编年史工作台：CachedRowSet/FilteredRowSet/JoinRowSet/WebRowSet。 */
+    private String doWorkbench(List<String> tokens) {
+        String action = tokens.size() >= 2
+                ? tokens.get(1).toLowerCase(java.util.Locale.ROOT) : "show";
+        try {
+            return switch (action) {
+                case "show" -> {
+                    int page = tokens.size() >= 3 ? Integer.parseInt(tokens.get(2)) : 1;
+                    int pageSize = tokens.size() >= 4 ? Integer.parseInt(tokens.get(3)) : 20;
+                    yield ChronicleWorkbench.render(loadWorkbench(null), page, pageSize);
+                }
+                case "filter" -> {
+                    ChronicleWorkbench.Filter filter = parseWorkbenchFilter(tokens, 2);
+                    yield ChronicleWorkbench.render(
+                            ChronicleWorkbench.filter(loadWorkbench(null), filter), 1, 20);
+                }
+                case "sort" -> {
+                    if (tokens.size() < 3) {
+                        yield "用法：workbench sort <列> [asc|desc] [k=v...]";
+                    }
+                    boolean descending = tokens.size() >= 4
+                            && "desc".equalsIgnoreCase(tokens.get(3));
+                    int filterFrom = tokens.size() >= 4 ? 4 : 3;
+                    ChronicleWorkbench.Filter filter = parseWorkbenchFilter(tokens, filterFrom);
+                    CachedRowSet rows = loadWorkbench(filter);
+                    yield ChronicleWorkbench.render(ChronicleWorkbench.sort(rows,
+                            tokens.get(2), descending), 1, 20);
+                }
+                case "join" -> {
+                    ChronicleWorkbench.Filter filter = parseWorkbenchFilter(tokens, 2);
+                    CachedRowSet rows = loadWorkbench(filter);
+                    yield ChronicleWorkbench.render(
+                            ChronicleWorkbench.joinLocations(rows, loop.state()), 1, 20);
+                }
+                case "export" -> {
+                    if (tokens.size() < 3) {
+                        yield "用法：workbench export <文件.xml> [k=v...]";
+                    }
+                    ChronicleWorkbench.Filter filter = parseWorkbenchFilter(tokens, 3);
+                    CachedRowSet rows = loadWorkbench(filter);
+                    Path output = ChronicleWorkbench.exportXml(rows, Path.of(tokens.get(2)));
+                    yield "离线结果已导出 → " + output + "（" + rows.size() + " 行，"
+                            + ChronicleWorkbench.SCHEMA_VERSION + "，UTF-8 WebRowSet）";
+                }
+                case "import" -> {
+                    if (tokens.size() < 3) {
+                        yield "用法：workbench import <文件.xml>";
+                    }
+                    var restored = ChronicleWorkbench.importXml(Path.of(tokens.get(2)));
+                    yield ChronicleWorkbench.render(restored, 1, 20) + "\n  已从 "
+                            + Path.of(tokens.get(2)).toAbsolutePath() + " 恢复（"
+                            + ChronicleWorkbench.SCHEMA_VERSION + "）";
+                }
+                default -> "用法：workbench [show|filter|sort|join|export|import] ...";
+            };
+        } catch (NumberFormatException e) {
+            return "页码/每页必须是整数：" + e.getMessage();
+        } catch (java.sql.SQLException | IOException | IllegalArgumentException e) {
+            return "工作台失败：" + e.getMessage();
+        }
+    }
+
+    private CachedRowSet loadWorkbench(ChronicleWorkbench.Filter filter)
+            throws java.sql.SQLException {
+        CachedRowSet rows = ChronicleWorkbench.load(loop.state().chronicle());
+        if (filter != null && filter.any()) {
+            return ChronicleWorkbench.filter(rows, filter);
+        }
+        return rows;
+    }
+
+    /** 解析 k=v 过滤条件；支持 from/to/category/type/location/actor/text。 */
+    private ChronicleWorkbench.Filter parseWorkbenchFilter(List<String> tokens, int start) {
+        Long from = null;
+        Long to = null;
+        String category = null;
+        String type = null;
+        String location = null;
+        String actor = null;
+        String text = null;
+        for (int i = start; i < tokens.size(); i++) {
+            String token = tokens.get(i);
+            int eq = token.indexOf('=');
+            if (eq <= 0) {
+                throw new IllegalArgumentException("过滤条件必须是 key=value：" + token);
+            }
+            String key = token.substring(0, eq).toLowerCase(java.util.Locale.ROOT);
+            String value = token.substring(eq + 1);
+            switch (key) {
+                case "from", "fromday" -> from = Long.parseLong(value);
+                case "to", "today" -> to = Long.parseLong(value);
+                case "category" -> category = value;
+                case "type" -> type = value;
+                case "location" -> location = value;
+                case "actor" -> actor = value;
+                case "text" -> text = value;
+                default -> throw new IllegalArgumentException("未知过滤键：" + key
+                        + "（from/to/category/type/location/actor/text）");
+            }
+        }
+        return new ChronicleWorkbench.Filter(from, to, category, type, location, actor, text);
     }
 
     /** 档案库：快照写入、索引列出、摘要校验与变更监视；默认目录 vault。 */

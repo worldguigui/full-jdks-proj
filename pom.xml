@@ -22,11 +22,13 @@
         <module>fc-science</module>
         <module>fc-diplomacy</module>
         <module>fc-history</module>
+        <module>fc-auth</module>
         <module>fc-cli</module>
         <module>fc-tui</module>
         <module>fc-persist</module>
         <module>fc-extensions</module>
         <module>fc-testkit</module>
+        <module>fc-agent</module>
         <module>fc-runtime</module>
         <module>fc-audit</module>
     </modules>
@@ -86,6 +88,11 @@
             </dependency>
             <dependency>
                 <groupId>fc</groupId>
+                <artifactId>fc-auth</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>fc</groupId>
                 <artifactId>fc-cli</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -112,6 +119,11 @@
             <dependency>
                 <groupId>fc</groupId>
                 <artifactId>fc-testkit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>fc</groupId>
+                <artifactId>fc-agent</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

@@ -364,6 +364,44 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void optionalAuthDiagnosticsAndWorkbenchCommands() throws Exception {
+        RuntimeSession session = boot();
+        assert session.execute("diagnostics").contains("诊断 Agent 未加载")
+                : "无 Agent 时必须明确提示";
+        assert session.execute("auth mechanisms").contains("FC-CHALLENGE")
+                : "自包含 SASL 机制应可用";
+        assert session.execute("auth sasl captain frontier").contains("认证成功");
+        assert session.execute("auth sasl captain wrong").contains("认证失败");
+        assert session.execute("auth kerberos").contains("Kerberos");
+
+        session.execute("next 5");
+        String show = session.execute("workbench show 1 5");
+        assert show.contains("离线编年史") && show.contains("第 1/") : show;
+        assert session.execute("workbench filter category=Fleet")
+                .contains("离线编年史") : "过滤结果应可离线展示";
+
+        Path dir = Files.createTempDirectory("fc-runtime-workbench-");
+        try {
+            Path file = dir.resolve("chronicle.workbench.xml");
+            assert session.execute("workbench export " + file).contains("已导出") : "应导出";
+            assert Files.exists(file);
+            assert session.execute("workbench import " + file).contains("恢复")
+                    : "应恢复离线结果";
+        } finally {
+            try (var walk = Files.walk(dir)) {
+                for (Path path : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(path);
+                }
+            }
+        }
+
+        assert session.commandHistory().stream().noneMatch(c ->
+                c.startsWith("auth") || c.startsWith("diagnostics")
+                        || c.startsWith("workbench"))
+                : "可选服务命令不应进入重放日志";
+    }
+
+    @FcTest
     public void manifestClipboardRoundTripAndStaysOutOfReplayLog() {
         RuntimeSession session = boot();
         String copied = session.execute("manifest copy");

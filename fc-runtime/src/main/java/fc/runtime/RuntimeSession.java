@@ -232,7 +232,8 @@ public final class RuntimeSession {
             case "save", "load", "saves", "hash", "help", "quit", "exit",
                     "query", "export", "atlas", "chart", "music", "soundtrack",
                     "vault", "archive", "seal", "unseal", "jmx", "chat", "res", "trust",
-                    "script", "manifest", "sign", "verify" -> false;
+                    "script", "manifest", "workbench", "auth", "diagnostics",
+                    "sign", "verify" -> false;
             default -> true;
         };
     }

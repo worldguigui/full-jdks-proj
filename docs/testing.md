@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 30 个测试套件、257 个用例。
+当前共 33 个测试套件、273 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -42,9 +42,12 @@ mvn -B package
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
 | `fc-history` | `ChronicleVaultTest` | 6 | 快照与索引、幂等写入、篡改/缺失检测、排他锁、WatchService、坏索引拒绝 |
 | `fc-history` | `EvidenceSealTest` | 6 | PKCS#12 往返、AES-GCM 封存/解封、错钥/篡改拒绝、输入过滤器、错误口令、参数校验 |
-| `fc-runtime` | `RuntimeSmokeTest` | 19 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出（含 XA 双份）、制图、配乐、档案库、封存、签章、JMX 目录与心跳、货单剪贴板、非法启动参数 |
+| `fc-runtime` | `RuntimeSmokeTest` | 20 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出（含 XA 双份）、制图、配乐、档案库、封存、签章、JMX 目录与心跳、货单剪贴板、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
+| `fc-agent` | `AgentProbe` | 4 | -javaagent 注册、能力与类列表、浅层大小、释放/未知目标 |
+| `fc-auth` | `AuthTest` | 6 | 机制发现、多轮认证、失败路径、Callback、资源释放、Kerberos 降级 |
+| `fc-history` | `ChronicleWorkbenchTest` | 5 | 离线 CachedRowSet、过滤、排序分页、WebRowSet 版本校验、Join |
 | `fc-runtime` | `SplitConsoleTest` | 4 | 令牌拒绝、完整 help/log 输出、ConsoleClient 子进程往返、quit 停止宿主 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
 | `fc-extensions` | `ExtensionsTest` | 9 | 内存编译、Mod 装载与签名要求、宏、PNG、JMX、HTTP、音频、描述符 |
@@ -265,6 +268,17 @@ mvn -B package
 - JMX、HTTP 与音频在缺少设备/端口时优雅降级，不使启动失败。
 - 星图工坊必须逐像素确定；PNG tEXt 与 JPEG COM 元数据可读回；滤镜确实改变像素；
   缩略图与区域读取返回请求的尺寸；参数越界与未知格式被拒绝。
+
+### 诊断 Agent、认证与离线工作台
+
+- `-javaagent` 未加载时 `diagnostics` 必须明确提示，游戏照常运行；加载后 MBean
+  `fc.agent:type=Diagnostics` 可读，类列表排序受 limit 限制，浅层大小不是完整内存。
+- SASL 机制发现必须反映真实 Provider 集合；`auth sasl` 成功/错误口令/未知用户/
+  授权不匹配路径必须明确；Kerberos 无 realm/KDC/keytab 时只报告未就绪，
+  不得伪造登录成功。
+- `workbench` 的 `CachedRowSet` 在连接关闭后仍可分页/过滤/排序；`WebRowSet`
+  导出带 `schema_version=fc-workbench/1`，非法 XML/缺列/不兼容版本必须拒绝；
+  `JoinRowSet` 能连接事件与地点目录；命令不进入重放日志。
 
 ### 审计
 
