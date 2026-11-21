@@ -10,6 +10,7 @@ import fc.diplomacy.GoalService;
 import fc.economy.LoanService;
 import fc.economy.TradeService;
 import fc.extensions.MapAtlas;
+import fc.extensions.Soundtrack;
 import fc.fleet.CrewService;
 import fc.fleet.MaintenanceService;
 import fc.fleet.VoyageService;
@@ -142,6 +143,8 @@ public final class Cli {
                     "导出编年史（默认 chronicle.<格式>）"),
             new Cmd("atlas", List.of("chart"), "atlas [png|jpeg] [路径]",
                     "星图工坊：带图例/罗盘/缩略图的 PNG/JPEG 制图"),
+            new Cmd("music", List.of("soundtrack"), "music [mid|wav] [路径]",
+                    "按当前世界状态生成确定性 MIDI 配乐或 WAV"),
             new Cmd("sign", List.of(), "sign <文件> [输出]",
                     "用本地证据密钥做 XML Signature 签章"),
             new Cmd("verify", List.of(), "verify <证据文件>",
@@ -237,6 +240,7 @@ public final class Cli {
             case "query" -> doQuery(tokens);
             case "export" -> doExport(tokens);
             case "atlas" -> doAtlas(tokens);
+            case "music" -> doMusic(tokens);
             case "sign" -> doSign(tokens);
             case "verify" -> doVerify(tokens);
             case "help" -> help();
@@ -393,6 +397,32 @@ public final class Cli {
             return "星图已生成 → " + written + "（" + format + "，含图例/罗盘/缩略图）";
         } catch (IOException | IllegalArgumentException e) {
             return "制图失败：" + e.getMessage();
+        }
+    }
+
+    /** 按当前状态哈希生成确定性配乐；mid 只写 MIDI，wav 额外离线合成音频。 */
+    private String doMusic(List<String> tokens) {
+        String format = tokens.size() >= 2 ? tokens.get(1).toLowerCase(java.util.Locale.ROOT)
+                : "mid";
+        if (!format.equals("mid") && !format.equals("wav")) {
+            return "未知配乐格式：" + tokens.get(1) + "（可用 mid/wav）";
+        }
+        Path output = tokens.size() >= 3 ? Path.of(tokens.get(2))
+                : Path.of("music." + (format.equals("wav") ? "wav" : "mid"));
+        long seed = Long.parseUnsignedLong(StateHasher.hash(loop.state()).substring(0, 16), 16)
+                ^ loop.state().now().day();
+        try {
+            var sequence = Soundtrack.compose(seed, "星历 " + loop.state().now().day());
+            var stats = Soundtrack.stats(sequence);
+            Path written = format.equals("wav")
+                    ? Soundtrack.renderWav(sequence, output)
+                    : Soundtrack.writeMidi(sequence, output);
+            return "配乐已生成 → " + written + "｜" + stats.tracks() + " 轨 "
+                    + stats.notes() + " 音符｜时长 "
+                    + (stats.microseconds() / 1_000_000) + " 秒｜种子 " + seed;
+        } catch (IOException | IllegalArgumentException
+                 | javax.sound.midi.InvalidMidiDataException e) {
+            return "配乐失败：" + e.getMessage();
         }
     }
 

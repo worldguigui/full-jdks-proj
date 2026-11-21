@@ -121,6 +121,21 @@ CLI 只做薄封装：`query <SQL>` 绑定匿名会话后执行，`export <格�
 - 密钥以 X.509/PKCS#8 DER 落在本地密钥目录，首次生成、之后复用；私钥文件权限由部署方负责。
 - 加载与验签都关闭 DOCTYPE/外部实体；签名不改变世界状态，命令不进入重放日志。
 
+### 3.6 配乐工坊
+
+`Soundtrack` 把世界状态映射为一段确定性配乐：种子来自 `StateHasher` 摘要与当前星历，
+`Random(seed)` 驱动五声音阶旋律、铺底三和弦与打击乐，因此同一状态必然得到同一份 MIDI。
+
+- 曲式固定为 4 小节 4/4、PPQ 480、96 BPM，共三条轨道：长笛主旋律（program 73）、
+  铺底 pad（program 89）与第 10 通道打击乐；写入曲名、速度（`0x51`）、拍号（`0x58`）、
+  音量/声像控制器与 EOT。
+- `MidiSystem.write` 输出 SMF type 1；`readMidi`/`format` 用于回读校验。
+- `renderWav` 是离线正弦合成器：按十二平均律换算频率，加起音/释音包络后混音、限幅，
+  经 `AudioSystem.write` 写 44.1 kHz/16-bit/单声道 WAV，不需要声卡。
+- `sequencerAvailable()` 只做设备探测，无设备时返回 `false`；播放交给外部 MIDI 播放器。
+- CLI `music [mid|wav] [路径]`（别名 `soundtrack`）会写文件，因此与 `export`/`atlas` 一样
+  排除在重放日志之外。
+
 ## 4. 模块与依赖
 
 ```
@@ -144,12 +159,12 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 | `fc-history` | 内存编年史、查询模型、CSV/XML/XSLT/XSD/ZIP 导出、只读 JDBC 驱动、XML 签章 | 已实现（M5+） |
 | `fc-cli` | 命令解析、星图、面板与报告 | 已实现 |
 | `fc-persist` | 存档仓库、偏好、本地化 | 已实现（M5） |
-| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、JMX、HTTP、音频 | 已实现（M5+） |
+| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX、HTTP、音频 | 已实现（M5+） |
 | `fc-runtime` | 装配、REPL、存档/读档、PNG、Mod 装载、遥测与状态端点、单文件 jar | 已实现 |
 | `fc-testkit` | 注解 + 反射的零依赖测试框架 | 已实现 |
 | `fc-audit` | API 覆盖审计（classfile 常量池 → 证据） | 已实现（M5） |
 
-依赖方向：`fc-world ← fc-config ← fc-sim / 领域模块 ← fc-cli / fc-runtime`。领域模块之间不互相依赖；跨域协作通过 `WorldState` 与 `GameEvent`。`fc-persist` 只依赖 JDK；`fc-extensions` 依赖 JDK 与 `fc-world`/`fc-sim`/`fc-config`（`fc-cli` 仅为 `atlas` 制图依赖它，无反向依赖）；`fc-audit` 独立。`fc-testkit` 只作为测试作用域依赖。`fc-audit` 位于反应堆最后，确保审计能读取全部模块产物。
+依赖方向：`fc-world ← fc-config ← fc-sim / 领域模块 ← fc-cli / fc-runtime`。领域模块之间不互相依赖；跨域协作通过 `WorldState` 与 `GameEvent`。`fc-persist` 只依赖 JDK；`fc-extensions` 依赖 JDK 与 `fc-world`/`fc-sim`/`fc-config`（`fc-cli` 仅为 `atlas` 制图与 `music` 配乐依赖它，无反向依赖）；`fc-audit` 独立。`fc-testkit` 只作为测试作用域依赖。`fc-audit` 位于反应堆最后，确保审计能读取全部模块产物。
 
 ## 5. 运行时装配
 
@@ -178,7 +193,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 10.1%、包 35.8%、模块 10/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 10.4%、包 36.4%、模块 10/20。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。

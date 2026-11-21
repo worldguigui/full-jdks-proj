@@ -145,6 +145,32 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void musicCommandWritesMidiAndStaysOutOfReplayLog() throws Exception {
+        RuntimeSession session = boot();
+        Path dir = Files.createTempDirectory("fc-runtime-music-");
+        try {
+            String out = session.execute("music mid " + dir.resolve("music.mid"));
+            assert out.contains("配乐已生成") : out;
+            assert out.contains("种子") : out;
+            Path midi = dir.resolve("music.mid");
+            assert Files.exists(midi);
+            assert Files.size(midi) > 500 : Files.size(midi);
+            assert session.execute("soundtrack wav " + dir.resolve("music.wav"))
+                    .contains("配乐已生成");
+            assert Files.size(dir.resolve("music.wav")) > 100_000;
+        } finally {
+            try (var walk = Files.walk(dir)) {
+                for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
+        }
+        assert session.commandHistory().stream()
+                .noneMatch(c -> c.startsWith("music") || c.startsWith("soundtrack"))
+                : "配乐命令不应进入重放日志";
+    }
+
+    @FcTest
     public void signAndVerifyEvidenceRoundTrip() throws Exception {
         RuntimeSession session = boot();
         Path dir = Files.createTempDirectory("fc-runtime-sign-");

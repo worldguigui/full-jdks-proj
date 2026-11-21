@@ -5,6 +5,23 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.5.4 2026-11-21 阶段五 M9：配乐工坊与离线音频
+
+1. **确定性作曲**：`fc.extensions.Soundtrack` 以 `StateHasher` 摘要混合星历作为种子，
+   `Random(seed)` 驱动五声音阶旋律、铺底三和弦与打击乐；同一世界状态生成逐事件相同的 MIDI。
+2. **MIDI 结构**：4 小节 4/4、PPQ 480、96 BPM，三条轨道（长笛 73 / 铺底 89 / 第 10 通道鼓组）；
+   写入曲名、速度 `0x51`、拍号 `0x58`、音量与声像控制器、EOT；`MidiSystem.write` 输出 SMF type 1，
+   `readMidi`/`format` 回读校验。
+3. **离线合成**：`renderWav` 按十二平均律换算频率，正弦波 + 起音/释音包络混音、峰值限幅，
+   经 `AudioSystem.write` 输出 44.1 kHz/16-bit/单声道 WAV；不需要声卡。
+4. **设备探测**：`sequencerAvailable()` 在无设备环境返回 `false`；播放交给外部 MIDI 播放器。
+5. **CLI**：新增 `music [mid|wav] [路径]`（别名 `soundtrack`），默认 `music.mid`/`music.wav`；
+   输出轨道数、音符数、时长与种子；与 `export`/`atlas` 一样不进入重放日志。
+6. **测试**：新增 `SoundtrackTest` 5 个用例与运行时 1 个集成用例；当前共 17 个套件、
+   173 个用例通过；既有测试未删除、未跳过、未放宽。
+7. **审计基线**：类型 400/3836（10.4%）、包 64/176（36.4%）、模块 10/20、299 个 class、
+   Preview 违规 0。
+
 ## v0.5.3 2026-11-21 阶段五 M8：档案签章与证据完整性
 
 1. **XML Signature**：`fc.history.sign.EvidenceSignature` 生成自包含证据 XML

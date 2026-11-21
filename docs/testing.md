@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 16 个测试套件、167 个用例。
+当前共 17 个测试套件、173 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -40,12 +40,13 @@ mvn -B package
 | `fc-economy` | `EconomyTest` | 20 | 定价、交易守恒与部分成交、配方生产、工人独占、工资、利息、税率与精度 |
 | `fc-history` | `HistoryQueryTest` | 10 | 查询过滤/分页、CSV/XML/XSD/XSLT/ZIP、XXE 拒绝、JDBC 驱动与 DataSource |
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
-| `fc-runtime` | `RuntimeSmokeTest` | 10 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、签章、非法启动参数 |
+| `fc-runtime` | `RuntimeSmokeTest` | 11 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、签章、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
 | `fc-extensions` | `ExtensionsTest` | 9 | 内存编译、Mod 装载与签名要求、宏、PNG、JMX、HTTP、音频、描述符 |
 | `fc-extensions` | `MapAtlasTest` | 6 | PNG/JPEG 元数据、逐像素确定性、滤镜、缩略图、区域读取、参数校验 |
+| `fc-extensions` | `SoundtrackTest` | 5 | 同种子同曲、SMF 往返、WAV 解码、音色/元数据/控制器、参数校验与设备探测 |
 | `fc-audit` | `AuditTest` | 5 | CSV、基准分母与 Preview、classfile 类型提取、报告证据、预览标记 |
 
 `fc-science`、`fc-diplomacy`、`fc-colony` 等领域模块的玩法链由 `fc-runtime.M4GameplayTest`
@@ -86,7 +87,7 @@ mvn -B package
 - 同种子、同命令序列保存后读档，`StateHasher` 必须一致；明文与加密路径分别验证。
 - 错误口令、篡改密文、损坏的校验和、未来格式版本必须被拒绝，且不替换当前会话。
 - 槽位名校验必须阻止路径穿越；`saves` 按字母序返回。
-- 查询命令与 `save`/`load`/`hash`、`query`、`export` 不进入重放日志。
+- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`sign`、`verify` 不进入重放日志。
 
 ### 编年史查询与导出
 
@@ -103,6 +104,14 @@ mvn -B package
 - 篡改负载、使用另一把公钥、伪造或缺失文件必须验签失败。
 - 公钥（X.509）与私钥（PKCS#8）DER 往返后仍可签可验，公钥指纹稳定。
 - 首次调用生成密钥并落盘，第二次调用复用同一密钥。
+
+### 配乐工坊
+
+- 同一世界状态（种子）必须生成逐事件相同的 MIDI；不同种子应得到不同旋律。
+- SMF type 1 落盘后读回，轨道数、分辨率与音符数一致；元事件（曲名、速度、拍号）与
+  程序变更/控制器确实写入。
+- WAV 必须是 44.1 kHz/16-bit/单声道且非全静音；渲染不依赖声卡。
+- 非法格式、空序列与不可用设备必须被拒绝或优雅降级，不得抛未捕获异常。
 
 ### 扩展与外围能力
 
