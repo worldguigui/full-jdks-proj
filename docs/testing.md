@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 21 个测试套件、200 个用例。
+当前共 22 个测试套件、207 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -42,7 +42,7 @@ mvn -B package
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
 | `fc-history` | `ChronicleVaultTest` | 6 | 快照与索引、幂等写入、篡改/缺失检测、排他锁、WatchService、坏索引拒绝 |
 | `fc-history` | `EvidenceSealTest` | 6 | PKCS#12 往返、AES-GCM 封存/解封、错钥/篡改拒绝、输入过滤器、错误口令、参数校验 |
-| `fc-runtime` | `RuntimeSmokeTest` | 15 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、封存、签章、非法启动参数 |
+| `fc-runtime` | `RuntimeSmokeTest` | 16 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、封存、签章、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
@@ -51,6 +51,7 @@ mvn -B package
 | `fc-extensions` | `SoundtrackTest` | 5 | 同种子同曲、SMF 往返、WAV 解码、音色/元数据/控制器、参数校验与设备探测 |
 | `fc-extensions` | `RemoteJmxTest` | 5 | 回环 RMI 连接、多客户端、只读属性、停止后拒绝连接、端口与缺失遥测 |
 | `fc-extensions` | `ChatRelayTest` | 6 | 加入与广播、成员表与历史、RMI 控制面、非法输入、离开广播、关闭与端口校验 |
+| `fc-extensions` | `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-audit` | `AuditTest` | 5 | CSV、基准分母与 Preview、classfile 类型提取、报告证据、预览标记 |
 
 `fc-science`、`fc-diplomacy`、`fc-colony` 等领域模块的玩法链由 `fc-runtime.M4GameplayTest`
@@ -91,7 +92,7 @@ mvn -B package
 - 同种子、同命令序列保存后读档，`StateHasher` 必须一致；明文与加密路径分别验证。
 - 错误口令、篡改密文、损坏的校验和、未来格式版本必须被拒绝，且不替换当前会话。
 - 槽位名校验必须阻止路径穿越；`saves` 按字母序返回。
-- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`vault`、`seal`、`unseal`、`sign`、`verify`、`jmx`、`chat` 不进入重放日志。
+- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`vault`、`seal`、`unseal`、`sign`、`verify`、`jmx`、`chat`、`res` 不进入重放日志。
 
 ### 编年史查询与导出
 
@@ -131,6 +132,18 @@ mvn -B package
 - 只读 MBean 的属性写入按 JMX 语义返回空列表，原值不变；不得使用异常或忽略错误来伪装成功。
 - `stop` 必须停止连接器并注销注册表，之后连接被拒绝；重复 `close()` 幂等。
 - 端口越界在启动前拒绝；`jmx` 命令不进入重放日志。
+
+### fc:// 命名上下文
+
+- 名称必须是 `fc:<scope>/<path>`，scope 只能是 `mod`/`config`/`save`/`service`/`chronicle`；
+  空段、`.`、`..` 与未知 scope 在解析期拒绝，不得落到绑定表。
+- 相对名相对当前子上下文，绝对名（以 `fc:` 开头）从根解析；两者指向同一绑定时必须相等。
+- `bind`/`rebind`/`unbind`/`rename`/`createSubcontext`/`destroySubcontext` 的异常语义
+  必须使用 JNDI 家族，不得用通用运行时异常代替。
+- `registerService` 绑定 `Reference`，`lookup` 经 `NamingManager`/`ObjectFactory` 重建对象；
+  `listBindings` 与 `services` 的结果必须可按名字枚举。
+- 绑定、解绑与重绑触发 `NamingEvent`；`LinkRef` 必须由 `lookupLink` 解引用。
+- 命名空间互相隔离；关闭后继续访问必须失败；`res` 命令不进入重放日志。
 
 ### 聊天室中继
 

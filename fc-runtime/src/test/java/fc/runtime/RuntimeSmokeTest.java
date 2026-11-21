@@ -247,6 +247,35 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void namingCommandsResolveServicesAndStayOutOfReplayLog() {
+        RuntimeSession session = boot();
+        try {
+            assert session.execute("res register fc:service/relay chat fc://chat/loopback:9999")
+                    .contains("已注册") : "应注册命名条目";
+            String located = session.execute("res locate fc:service/relay");
+            assert located.contains("chat") && located.contains("fc://chat/loopback:9999")
+                    : located;
+            assert session.execute("res list service").contains("fc:service")
+                    : "应枚举 service 命名空间";
+            assert session.execute("res services").contains("chat →")
+                    : "应列出服务引用";
+
+            assert session.execute("chat open 0").contains("聊天室中继已启动");
+            assert session.execute("res locate fc:service/chat").contains("chat")
+                    : "聊天室启动时应自动登记";
+            assert session.execute("chat close").contains("已停止");
+            assert session.execute("res locate fc:service/chat").contains("未绑定")
+                    : "聊天室停止后应解除登记";
+
+            assert session.execute("res unregister fc:service/relay").contains("已解除");
+        } finally {
+            session.execute("chat close");
+        }
+        assert session.commandHistory().stream().noneMatch(c -> c.startsWith("res"))
+                : "命名命令不应进入重放日志";
+    }
+
+    @FcTest
     public void sealAndUnsealEvidenceRoundTrip() throws Exception {
         RuntimeSession session = boot();
         Path dir = Files.createTempDirectory("fc-runtime-seal-");

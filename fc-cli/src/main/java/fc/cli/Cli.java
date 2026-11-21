@@ -10,6 +10,7 @@ import fc.diplomacy.GoalService;
 import fc.economy.LoanService;
 import fc.economy.TradeService;
 import fc.extensions.ChatRelay;
+import fc.extensions.FcNaming;
 import fc.extensions.MapAtlas;
 import fc.extensions.RemoteJmx;
 import fc.extensions.Soundtrack;
@@ -153,6 +154,8 @@ public final class Cli {
                     "回环 JMX 管理端点（jconsole 可连接，仅本机）"),
             new Cmd("chat", List.of(), "chat open [端口]|say <昵称> <文本>|history [条数]|roster|close",
                     "本机聊天室中继：TCP 消息面 + RMI 控制面（仅回环）"),
+            new Cmd("res", List.of(), "res [list [scope]|locate <fc:...>|register <fc:...> <类型> <端点>|unregister <fc:...>|services]",
+                    "fc:// 命名上下文：定位、枚举与注册进程内资源"),
             new Cmd("vault", List.of("archive"), "vault [write|list|check|watch] [目录]",
                     "档案库：编年史快照镜像、索引校验与变更监视"),
             new Cmd("seal", List.of(), "seal <文件> [输出]",
@@ -178,6 +181,7 @@ public final class Cli {
     private final Supplier<TickContext> tickContexts;
     private RemoteJmx.Server jmx;
     private ChatRelay chat;
+    private FcNaming naming;
 
     public Cli(GameLoop loop) {
         this(loop, null, null, null, null);
@@ -260,6 +264,7 @@ public final class Cli {
             case "vault" -> doVault(tokens);
             case "jmx" -> doJmx(tokens);
             case "chat" -> doChat(tokens);
+            case "res" -> doRes(tokens);
             case "seal" -> doSeal(tokens);
             case "unseal" -> doUnseal(tokens);
             case "sign" -> doSign(tokens);
@@ -268,6 +273,7 @@ public final class Cli {
             case "quit" -> {
                 closeJmx();
                 closeChat();
+                closeNaming();
                 yield "bye";
             }
             default -> "未知命令: " + tokens.get(0) + "（输入 help 查看全部 " + COMMANDS.size() + " 条命令）";
@@ -537,6 +543,7 @@ public final class Cli {
                         }
                     }
                     jmx = RemoteJmx.start(port);
+                    bindService("fc:service/jmx", "jmx", jmx.url().toString());
                     yield "JMX 端点已启动 → " + jmx.url()
                             + "\n  仅绑定回环地址；可用 jconsole 连接，或 jmx status 查看。";
                 }
@@ -574,8 +581,116 @@ public final class Cli {
 
     private void closeJmx() {
         if (jmx != null) {
+            unbindService("fc:service/jmx");
             jmx.close();
             jmx = null;
+        }
+    }
+
+    /** 在 fc:// 命名上下文中登记服务；失败不影响端点本身。 */
+    private void bindService(String name, String kind, String endpoint) {
+        try {
+            naming().registerService(name, kind, endpoint);
+        } catch (javax.naming.NamingException e) {
+            // 命名只是发现层，端点仍可使用。
+        }
+    }
+
+    private void unbindService(String name) {
+        if (naming == null) {
+            return;
+        }
+        try {
+            naming.unbind(name);
+        } catch (javax.naming.NamingException e) {
+            // 未注册或已解除。
+        }
+    }
+
+    private FcNaming naming() {
+        if (naming == null) {
+            try {
+                naming = FcNaming.open();
+            } catch (javax.naming.NamingException e) {
+                throw new IllegalStateException("命名上下文不可用：" + e.getMessage(), e);
+            }
+        }
+        return naming;
+    }
+
+    private void closeNaming() {
+        if (naming != null) {
+            naming.close();
+            naming = null;
+        }
+    }
+
+    /** fc:// 命名上下文：列出、定位、注册与解除绑定；不进入重放日志。 */
+    private String doRes(List<String> tokens) {
+        String action = tokens.size() >= 2 ? tokens.get(1).toLowerCase(java.util.Locale.ROOT)
+                : "list";
+        try {
+            return switch (action) {
+                case "list", "ls" -> {
+                    List<String> scopes = tokens.size() >= 3
+                            ? List.of(tokens.get(2)) : FcNaming.SCOPES;
+                    StringBuilder sb = new StringBuilder("---- fc:// 命名空间 ----");
+                    for (String scope : scopes) {
+                        String prefix = scope.startsWith("fc:") ? scope : "fc:" + scope;
+                        List<String> names = naming().list(prefix);
+                        sb.append("\n  ").append(prefix).append(' ');
+                        if (names.isEmpty()) {
+                            sb.append("（空）");
+                            continue;
+                        }
+                        sb.append(names.size()).append(" 项");
+                        for (String name : names) {
+                            sb.append("\n    ").append(name);
+                        }
+                    }
+                    yield sb.toString();
+                }
+                case "locate", "lookup" -> {
+                    if (tokens.size() < 3) {
+                        yield "用法：res locate <fc:...>";
+                    }
+                    Object value = naming().lookup(tokens.get(2));
+                    yield "定位 " + tokens.get(2) + " → " + value
+                            + "（" + value.getClass().getSimpleName() + "）";
+                }
+                case "register", "bind" -> {
+                    if (tokens.size() < 5) {
+                        yield "用法：res register <fc:...> <类型> <端点>";
+                    }
+                    String endpoint = String.join(" ",
+                            tokens.subList(4, tokens.size()));
+                    naming().registerService(tokens.get(2), tokens.get(3), endpoint);
+                    yield "已注册 " + tokens.get(2) + " → " + tokens.get(3);
+                }
+                case "unregister", "unbind" -> {
+                    if (tokens.size() < 3) {
+                        yield "用法：res unregister <fc:...>";
+                    }
+                    naming().unbind(tokens.get(2));
+                    yield "已解除 " + tokens.get(2);
+                }
+                case "services" -> {
+                    List<FcNaming.FcService> services = naming().services();
+                    StringBuilder sb = new StringBuilder("---- fc://service ")
+                            .append(services.size()).append(" 项 ----");
+                    for (FcNaming.FcService service : services) {
+                        sb.append("\n  ").append(service.kind()).append(" → ")
+                                .append(service.endpoint());
+                    }
+                    yield sb.toString();
+                }
+                default -> "用法：res [list [scope]|locate <fc:...>|register <fc:...> <类型> <端点>"
+                        + "|unregister <fc:...>|services]";
+            };
+        } catch (javax.naming.NamingException e) {
+            return "命名操作失败：" + e.getMessage();
+        } catch (IllegalStateException e) {
+            return e.getMessage();
         }
     }
 
@@ -598,6 +713,7 @@ public final class Cli {
                         }
                     }
                     chat = ChatRelay.start(port);
+                    bindService("fc:service/chat", "chat", chat.endpoint());
                     yield "聊天室中继已启动 → " + chat.endpoint()
                             + "\n  控制面 " + chat.controlEndpoint()
                             + "\n  协议 NICK <昵称> / MSG <文本> / WHO / HIST / QUIT（仅回环）";
@@ -681,6 +797,7 @@ public final class Cli {
 
     private void closeChat() {
         if (chat != null) {
+            unbindService("fc:service/chat");
             chat.close();
             chat = null;
         }

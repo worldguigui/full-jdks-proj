@@ -195,6 +195,22 @@ CLI 只做薄封装：`query <SQL>` 绑定匿名会话后执行，`export <格�
 - CLI `chat open [端口]|say <昵称> <文本>|history [条数]|roster|close`；`say` 走真实 TCP
   往返。命令与端点生命周期不进入重放日志，退出时统一关闭。
 
+### 3.11 fc:// 统一资源命名
+
+`FcNaming` 按 `docs/phase3/naming-spec.md` 实现进程内 JNDI 命名上下文。
+
+- 名称格式 `fc:<scope>/<path>`；顶级 scope 固定为 `mod`/`config`/`save`/`service`/
+  `chronicle`，未知 scope 与非法路径段在解析期拒绝。
+- 自研 `InitialContextFactory` 从环境取独立根；`InitialContext` 不依赖外部目录服务。
+  支持相对名（相对当前上下文）与绝对名（以 `fc:` 开头）。
+- `bind`/`rebind`/`unbind`/`rename`/`createSubcontext`/`destroySubcontext` 覆盖上下文生命周期；
+  `list`/`listBindings` 返回 `NamingEnumeration`；`linkRef` 由 `lookupLink` 解引用。
+- `FcService` 实现 `Referenceable`：命名树里存 `Reference`，查找时由
+  `NamingManager` + 自研 `ObjectFactory` 重建；避免直接持有实现实例。
+- 绑定/解绑/重绑向 `NamespaceChangeListener` 发送 `NamingEvent`。
+- CLI `res list|locate|register|unregister|services`；`chat`/`jmx` 端点自动登记为
+  `fc:service/chat` 与 `fc:service/jmx`，停止时解除。命令不进入重放日志。
+
 ## 4. 模块与依赖
 
 ```
@@ -218,7 +234,7 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 | `fc-history` | 内存编年史、查询模型、导出、只读 JDBC 驱动、XML 签章、档案库镜像、PKCS#12 证据封存 | 已实现（M5+） |
 | `fc-cli` | 命令解析、星图、面板与报告 | 已实现 |
 | `fc-persist` | 存档仓库、偏好、本地化 | 已实现（M5） |
-| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册与回环远程管理、聊天室中继、HTTP、音频 | 已实现（M5+） |
+| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册与回环远程管理、聊天室中继、fc:// 命名上下文、HTTP、音频 | 已实现（M5+） |
 | `fc-runtime` | 装配、REPL、存档/读档、PNG、Mod 装载、遥测与状态端点、单文件 jar | 已实现 |
 | `fc-testkit` | 注解 + 反射的零依赖测试框架 | 已实现 |
 | `fc-audit` | API 覆盖审计（classfile 常量池 → 证据） | 已实现（M5） |
@@ -252,7 +268,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 12.3%、包 39.2%、模块 11/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 13.0%、包 40.9%、模块 12/20。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。

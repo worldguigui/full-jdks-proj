@@ -5,6 +5,31 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.5.9 2026-11-21 阶段五 M14：fc:// 统一资源命名上下文
+
+1. **命名格式**：`fc.extensions.FcNaming` 实现 `fc:<scope>/<path>[/<subpath>...]`，
+   顶级 scope 固定为 `mod`/`config`/`save`/`service`/`chronicle`；未知 scope、空段、
+   `.`/`..` 一律在解析期拒绝。
+2. **JNDI 实现**：自研 `InitialContextFactory` 返回进程内 `Context`，不连接外部目录服务器；
+   `InitialContext` 通过环境变量选择工厂，每个 `open()` 得到独立命名空间。
+3. **名称与上下文**：支持 `Name`/`String` 两种入口、相对/绝对名称、`createSubcontext`/
+   `destroySubcontext`、`list`/`listBindings`（`NamingEnumeration`）、`composeName`/
+   `getNameParser`、`rename`/`rebind`/`unbind`；错误使用 JNDI 异常族
+   （`InvalidNameException`、`NameNotFoundException`、`NameAlreadyBoundException`、
+   `NotContextException`）。
+4. **服务引用**：`FcService` 实现 `Referenceable`，绑定的是 `Reference`；
+   `NamingManager` + 自研 `ObjectFactory` 在查找时把引用重建为 `FcService`，
+   不把实现类实例直接塞进命名树。
+5. **变更通知与链接**：`NamespaceChangeListener` 收到 `NamingEvent`（新增/移除/重绑）；
+   `LinkRef` 由 `lookupLink` 解引用。
+6. **CLI**：新增 `res list [scope]|locate <fc:...>|register <fc:...> <类型> <端点>|
+   unregister <fc:...>|services`；`chat open` 与 `jmx start` 自动登记
+   `fc:service/chat` / `fc:service/jmx`，停止时自动解除。命令不进入重放日志。
+7. **测试**：新增 `FcNamingTest` 6 个用例与运行时 1 个集成用例；当前共 22 个套件、
+   207 个用例通过；既有测试未删除、未跳过、未放宽。
+8. **审计基线**：类型 498/3836（13.0%）、包 72/176（40.9%）、模块 12/20、330 个 class、
+   Preview 违规 0。
+
 ## v0.5.8 2026-11-21 阶段五 M13：联机通信第一阶段与聊天室中继
 
 1. **TCP 消息面**：`fc.extensions.ChatRelay` 只绑定回环地址，以 UTF-8 行协议提供
