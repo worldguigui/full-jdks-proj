@@ -19,11 +19,13 @@ import java.util.logging.Logger;
  * <p>渲染走 {@link ScreenBuffer} + {@link DiffRenderer}；页面只读 {@link Snapshot}；
  * 所有世界推进/操作都通过 {@link TuiGame#execute(String)} 进入游戏应用层。
  * 页面命令直接复用 CLI 命令名（map/ships/colonies/research/market/log/status/
- * decisions/help）：执行后切到对应可视化页面。双窗口模式下 TUI 只读，完整输出
- * 由独立的 CLI 窗口显示；单窗口模式在状态行显示最后反馈。
+ * decisions/help）：执行后切到对应可视化页面。双窗口模式下本窗口与独立 CLI
+ * 窗口都可提交命令，二者共享同一个权威世界；最后反馈显示在状态行。
  * 界面刷新与游戏时间分离，渲染从不推进 Tick。</p>
  *
- * <p>输入采用标准输入逐行读取（Java SE 21 无跨平台 Raw Mode）。</p>
+ * <p>输入采用标准输入阻塞逐行读取：Windows 控制台的
+ * {@code InputStream.available()} 不可靠，轮询会使交互式 TUI 无法接收命令。
+ * 后台刷新线程只负责把其他窗口的命令反映到画面，不读取输入、不推进 Tick。</p>
  */
 public final class TuiApp implements AutoCloseable {
 
@@ -43,17 +45,18 @@ public final class TuiApp implements AutoCloseable {
     private final CharSet chars;
     private final DiffRenderer renderer;
     private final Deque<String> log = new ArrayDeque<>();
+    private final Object frameLock = new Object();
     private Snapshot snapshot;
     private Page page = Page.BRIDGE;
     private int selection;
     private boolean detail;
-    private boolean running = true;
+    private volatile boolean running = true;
     private String status = "READY";
     private String notice = "";
     private List<String> helpLines = List.of();
-    private volatile boolean viewOnly;
     private volatile boolean dirty;
     private boolean gameQuit;
+    private volatile boolean hostControlled;
 
     public TuiApp(TuiGame game, Terminal terminal) {
         if (game == null || terminal == null) {
@@ -76,29 +79,47 @@ public final class TuiApp implements AutoCloseable {
      * 避免两个读取器互相抢缓冲输入。
      */
     public void run(BufferedReader reader) {
+        if (hostControlled) {
+            runHostControlled(reader);
+        } else {
+            runBlocking(reader);
+        }
+    }
+
+    /**
+     * 共享 Reader 模式：主线程阻塞读行，后台线程负责刷新其他窗口的命令。
+     * 不关闭 Reader，TUI 退出后 CLI REPL / 子窗口 CLI 还要继续使用它。
+     */
+    private void runBlocking(BufferedReader reader) {
         terminal.enter();
+        Thread refresher = new Thread(this::refreshLoop, "fc-tui-refresh");
+        refresher.setDaemon(true);
         try {
-            draw();
+            synchronized (frameLock) {
+                draw();
+            }
+            refresher.start();
             while (running) {
-                boolean ready;
+                String line;
                 try {
-                    ready = reader.ready();
+                    // 阻塞读取而不是 ready() 轮询：Windows 控制台在用户回车前
+                    // available() 可能始终为 0，轮询会让 TUI 完全收不到输入。
+                    line = reader.readLine();
                 } catch (IOException e) {
-                    LOG.log(Level.WARNING, "终端输入检测失败", e);
+                    if (running) {
+                        LOG.log(Level.WARNING, "终端输入失败", e);
+                        synchronized (frameLock) {
+                            appendLog("输入失败：" + e.getMessage());
+                            renderer.reset();
+                            draw();
+                        }
+                    }
                     break;
                 }
-                if (ready) {
-                    String line;
-                    try {
-                        line = reader.readLine();
-                    } catch (IOException e) {
-                        LOG.log(Level.WARNING, "终端输入失败", e);
-                        appendLog("输入失败：" + e.getMessage());
-                        break;
-                    }
-                    if (line == null) {
-                        break;
-                    }
+                if (line == null) {
+                    break;
+                }
+                synchronized (frameLock) {
                     handle(line);
                     if (!running) {
                         break;
@@ -107,14 +128,73 @@ public final class TuiApp implements AutoCloseable {
                         system.refreshSize();
                     }
                     draw();
-                } else {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        break;
+                }
+            }
+        } finally {
+            running = false;
+            refresher.interrupt();
+            terminal.exit();
+        }
+    }
+
+    /**
+     * 宿主控制模式（双窗口主 TUI）：输入线程阻塞读行，界面线程轮询队列。
+     * CLI 窗口 {@code quit} 可以立即停止界面循环；输入线程是守护线程，
+     * 进程结束时随之退出，不会偷走共享 CLI 的后续输入。
+     */
+    private void runHostControlled(BufferedReader reader) {
+        terminal.enter();
+        java.util.concurrent.BlockingQueue<Object> lines =
+                new java.util.concurrent.LinkedBlockingQueue<>();
+        Object eof = new Object();
+        Thread input = new Thread(() -> {
+            try {
+                for (String line; (line = reader.readLine()) != null; ) {
+                    lines.put(line);
+                }
+            } catch (IOException e) {
+                if (running) {
+                    LOG.log(Level.WARNING, "终端输入失败", e);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                lines.offer(eof);
+            }
+        }, "fc-tui-input");
+        input.setDaemon(true);
+        try {
+            synchronized (frameLock) {
+                draw();
+            }
+            input.start();
+            while (running) {
+                Object item;
+                try {
+                    item = lines.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                if (item == eof) {
+                    break;
+                }
+                if (item instanceof String line) {
+                    synchronized (frameLock) {
+                        handle(line);
+                        if (!running) {
+                            break;
+                        }
+                        if (terminal instanceof SystemTerminal system) {
+                            system.refreshSize();
+                        }
+                        draw();
                     }
-                    if (dirty) {
+                } else if (dirty) {
+                    synchronized (frameLock) {
+                        if (!dirty) {
+                            continue;
+                        }
                         dirty = false;
                         refresh();
                         renderer.reset();
@@ -123,8 +203,37 @@ public final class TuiApp implements AutoCloseable {
                 }
             }
         } finally {
-            // 不关闭 System.in：TUI 可以从 CLI REPL 内进入，退出后 REPL 还要继续读。
+            running = false;
+            input.interrupt();
             terminal.exit();
+        }
+    }
+
+    /** 后台刷新：只响应其他窗口的命令通知，不读取输入、不推进世界。 */
+    private void refreshLoop() {
+        while (running) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            if (!dirty || !running) {
+                continue;
+            }
+            synchronized (frameLock) {
+                if (!dirty) {
+                    continue;
+                }
+                dirty = false;
+                try {
+                    refresh();
+                    renderer.reset();
+                    draw();
+                } catch (RuntimeException e) {
+                    LOG.log(Level.WARNING, "后台刷新失败", e);
+                }
+            }
         }
     }
 
@@ -132,10 +241,10 @@ public final class TuiApp implements AutoCloseable {
      * 处理一行输入；返回是否仍在运行。
      *
      * <p>不引入单字母缩写，也不新增 screen 之类的导航语法。map/ships/colonies/
-     * research/market/log/status/decisions/help 直接复用 CLI 命令：先执行命令
-     * （双窗口下由独立 CLI 窗口显示完整输出），再切换到对应可视化页面。
-     * select/inspect/back 是列表
-     * 操作，quit/exit 退出，其余整行原样交给游戏。</p>
+     * research/market/log/status/decisions/help 直接复用 CLI 命令：先执行命令，
+     * 再切换到对应可视化页面。双窗口模式下本窗口与独立 CLI 窗口都可输入，
+     * 命令进入同一个权威宿主。select/inspect/back 是列表操作，
+     * quit/exit 退出，其余整行原样交给游戏。</p>
      */
     public boolean handle(String rawLine) {
         if (rawLine == null) {
@@ -208,11 +317,6 @@ public final class TuiApp implements AutoCloseable {
         detail = false;
     }
 
-    /** 双窗口模式下 TUI 只读：命令由独立 CLI 窗口输入。 */
-    public void setViewOnly(boolean viewOnly) {
-        this.viewOnly = viewOnly;
-    }
-
     /** CLI 窗口执行完命令后通知 TUI：刷新快照，并在是页面命令时切换视图。 */
     public void externalUpdate(String command) {
         String head = head(command == null ? "" : command);
@@ -236,38 +340,23 @@ public final class TuiApp implements AutoCloseable {
         dirty = true;
     }
 
-    /** 请求 TUI 退出（双窗口模式下由 CLI 的 quit 或宿主关闭触发）。 */
+    /**
+     * 请求 TUI 退出（双窗口模式下由 CLI 的 quit 或宿主关闭触发）。
+     *
+     * <p>宿主控制模式下界面线程按 100 ms 轮询队列，因此这里只需翻转状态；
+     * 不得关闭共享 Reader，否则 CLI REPL 的输入会一起丢失。</p>
+     */
     public void requestStop() {
         running = false;
         dirty = true;
     }
 
     /**
-     * 只读可视化循环：不读标准输入，按宿主事件刷新画面。
-     * 用于 TUI + 独立 CLI 窗口模式。
+     * 启用宿主控制输入：界面线程轮询输入队列，外部 {@link #requestStop()}
+     * 能在 100 ms 内退出，而不必等待用户再按一次回车。双窗口主 TUI 使用。
      */
-    public void runViewOnly() {
-        terminal.enter();
-        terminal.write(Ansi.CURSOR_HIDE);
-        try {
-            draw();
-            while (running) {
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-                if (dirty) {
-                    dirty = false;
-                    refresh();
-                    renderer.reset();
-                    draw();
-                }
-            }
-        } finally {
-            terminal.exit();
-        }
+    public void setHostControlled(boolean hostControlled) {
+        this.hostControlled = hostControlled;
     }
 
     /** 生成当前帧画布（测试与渲染器共用）。 */
@@ -287,13 +376,9 @@ public final class TuiApp implements AutoCloseable {
     public void draw() {
         ScreenBuffer frame = frame();
         terminal.write(renderer.render(frame));
-        if (viewOnly) {
-            terminal.moveCursor(terminal.size().rows(), 1);
-        } else {
-            // 命令行在倒数第二行（0 基 rows-2），提示文本从第 2 列开始。
-            terminal.moveCursor(Math.max(1, terminal.size().rows() - 1),
-                    PROMPT.length() + 2);
-        }
+        // 命令行在倒数第二行（0 基 rows-2），提示文本从第 2 列开始。
+        terminal.moveCursor(Math.max(1, terminal.size().rows() - 1),
+                PROMPT.length() + 2);
     }
 
     public Page page() {
@@ -577,10 +662,8 @@ public final class TuiApp implements AutoCloseable {
         if (y < 0 || y >= buffer.height()) {
             return;
         }
-        String keys = viewOnly
-                ? "在 CLI 窗口输入 map/ships/colonies/research/market/log/status/decisions/goals/help 切换视图"
-                : "页面 map ships colonies research market log status decisions goals help | "
-                        + "列表 select N/up/down inspect back | next N | quit";
+        String keys = "页面 map ships colonies research market log status decisions goals help | "
+                + "列表 select N/up/down inspect back | next N | quit";
         buffer.putClipped(1, y, TextWidth.truncate(keys, Math.max(0, width - 2)),
                 Style.MUTED, Math.max(0, width - 2));
     }
@@ -590,10 +673,7 @@ public final class TuiApp implements AutoCloseable {
             return;
         }
         buffer.fill(new Rect(0, y, width, 1), Style.PANEL);
-        String prompt = viewOnly
-                ? "CLI WINDOW > 命令请在独立命令行窗口输入；此窗口只做可视化。"
-                : PROMPT;
-        buffer.putClipped(1, y, prompt, Style.ACCENT, width - 1);
+        buffer.putClipped(1, y, PROMPT, Style.ACCENT, width - 1);
         int bottom = buffer.height() - 1;
         buffer.put(0, bottom, chars.doubleBottomLeft(), Style.ACCENT);
         buffer.horizontal(bottom, 1, Math.max(0, width - 2),
@@ -617,7 +697,7 @@ public final class TuiApp implements AutoCloseable {
         for (int i = 0; i < lines.size() && i < inner.height() - 1; i++) {
             Draw.line(buffer, inner, i, lines.get(i), Style.PANEL);
         }
-        Draw.line(buffer, inner, inner.height() - 1, "[B] 关闭", Style.PANEL_MUTED);
+        Draw.line(buffer, inner, inner.height() - 1, "back 关闭", Style.PANEL_MUTED);
     }
 
     private String detailText() {

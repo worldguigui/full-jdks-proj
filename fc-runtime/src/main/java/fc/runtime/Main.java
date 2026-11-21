@@ -140,8 +140,9 @@ public final class Main {
     }
 
     /**
-     * 双窗口模式：本窗口是只读可视化 TUI；另开一个独立 CLI 窗口，
-     * 通过回环套接字提交命令并显示完整输出。
+     * 双窗口模式：本窗口是可交互 TUI；另开一个独立 CLI 窗口。
+     * 两个窗口都通过同一个 {@link ConsoleHost} 提交命令，共享同一世界；
+     * TUI 以可视化页面呈现状态，完整终端输出留在独立 CLI 窗口。
      */
     private static void runSplit(AtomicReference<RuntimeSession> holder,
                                  GameTelemetry telemetry) {
@@ -163,12 +164,13 @@ public final class Main {
                     }
                 });
         try (SplitConsoleServer server = SplitConsoleServer.start(host)) {
-            System.out.println("双窗口模式：本窗口为可视化 TUI，CLI 命令窗口独立打开。");
+            System.out.println("双窗口模式：本窗口与独立 CLI 窗口都可输入命令，"
+                    + "二者操作同一世界。");
             ConsoleLauncher.launch(server.port(), server.token(), System.out);
             TuiApp app = new TuiApp(host, new SystemTerminal());
-            app.setViewOnly(true);
+            app.setHostControlled(true);
             appRef.set(app);
-            app.runViewOnly();
+            app.run();
         } catch (IOException e) {
             System.err.println("双窗口模式启动失败：" + e.getMessage());
         } finally {

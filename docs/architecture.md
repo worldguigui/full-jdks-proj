@@ -310,18 +310,21 @@ TUI 画布。
 
 - **两种启动方式**：
   - `--tui`：单窗口 TUI，命令栏输入 CLI 命令，底部一行显示最后反馈；
-  - `--tui --console`（或 `--split`）：双窗口模式。本窗口是**只读可视化 TUI**，
-    另开一个独立 CLI 窗口接收命令并显示**完整输出**（`help`、`log all` 等不会被截断）。
+  - `--tui --console`（或 `--split`）：双窗口模式。本窗口是**可交互 TUI**，
+    另开一个独立 CLI 窗口；两个窗口都可输入命令，都连接同一个权威宿主。
+    TUI 用可视化页面与状态行反馈，独立 CLI 窗口保留 `help`/`log all` 等
+    **完整终端输出**；TUI 页面通过宿主通知自动刷新。
 - **权威宿主**：`fc-runtime.ConsoleHost` 持有 `RuntimeSession`，在同步锁内执行命令、
   存档/读档/PNG 与遥测刷新；TUI 构建快照时使用同一把锁，避免读到半个世界。
-  CLI 窗口通过 `SplitConsoleServer`（回环地址 + 随机令牌 + Base64 帧）提交命令；
-  `ConsoleClient` 打印完整输出。Windows 用 `cmd /c start` 打开新控制台，并先用
-  生成的批处理执行 `chcp 65001`、以 UTF-8 读写，避免本地代码页导致中文乱码；
-  其他平台打印可直接运行的手工命令；`FC_CONSOLE_NO_WINDOW=1` 用于测试/排障。
+  CLI 窗口通过 `SplitConsoleServer`（回环地址 + 随机令牌 + Base64 帧）提交命令，
+  TUI 直接调用宿主；两者都在同一把锁内串行。`ConsoleClient` 打印完整输出。
+  Windows 用 `cmd /c start` 打开新控制台，并先用生成的批处理执行 `chcp 65001`、
+  以 UTF-8 读写，避免本地代码页导致中文乱码；其他平台打印可直接运行的手工命令；
+  `FC_CONSOLE_NO_WINDOW=1` 用于测试/排障。
 - **TUI 页面命令**：`map`/`ships`/`colonies`/`research`/`market`/`log`/`status`/
-  `decisions`/`goals`/`help` 直接复用 CLI 命令名；CLI 窗口执行后，宿主通知
-  TUI 刷新快照并切换到对应可视化页面。主窗口 `tui on` 使用同一套宿主通知 +
-  100 ms 轮询，其他 CLI 窗口的命令会自动反映到 TUI。
+  `decisions`/`goals`/`help` 直接复用 CLI 命令名；任一窗口执行后，宿主通知
+  TUI 刷新快照并切换到对应可视化页面。主窗口 `tui on` 与双窗口 TUI 使用
+  宿主通知 + 100 ms 后台刷新，其他 CLI 窗口的命令会自动反映到 TUI。
 - **渲染内核**：`TextWidth` 处理 CJK/emoji/组合字符宽度；`ScreenBuffer` 是字符 +
   样式双缓冲（宽字符占两列、控制字符清洗）；`DiffRenderer` 只输出变化单元格，
   首帧/尺寸变化清屏，绘制期间关闭自动换行；`CharSet` 提供 Unicode/ASCII 降级，
@@ -329,7 +332,12 @@ TUI 画布。
 - **终端适配**：`Terminal` 抽象输出侧；`SystemTerminal` 使用备用屏幕、UTF-8、
   真彩 SGR，并探测行列（`FC_TUI_COLS/ROWS` 覆盖；Windows 优先 PowerShell
   `WindowSize`，其次 `mode con`；Unix 用 `stty size`；默认 100×30）。
-  Java SE 21 无跨平台 Raw Mode，本版输入为行模式。
+  Java SE 21 无跨平台 Raw Mode，本版输入为行模式。输入必须使用阻塞
+  `readLine()`，不能用 `InputStream.available()`/`Reader.ready()` 轮询：
+  Windows 控制台在回车前可能始终返回 0，轮询会导致 TUI 完全收不到命令。
+  共享 CLI Reader 时由主线程阻塞读行 + 守护刷新线程同步画面；双窗口主 TUI
+  由守护输入线程投递队列，界面线程 100 ms 轮询，从而让宿主 `quit` 能立即结束
+  界面，同时不会抢走共享 CLI 的后续输入。
 - **待办阻塞**：`next` 因待决事项停止时，TUI 在状态行显示阻塞计数与
   `decisions`/`decide <id> <选项>` 路径并切到情报页；CLI 窗口同时收到完整原因。
   情报页展示决策 id 与选项 id，组织条显示待办计数。
@@ -453,7 +461,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 16.4%、包 50.0%、模块 20/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 632/3836（16.5%）、包 88/176（50.0%）、模块 20/20，Preview 违规 0。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。

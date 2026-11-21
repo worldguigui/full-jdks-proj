@@ -16,6 +16,9 @@ import fc.world.Stock;
 import fc.world.WorldState;
 import fc.world.time.Stardate;
 
+import java.io.BufferedReader;
+import java.io.PipedReader;
+import java.io.PipedWriter;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -163,8 +166,16 @@ public final class TuiEngineTest {
         }
 
         @Override
-        public void write(String text) {
+        public synchronized void write(String text) {
             written.append(text);
+        }
+
+        synchronized String writtenText() {
+            return written.toString();
+        }
+
+        synchronized void clearWritten() {
+            written.setLength(0);
         }
 
         @Override
@@ -185,6 +196,17 @@ public final class TuiEngineTest {
             assert TextWidth.width(buffer.row(y)) == buffer.width()
                     : "第 " + y + " 行宽度 " + TextWidth.width(buffer.row(y));
         }
+    }
+
+    private static void await(java.util.function.BooleanSupplier condition, String message)
+            throws InterruptedException {
+        for (int i = 0; i < 150; i++) {
+            if (condition.getAsBoolean()) {
+                return;
+            }
+            Thread.sleep(20);
+        }
+        assert condition.getAsBoolean() : message;
     }
 
     // ---- 用例 ----
@@ -486,5 +508,79 @@ public final class TuiEngineTest {
         assert app.running();
         assert app.status().contains("命令失败") : app.status();
         assert text(app.frame()).contains("模拟故障") : app.status();
+    }
+
+    @FcTest
+    public void blockingReaderAcceptsListCommandsAndTuiOffReturns() throws Exception {
+        FakeGame game = new FakeGame();
+        FakeTerminal terminal = new FakeTerminal(new TerminalSize(110, 32), true);
+        TuiApp app = new TuiApp(game, terminal);
+        try (PipedWriter writer = new PipedWriter();
+             PipedReader pipe = new PipedReader(writer);
+             BufferedReader reader = new BufferedReader(pipe)) {
+            Thread thread = new Thread(() -> app.run(reader), "tui-blocking-input-test");
+            thread.setDaemon(true);
+            thread.start();
+
+            await(() -> terminal.enters > 0, "TUI 未进入终端");
+            await(() -> terminal.writtenText().contains("EXPEDITION COMMAND TERMINAL"),
+                    "首帧未绘制");
+
+            // 其他 CLI 窗口执行 goals 时，键盘仍阻塞在 readLine，后台线程负责刷新。
+            terminal.clearWritten();
+            app.externalUpdate("goals");
+            await(() -> terminal.writtenText().contains("目标与胜利路线"),
+                    "外部命令未触发后台刷新");
+
+            writer.write("map\n");
+            writer.flush();
+            await(() -> app.page() == TuiApp.Page.MAP, "map 未生效");
+
+            writer.write("select down\n");
+            writer.flush();
+            await(() -> app.selection() == 1, "select down 未生效");
+
+            writer.write("inspect\n");
+            writer.flush();
+            await(app::detailOpen, "inspect 未打开详情");
+
+            writer.write("back\n");
+            writer.flush();
+            await(() -> !app.detailOpen(), "back 未关闭详情");
+
+            writer.write("tui off\n");
+            writer.flush();
+            thread.join(3_000);
+            assert !thread.isAlive() : "tui off 后输入线程未退出";
+            assert terminal.exits > 0 : "退出时必须恢复终端";
+        }
+    }
+
+    @FcTest
+    public void hostControlledInputAcceptsCommandsAndStopsWithoutAnotherLine()
+            throws Exception {
+        FakeGame game = new FakeGame();
+        FakeTerminal terminal = new FakeTerminal(new TerminalSize(100, 30), true);
+        TuiApp app = new TuiApp(game, terminal);
+        app.setHostControlled(true);
+        try (PipedWriter writer = new PipedWriter();
+             PipedReader pipe = new PipedReader(writer);
+             BufferedReader reader = new BufferedReader(pipe)) {
+            Thread thread = new Thread(() -> app.run(reader), "tui-stop-test");
+            thread.setDaemon(true);
+            thread.start();
+            await(() -> terminal.enters > 0, "TUI 未进入终端");
+
+            writer.write("map\nselect down\n");
+            writer.flush();
+            await(() -> app.page() == TuiApp.Page.MAP && app.selection() == 1,
+                    "双窗口 TUI 未处理输入队列");
+
+            // 模拟独立 CLI 窗口 quit：TUI 仍阻塞等输入，但必须在 100ms 内退出。
+            app.requestStop();
+            thread.join(3_000);
+            assert !thread.isAlive() : "宿主停止后界面线程未退出";
+            assert terminal.exits > 0 : "宿主停止时必须恢复终端";
+        }
     }
 }

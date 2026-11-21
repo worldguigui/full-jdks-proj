@@ -13,9 +13,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
- * 双窗口模式下的权威命令宿主：TUI 只读快照，独立 CLI 窗口通过本地套接字
- * 调用本类执行命令。所有会话替换（load）与命令执行都在同一把锁内完成，
- * 避免 TUI 线程读到半个世界。
+ * 双窗口模式下的权威命令宿主：TUI 读取快照，独立 CLI 窗口与 TUI 都通过
+ * 本类执行命令。所有会话替换（load）与命令执行都在同一把锁内完成，
+ * 避免任一界面线程读到半个世界。
  */
 final class ConsoleHost implements TuiGame {
 

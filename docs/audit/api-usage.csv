@@ -611,7 +611,7 @@ java.base,java.lang,java.lang.ProcessHandle$Info,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.Readable,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.Record,IN_DENOMINATOR,USED,165,fc.agent.Diagnostics$Sample;fc.audit.ApiType;fc.audit.Baseline;fc.audit.ClassScanner$Result;fc.auth.AuthIdentity;fc.auth.KerberosEnvironment;fc.auth.KerberosEnvironment$GssProbe;fc.auth.SaslAuthenticator$Mechanisms;fc.cli.Cli$Cmd;fc.colony.ColonyService$Result;fc.colony.LogisticsService$Node;fc.colony.LogisticsService$Result;fc.colony.ProjectService$Result;fc.colony.ShipyardService$Result;fc.config.world.RecipeDef;fc.config.world.ResourceDef
 java.base,java.lang,java.lang.ReflectiveOperationException,IN_DENOMINATOR,USED,2,fc.extensions.ModLoader;fc.testkit.TestRunner
-java.base,java.lang,java.lang.Runnable,IN_DENOMINATOR,USED,5,fc.extensions.ChatRelay;fc.runtime.ConsoleHost;fc.runtime.Main;fc.runtime.SplitConsoleServer;fc.sim.event.EventBus
+java.base,java.lang,java.lang.Runnable,IN_DENOMINATOR,USED,6,fc.extensions.ChatRelay;fc.runtime.ConsoleHost;fc.runtime.Main;fc.runtime.SplitConsoleServer;fc.sim.event.EventBus;fc.tui.TuiApp
 java.base,java.lang,java.lang.Runtime,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.Runtime$Version,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.RuntimeException,IN_DENOMINATOR,USED,24,fc.cli.Cli;fc.config.ConfigException;fc.config.PropertiesConfig;fc.config.PropertiesConfig$Parser;fc.extensions.CargoManifest;fc.extensions.ChatRelay;fc.extensions.FileXaResource;fc.extensions.FrontierCatalog;fc.extensions.Heartbeat;fc.extensions.LocalClipboard;fc.extensions.MapAtlas;fc.extensions.ModLoader;fc.extensions.ModLoader$LoadedMod;fc.extensions.RemoteJmx;fc.extensions.RemoteJmx$Server;fc.extensions.SoundBank
@@ -718,8 +718,8 @@ java.base,java.lang.invoke,java.lang.invoke.CallSite,IN_DENOMINATOR,USED,194,fc.
 java.base,java.lang.invoke,java.lang.invoke.ConstantBootstraps,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang.invoke,java.lang.invoke.ConstantCallSite,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang.invoke,java.lang.invoke.LambdaConversionException,IN_DENOMINATOR,UNUSED,0,
-java.base,java.lang.invoke,java.lang.invoke.LambdaMetafactory,IN_DENOMINATOR,USED,66,fc.agent.Diagnostics;fc.audit.AuditMain;fc.audit.AuditReport;fc.audit.ClassScanner;fc.auth.UserDirectory;fc.cli.Cli;fc.cli.StarMapRenderer;fc.colony.LogisticsService;fc.colony.ShipyardService;fc.config.PropertiesConfig;fc.config.world.XmlWorldLoader;fc.diplomacy.ConflictResolver;fc.diplomacy.DiplomacyService;fc.diplomacy.FactionSystemImpl;fc.diplomacy.GoalService;fc.economy.Economy
-java.base,java.lang.invoke,java.lang.invoke.MethodHandle,IN_DENOMINATOR,USED,229,fc.agent.Diagnostics;fc.agent.Diagnostics$Sample;fc.audit.ApiType;fc.audit.AuditMain;fc.audit.AuditReport;fc.audit.Baseline;fc.audit.ClassScanner;fc.audit.ClassScanner$Result;fc.auth.AuthIdentity;fc.auth.KerberosEnvironment;fc.auth.KerberosEnvironment$GssProbe;fc.auth.SaslAuthenticator$Mechanisms;fc.auth.UserDirectory;fc.cli.Cli;fc.cli.Cli$Cmd;fc.cli.StarMapRenderer
+java.base,java.lang.invoke,java.lang.invoke.LambdaMetafactory,IN_DENOMINATOR,USED,67,fc.agent.Diagnostics;fc.audit.AuditMain;fc.audit.AuditReport;fc.audit.ClassScanner;fc.auth.UserDirectory;fc.cli.Cli;fc.cli.StarMapRenderer;fc.colony.LogisticsService;fc.colony.ShipyardService;fc.config.PropertiesConfig;fc.config.world.XmlWorldLoader;fc.diplomacy.ConflictResolver;fc.diplomacy.DiplomacyService;fc.diplomacy.FactionSystemImpl;fc.diplomacy.GoalService;fc.economy.Economy
+java.base,java.lang.invoke,java.lang.invoke.MethodHandle,IN_DENOMINATOR,USED,230,fc.agent.Diagnostics;fc.agent.Diagnostics$Sample;fc.audit.ApiType;fc.audit.AuditMain;fc.audit.AuditReport;fc.audit.Baseline;fc.audit.ClassScanner;fc.audit.ClassScanner$Result;fc.auth.AuthIdentity;fc.auth.KerberosEnvironment;fc.auth.KerberosEnvironment$GssProbe;fc.auth.SaslAuthenticator$Mechanisms;fc.auth.UserDirectory;fc.cli.Cli;fc.cli.Cli$Cmd;fc.cli.StarMapRenderer
 java.base,java.lang.invoke,java.lang.invoke.MethodHandleInfo,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang.invoke,java.lang.invoke.MethodHandleProxies,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang.invoke,java.lang.invoke.MethodHandles,IN_DENOMINATOR,USED,309,fc.agent.Diagnostics;fc.agent.Diagnostics$Sample;fc.audit.ApiType;fc.audit.AuditMain;fc.audit.AuditReport;fc.audit.Baseline;fc.audit.ClassScanner;fc.audit.ClassScanner$Result;fc.audit.Csv;fc.auth.AuthIdentity;fc.auth.FcSaslClient;fc.auth.FcSaslServer;fc.auth.GssAuthenticator;fc.auth.KerberosEnvironment;fc.auth.KerberosEnvironment$GssProbe;fc.auth.LocalCallbacks
@@ -1635,7 +1635,7 @@ java.base,java.util,java.util.WeakHashMap,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.AbstractExecutorService,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.ArrayBlockingQueue,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.BlockingDeque,IN_DENOMINATOR,UNUSED,0,
-java.base,java.util.concurrent,java.util.concurrent.BlockingQueue,IN_DENOMINATOR,UNUSED,0,
+java.base,java.util.concurrent,java.util.concurrent.BlockingQueue,IN_DENOMINATOR,USED,1,fc.tui.TuiApp
 java.base,java.util.concurrent,java.util.concurrent.BrokenBarrierException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.Callable,IN_DENOMINATOR,USED,1,fc.sim.tick.WorkStage
 java.base,java.util.concurrent,java.util.concurrent.CancellationException,IN_DENOMINATOR,UNUSED,0,
@@ -1679,7 +1679,7 @@ java.base,java.util.concurrent,java.util.concurrent.Future,IN_DENOMINATOR,USED,1
 java.base,java.util.concurrent,java.util.concurrent.Future$State,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.FutureTask,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.LinkedBlockingDeque,IN_DENOMINATOR,UNUSED,0,
-java.base,java.util.concurrent,java.util.concurrent.LinkedBlockingQueue,IN_DENOMINATOR,UNUSED,0,
+java.base,java.util.concurrent,java.util.concurrent.LinkedBlockingQueue,IN_DENOMINATOR,USED,1,fc.tui.TuiApp
 java.base,java.util.concurrent,java.util.concurrent.LinkedTransferQueue,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.Phaser,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.PriorityBlockingQueue,IN_DENOMINATOR,UNUSED,0,
@@ -1708,7 +1708,7 @@ java.base,java.util.concurrent,java.util.concurrent.ThreadPoolExecutor$AbortPoli
 java.base,java.util.concurrent,java.util.concurrent.ThreadPoolExecutor$CallerRunsPolicy,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.ThreadPoolExecutor$DiscardOldestPolicy,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.ThreadPoolExecutor$DiscardPolicy,IN_DENOMINATOR,UNUSED,0,
-java.base,java.util.concurrent,java.util.concurrent.TimeUnit,IN_DENOMINATOR,USED,3,fc.history.vault.ChronicleVault;fc.runtime.ConsoleClient;fc.tui.TerminalSize
+java.base,java.util.concurrent,java.util.concurrent.TimeUnit,IN_DENOMINATOR,USED,4,fc.history.vault.ChronicleVault;fc.runtime.ConsoleClient;fc.tui.TerminalSize;fc.tui.TuiApp
 java.base,java.util.concurrent,java.util.concurrent.TimeoutException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.TransferQueue,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent.atomic,java.util.concurrent.atomic.AtomicBoolean,IN_DENOMINATOR,UNUSED,0,
