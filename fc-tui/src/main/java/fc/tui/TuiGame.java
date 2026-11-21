@@ -20,6 +20,14 @@ public interface TuiGame {
     String execute(String command);
 
     /**
+     * 当前只读快照。本地宿主从 WorldState 构建；远端 TUI 直接返回服务器
+     * 传来的快照，不要求持有世界对象。
+     */
+    default Snapshot snapshot() {
+        return SnapshotBuilder.build(this);
+    }
+
+    /**
      * 快照构建期间使用的锁。宿主（如双窗口模式）用它把命令执行与界面读取
      * 串行化；默认返回自身，测试实现无需关心并发。
      */

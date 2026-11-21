@@ -2,7 +2,9 @@ package fc.runtime;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.InetAddress;
@@ -84,7 +86,7 @@ final class SplitConsoleServer implements AutoCloseable {
                 return;
             }
             write(out, "FRONTIER CHRONICLE / CLI CONSOLE");
-            write(out, "TUI 窗口只做可视化；命令、完整输出都在本窗口。");
+            write(out, "命令与完整输出在本窗口；tui on 可在本窗口开启可视化，window 再开窗口。");
             for (String line : host.banner()) {
                 write(out, "  " + line);
             }
@@ -104,6 +106,19 @@ final class SplitConsoleServer implements AutoCloseable {
                     host.stop();
                     write(out, "BYE");
                     break;
+                }
+                if ("@snapshot".equals(command)) {
+                    try {
+                        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                        try (ObjectOutputStream objects = new ObjectOutputStream(bytes)) {
+                            objects.writeObject(host.snapshot());
+                        }
+                        write(out, "SNAP " + Base64.getEncoder().encodeToString(
+                                bytes.toByteArray()));
+                    } catch (IOException e) {
+                        write(out, "ERROR 快照序列化失败：" + e.getMessage());
+                    }
+                    continue;
                 }
                 String output = host.execute(command);
                 write(out, "OUT " + Base64.getEncoder().encodeToString(

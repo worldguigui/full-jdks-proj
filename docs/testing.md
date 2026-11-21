@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 33 个测试套件、274 个用例。
+当前共 33 个测试套件、275 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -48,7 +48,7 @@ mvn -B package
 | `fc-agent` | `AgentProbe` | 4 | -javaagent 注册、能力与类列表、浅层大小、释放/未知目标 |
 | `fc-auth` | `AuthTest` | 6 | 机制发现、多轮认证、失败路径、Callback、资源释放、Kerberos 降级 |
 | `fc-history` | `ChronicleWorkbenchTest` | 5 | 离线 CachedRowSet、过滤、排序分页、WebRowSet 版本校验、Join |
-| `fc-runtime` | `SplitConsoleTest` | 4 | 令牌拒绝、完整 help/log 输出、ConsoleClient 子进程往返、quit 停止宿主 |
+| `fc-runtime` | `SplitConsoleTest` | 5 | 令牌拒绝、完整 help/log 输出、ConsoleClient 子进程往返、远端快照、quit 停止宿主 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
 | `fc-extensions` | `ExtensionsTest` | 9 | 内存编译、Mod 装载与签名要求、宏、PNG、JMX、HTTP、音频、描述符 |
 | `fc-extensions` | `MapAtlasTest` | 6 | PNG/JPEG 元数据、逐像素确定性、滤镜、缩略图、区域读取、参数校验 |

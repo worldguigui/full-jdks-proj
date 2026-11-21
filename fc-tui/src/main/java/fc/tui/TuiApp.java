@@ -63,7 +63,7 @@ public final class TuiApp implements AutoCloseable {
         this.terminal = terminal;
         this.chars = terminal.unicode() ? CharSet.unicodeChars() : CharSet.asciiChars();
         this.renderer = new DiffRenderer(terminal.color());
-        this.snapshot = SnapshotBuilder.build(game);
+        this.snapshot = game.snapshot();
     }
 
     /** 交互式运行，直到输入 EOF 或 quit。 */
@@ -415,7 +415,7 @@ public final class TuiApp implements AutoCloseable {
     private void refresh() {
         try {
             synchronized (game.lock()) {
-                snapshot = SnapshotBuilder.build(game);
+                snapshot = game.snapshot();
             }
             notice = snapshot.decisions().isEmpty() ? ""
                     : "! 有 " + snapshot.decisions().size()

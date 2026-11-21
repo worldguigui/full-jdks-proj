@@ -1,6 +1,8 @@
 package fc.runtime;
 
 import fc.persist.SaveRepository;
+import fc.tui.Snapshot;
+import fc.tui.SnapshotBuilder;
 import fc.tui.TuiGame;
 import fc.world.WorldState;
 
@@ -75,6 +77,11 @@ final class ConsoleHost implements TuiGame {
 
     synchronized RuntimeSession session() {
         return current.get();
+    }
+
+    @Override
+    public synchronized Snapshot snapshot() {
+        return SnapshotBuilder.build(this);
     }
 
     @Override

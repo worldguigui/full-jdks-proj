@@ -1,6 +1,7 @@
 package fc.runtime;
 
 import fc.persist.SaveRepository;
+import fc.tui.Snapshot;
 import fc.testkit.FcTest;
 import fc.testkit.TestRunner;
 
@@ -114,6 +115,19 @@ public final class SplitConsoleTest {
                 assert log.contains("事件") || log.contains("编年史") : log;
                 assert log.lines().count() > 3 : "log 输出不得被截断：" + log;
             }
+        }
+    }
+
+    @FcTest
+    public void remoteTuiCanDownloadSnapshotAndRunCommands() throws Exception {
+        try (Fixture fixture = fixture();
+             RemoteConsole remote = RemoteConsole.connect("127.0.0.1",
+                     fixture.server().port(), fixture.server().token())) {
+            Snapshot snapshot = remote.snapshot();
+            assert snapshot != null && !snapshot.places().isEmpty() : snapshot;
+            assert snapshot.date() != null && !snapshot.date().isBlank();
+            String status = remote.command("status");
+            assert !status.isBlank();
         }
     }
 
