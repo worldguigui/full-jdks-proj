@@ -5,6 +5,26 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.8.2 2026-11-21 阶段五 M19：货单剪贴板与 Transferable
+
+1. **货单快照**：新增 `CargoManifest`，把当前星历、信用点、舰船数、地点数与结局
+   固化为只读文本；实现 `Transferable`，同时支持自定义
+   `application/x-fc-manifest;class=java.lang.String` 与 `DataFlavor.stringFlavor`，
+   不支持的 flavor 抛 `UnsupportedFlavorException`。
+2. **进程内剪贴板**：新增 `LocalClipboard`（继承 `Clipboard`），不依赖窗口系统；
+   补齐基类缺失的语义——替换内容时通知旧 `ClipboardOwner.lostOwnership`，
+   并向 `FlavorListener` 派发 `FlavorEvent`，单个监听器异常不影响复制。
+3. **flavor 映射与校验**：`ManifestTransfer` 把货单 flavor 登记到 `SystemFlavorMap`
+   （原生名 `FC_MANIFEST`），通过 `FlavorTable` 双向查询；`describe` 展示 MIME、
+   可读名与原生映射；非法 MIME 以 `MimeTypeParseException` 拒绝。
+4. **CLI**：新增 `manifest [copy|paste|text <文本>|flavors|status]`（别名 `cargo`），
+   `manifest text` 使用 `StringSelection` 走纯文本路径；命令只操纵进程内状态，
+   不进入重放日志，服务器无图形环境也可用。
+5. **测试**：新增 `ManifestTransferTest` 4 个用例与运行时货单往返用例；
+   当前共 28 个套件、242 个用例通过；既有测试未删除、未跳过、未放宽。
+6. **审计基线**：类型 583/3836（15.2%）、包 82/176（46.6%）、模块 16/20、357 个 class、
+   Preview 违规 0；`java.datatransfer` 12/12（100%）。
+
 ## v0.8.1 2026-11-21 阶段五 M18：XA 两阶段文件事务与双份留档
 
 1. **文件 XA 资源**：新增 `FileXaResource`（`javax.transaction.xa.XAResource`）与

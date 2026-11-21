@@ -284,6 +284,24 @@ JMX 端点不只是属性快照：遥测 MBean 主动广播，监视器与定时
 - CLI `export <格式> <路径A> <路径B>` 先在临时目录生成一次，再用该事务双写；
   单路径仍走同一条提交路径。`export` 不进入重放日志。
 
+### 3.16 货单剪贴板与 Transferable
+
+`CargoManifest` 是当前局状态的只读快照，实现 `java.awt.datatransfer.Transferable`；
+`LocalClipboard` 提供不依赖窗口系统的进程内剪贴板。用途是让其他组件（未来的 UI、
+Mod 或导出器）用标准 flavor 协议交换货单，而不是互相引用内部对象。
+
+- 货单同时支持自定义 `application/x-fc-manifest;class=java.lang.String` 与
+  `DataFlavor.stringFlavor`，只认文本的接收方也能消费；不支持的 flavor 抛
+  `UnsupportedFlavorException`。
+- `LocalClipboard` 继承 `Clipboard`，在 `setContents` 后补齐基类缺失的语义：
+  通知旧 `ClipboardOwner.lostOwnership` 并派发 `FlavorEvent` 给
+  `FlavorListener`；单个监听器异常不影响复制。
+- `SystemFlavorMap`（`FlavorMap`/`FlavorTable`）把货单 flavor 登记为原生名
+  `FC_MANIFEST`，`describe` 同时展示 MIME、可读名与原生映射；MIME 校验失败以
+  `MimeTypeParseException` 报告。
+- `StringSelection` 作为纯文本路径；CLI `manifest copy|paste|text|flavors|status`
+  只操纵进程内状态，不进入重放日志，也不要求图形环境。
+
 ## 4. 模块与依赖
 
 ```
@@ -307,7 +325,7 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 | `fc-history` | 内存编年史、查询模型、导出、只读 JDBC 驱动、XML 签章、档案库镜像、PKCS#12 证据封存 | 已实现（M5+） |
 | `fc-cli` | 命令解析、星图、面板与报告 | 已实现 |
 | `fc-persist` | 存档仓库、偏好、本地化 | 已实现（M5） |
-| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册/回环远程管理/通知与监视器、真实时间心跳、聊天室中继、fc:// 命名上下文、TLS 与证书信任、Frontier Script、XA 两阶段文件事务、HTTP、音频 | 已实现（M5+） |
+| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册/回环远程管理/通知与监视器、真实时间心跳、聊天室中继、fc:// 命名上下文、TLS 与证书信任、Frontier Script、XA 两阶段文件事务、货单剪贴板、HTTP、音频 | 已实现（M5+） |
 | `fc-runtime` | 装配、REPL、存档/读档、PNG、Mod 装载、遥测与状态端点、单文件 jar | 已实现 |
 | `fc-testkit` | 注解 + 反射的零依赖测试框架 | 已实现 |
 | `fc-audit` | API 覆盖审计（classfile 常量池 → 证据） | 已实现（M5） |
@@ -342,7 +360,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 14.9%、包 46.0%、模块 15/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 15.2%、包 46.6%、模块 16/20。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。

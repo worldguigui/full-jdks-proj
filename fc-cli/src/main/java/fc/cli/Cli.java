@@ -9,11 +9,14 @@ import fc.diplomacy.DiplomacyService;
 import fc.diplomacy.GoalService;
 import fc.economy.LoanService;
 import fc.economy.TradeService;
+import fc.extensions.CargoManifest;
 import fc.extensions.CertificateChains;
 import fc.extensions.ChatRelay;
 import fc.extensions.FcNaming;
 import fc.extensions.FcScriptEngine;
 import fc.extensions.Heartbeat;
+import fc.extensions.LocalClipboard;
+import fc.extensions.ManifestTransfer;
 import fc.extensions.MapAtlas;
 import fc.extensions.RemoteJmx;
 import fc.extensions.SecureChannel;
@@ -52,6 +55,11 @@ import fc.world.Treaty;
 import fc.world.WorldState;
 import fc.world.time.Stardate;
 
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.ClipboardOwner;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -174,6 +182,9 @@ public final class Cli {
                     "本机信任库：生成根/服务端/客户端证书并做 PKIX 链校验"),
             new Cmd("script", List.of("fcs"), "script [engines|eval <脚本>|run <文件>]",
                     "Frontier Script：set/echo/repeat 编排命令，逐条记入重放日志"),
+            new Cmd("manifest", List.of("cargo"),
+                    "manifest [copy|paste|text <文本>|flavors|status]",
+                    "进程内货单剪贴板：Transferable/flavor 交换当前局状态"),
             new Cmd("vault", List.of("archive"), "vault [write|list|check|watch] [目录]",
                     "档案库：编年史快照镜像、索引校验与变更监视"),
             new Cmd("seal", List.of(), "seal <文件> [输出]",
@@ -199,6 +210,12 @@ public final class Cli {
     private final Supplier<TickContext> tickContexts;
     private RemoteJmx.Server jmx;
     private Heartbeat heartbeat;
+    private final Clipboard manifestClipboard = new LocalClipboard("Frontier Chronicle 货单");
+    private final ClipboardOwner manifestOwner = (clipboard, contents) -> {
+        // 进程内剪贴板不持有系统资源；失去所有权时无需释放。
+    };
+    private final ManifestTransfer.FlavorCounter manifestFlavors =
+            new ManifestTransfer.FlavorCounter();
     private ChatRelay chat;
     private SSLContext chatClient;
     private FcNaming naming;
@@ -224,6 +241,7 @@ public final class Cli {
         this.shipyards = shipyards;
         this.goals = goals;
         this.tickContexts = tickContexts;
+        manifestClipboard.addFlavorListener(manifestFlavors);
     }
 
     /** 把输入命令名/别名解析为规范名（未知则原样返回）。 */
@@ -289,6 +307,7 @@ public final class Cli {
             case "res" -> doRes(tokens);
             case "trust" -> doTrust(tokens);
             case "script" -> doScript(tokens);
+            case "manifest" -> doManifest(tokens);
             case "seal" -> doSeal(tokens);
             case "unseal" -> doUnseal(tokens);
             case "sign" -> doSign(tokens);
@@ -557,6 +576,45 @@ public final class Cli {
         } catch (IOException | IllegalArgumentException
                  | javax.sound.midi.InvalidMidiDataException e) {
             return "配乐失败：" + e.getMessage();
+        }
+    }
+
+    /** 进程内货单剪贴板：Transferable/flavor 交换；不进入重放日志。 */
+    private String doManifest(List<String> tokens) {
+        String action = tokens.size() >= 2
+                ? tokens.get(1).toLowerCase(java.util.Locale.ROOT) : "status";
+        try {
+            return switch (action) {
+                case "copy", "capture" -> {
+                    CargoManifest manifest = ManifestTransfer.capture(loop.state());
+                    manifestClipboard.setContents(manifest, manifestOwner);
+                    yield "货单已复制 → " + manifest.summary() + "\n"
+                            + ManifestTransfer.describe(manifestClipboard);
+                }
+                case "text" -> {
+                    if (tokens.size() < 3) {
+                        yield "用法：manifest text <文本>";
+                    }
+                    String text = String.join(" ", tokens.subList(2, tokens.size()));
+                    manifestClipboard.setContents(new StringSelection(text), manifestOwner);
+                    yield "文本已复制（" + text.length() + " 字符，StringSelection）";
+                }
+                case "paste" -> {
+                    Transferable contents = manifestClipboard.getContents(null);
+                    if (contents == null) {
+                        yield "剪贴板为空（先 manifest copy）";
+                    }
+                    yield "已粘贴剪贴板内容：\n" + ManifestTransfer.readText(contents);
+                }
+                case "flavors" -> ManifestTransfer.describe(manifestClipboard);
+                case "status" -> "货单剪贴板「" + manifestClipboard.getName() + "」｜flavor 变更 "
+                        + manifestFlavors.count() + " 次｜监听器 "
+                        + manifestClipboard.getFlavorListeners().length + " 个\n"
+                        + ManifestTransfer.describe(manifestClipboard);
+                default -> "用法：manifest [copy|paste|text <文本>|flavors|status]";
+            };
+        } catch (UnsupportedFlavorException | IOException e) {
+            return "货单剪贴板操作失败：" + e.getMessage();
         }
     }
 

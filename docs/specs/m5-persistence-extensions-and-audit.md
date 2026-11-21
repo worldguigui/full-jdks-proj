@@ -28,7 +28,7 @@ M5 不改变 M4 已确定的 Tick、RNG 与账本不变量；所有新增能力�
 事件实现细节固化进磁盘格式；世界规则变化时由格式版本显式拒绝，而不是静默读出半个世界。
 
 以下命令不进入重放日志：`save`、`load`、`saves`、`hash`、`help`、`quit`、`exit`；
-后续加入的 `query`、`export`、`atlas`（别名 `chart`）、`music`（别名 `soundtrack`）、`vault`（别名 `archive`）、`seal`、`unseal`、`sign`、`verify`、`jmx`、`chat`、`res`、`trust`、`script` 同样排除
+后续加入的 `query`、`export`、`atlas`（别名 `chart`）、`music`（别名 `soundtrack`）、`vault`（别名 `archive`）、`seal`、`unseal`、`sign`、`verify`、`jmx`、`chat`、`res`、`trust`、`script`、`manifest` 同样排除
 （`export`/`atlas`/`music`/`vault`/`seal`/`unseal`/`sign` 会写文件，`watch` 还会阻塞，读档时不得重复执行）。
 其余纯查询命令仍会记录，这是格式的既定语义。
 其余命令按输入顺序原样记录；纯查询命令虽不改变状态，但保留在日志中不影响重放结果，
@@ -122,6 +122,7 @@ public interface FrontierMod {
 | 监视器 | `TelemetryMonitor` | 注册 `GaugeMonitor`，按阈值广播 `jmx.monitor.gauge.high/low`，100 ms 采样 |
 | 心跳 | `Heartbeat` | `Timer` MBean 按真实时间广播 `fc.heartbeat`；内部监听器统计触发次数，不推进 Tick |
 | XA 双写 | `TwoPhaseFiles` / `FileXaResource` / `FcXid` | 自研 `XAResource` 文件分支：prepare 暂存 + 恢复日志，commit 原子发布；`export` 两个路径时全成或全不成 |
+| 货单剪贴板 | `CargoManifest` / `LocalClipboard` / `ManifestTransfer` | `Transferable` 货单 + 进程内 `Clipboard`；所有权通知、`FlavorEvent`、`SystemFlavorMap` 原生名与 MIME 校验 |
 | 回环 JMX | `RemoteJmx` | 本机 RMI 注册表 + `RMIConnectorServer`，只监听回环；`start/status/stop/beans` 与 `QueryExp` 筛选；只读属性写入按 JMX 语义返回空列表 |
 | 聊天室中继 | `ChatRelay` | 回环 TCP 行协议（NICK/MSG/WHO/HIST/PING/QUIT）+ 虚拟线程；RMI 控制面 `fc-chat-control` 暴露成员表与广播 |
 | 脚本 | `FcScriptEngine` / `FcScriptEngineFactory` | 自研 `javax.script` 引擎（ServiceLoader 注册）：`set`/`echo`/`repeat`、变量替换、预编译；脚本展开的命令逐条进入重放日志 |
@@ -201,6 +202,7 @@ java -cp fc-audit/target/classes fc.audit.AuditMain --out docs/audit
 | `fc-extensions` `RemoteJmxTest` | 6 | 回环连接与遥测读取、直接 RMI 客户端、多客户端、只读属性、停止后拒绝连接、端口校验与缺失遥测 |
 | `fc-extensions` `TelemetryMBeansTest` | 5 | 属性/命令通知与过滤、动态 MBean 快照、GaugeMonitor 阈值通知、Timer 心跳、QueryExp 目录筛选 |
 | `fc-extensions` `TwoPhaseFilesTest` | 5 | XA 双写提交、prepare 失败全回滚、重启恢复日志、协议错误与同 RM、单阶段提交与参数校验 |
+| `fc-extensions` `ManifestTransferTest` | 4 | 货单 flavor/文本回退、剪贴板所有权与 FlavorEvent、FlavorMap 原生名与 MIME 校验、空剪贴板 |
 | `fc-extensions` `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |
 | `fc-extensions` `TlsChatTest` | 5 | 双向 TLS 握手与匿名拒绝、TLS 消息面、密钥库文件装配、明文拒绝、关闭释放 |

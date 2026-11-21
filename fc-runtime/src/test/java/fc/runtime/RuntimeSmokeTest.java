@@ -364,6 +364,31 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void manifestClipboardRoundTripAndStaysOutOfReplayLog() {
+        RuntimeSession session = boot();
+        String copied = session.execute("manifest copy");
+        assert copied.contains("货单已复制") : copied;
+        assert copied.contains("信用点") : copied;
+
+        String flavors = session.execute("manifest flavors");
+        assert flavors.contains("application/x-fc-manifest") : flavors;
+        assert flavors.contains("FC_MANIFEST") : flavors;
+
+        String pasted = session.execute("manifest paste");
+        assert pasted.contains("日 0") : pasted;
+        assert pasted.contains("信用点 1000") : pasted;
+
+        assert session.execute("manifest text 边境电报").contains("StringSelection")
+                : "应使用 StringSelection 复制纯文本";
+        assert session.execute("manifest paste").contains("边境电报");
+        assert session.execute("manifest status").contains("flavor 变更")
+                : "状态应报告 FlavorListener 计数";
+
+        assert session.commandHistory().stream().noneMatch(c -> c.startsWith("manifest"))
+                : "货单命令不应进入重放日志";
+    }
+
+    @FcTest
     public void sealAndUnsealEvidenceRoundTrip() throws Exception {
         RuntimeSession session = boot();
         Path dir = Files.createTempDirectory("fc-runtime-seal-");
