@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 17 个测试套件、173 个用例。
+当前共 18 个测试套件、180 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -40,7 +40,8 @@ mvn -B package
 | `fc-economy` | `EconomyTest` | 20 | 定价、交易守恒与部分成交、配方生产、工人独占、工资、利息、税率与精度 |
 | `fc-history` | `HistoryQueryTest` | 10 | 查询过滤/分页、CSV/XML/XSD/XSLT/ZIP、XXE 拒绝、JDBC 驱动与 DataSource |
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
-| `fc-runtime` | `RuntimeSmokeTest` | 11 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、签章、非法启动参数 |
+| `fc-history` | `ChronicleVaultTest` | 6 | 快照与索引、幂等写入、篡改/缺失检测、排他锁、WatchService、坏索引拒绝 |
+| `fc-runtime` | `RuntimeSmokeTest` | 12 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、签章、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
@@ -87,7 +88,7 @@ mvn -B package
 - 同种子、同命令序列保存后读档，`StateHasher` 必须一致；明文与加密路径分别验证。
 - 错误口令、篡改密文、损坏的校验和、未来格式版本必须被拒绝，且不替换当前会话。
 - 槽位名校验必须阻止路径穿越；`saves` 按字母序返回。
-- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`sign`、`verify` 不进入重放日志。
+- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`vault`、`sign`、`verify` 不进入重放日志。
 
 ### 编年史查询与导出
 
@@ -104,6 +105,13 @@ mvn -B package
 - 篡改负载、使用另一把公钥、伪造或缺失文件必须验签失败。
 - 公钥（X.509）与私钥（PKCS#8）DER 往返后仍可签可验，公钥指纹稳定。
 - 首次调用生成密钥并落盘，第二次调用复用同一密钥。
+
+### 档案库
+
+- 同一编年史重复写入必须复用同一快照，索引不重复追加；编年史增长后产生新快照并保持顺序。
+- 索引读取必须拒绝坏行、坏 CRC 与非法 UTF-8；`verify` 必须发现字节数变化、摘要变化与文件缺失。
+- 锁被占用时必须拒绝写入；释放后可继续写入。
+- `watch` 必须观察到新快照（过滤索引、锁与临时文件），超时返回空列表而不是抛异常。
 
 ### 配乐工坊
 

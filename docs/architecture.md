@@ -136,6 +136,22 @@ CLI 只做薄封装：`query <SQL>` 绑定匿名会话后执行，`export <格�
 - CLI `music [mid|wav] [路径]`（别名 `soundtrack`）会写文件，因此与 `export`/`atlas` 一样
   排除在重放日志之外。
 
+### 3.7 档案库
+
+`ChronicleVault` 是编年史的本地镜像层：每个快照就是一份 ZIP 证据包，按内容寻址命名
+（`chronicle-<日>-<SHA-256 前 12 位>.zip`），索引 `index.tsv` 逐行记录文件、日、字节数、
+摘要、事件数与 CRC32。
+
+- **并发安全**：`.vault.lock` 上 `FileChannel.tryLock` 做跨进程排他；索引追加自身也加锁。
+  锁被占用时明确失败，不做阻塞等待。
+- **异步落盘**：快照字节由 `AsynchronousFileChannel` 分批写入，`CompletionHandler` 汇总
+  错误，`CountDownLatch` 收口后 `force(true)`；索引行在所有数据落盘后才追加。
+- **读取**：索引用 `MappedByteBuffer` + 严格 UTF-8 解码；`verify` 用直接 `ByteBuffer`
+  流式计算 SHA-256 并核对字节数，缺失与篡改都给出逐份结论。
+- **监视**：`WatchService` 等待新快照出现，过滤索引、锁和临时文件；供外部归档器联动。
+- CLI `vault [write|list|check|watch] [目录]`（别名 `archive`）会写文件或阻塞等待，
+  因此与 `export`/`atlas`/`music` 一样排除在重放日志之外。
+
 ## 4. 模块与依赖
 
 ```
@@ -156,7 +172,7 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 | `fc-colony` | 殖民地升级、补给线、实验室/船坞、终局工程 | 已实现 |
 | `fc-science` | 科技树、科研项目、效果叠加、勘察服务 | 已实现（M4） |
 | `fc-diplomacy` | 势力采购、声望与条约、委托、冲突结算、D0–D4 目标 | 已实现（M4） |
-| `fc-history` | 内存编年史、查询模型、CSV/XML/XSLT/XSD/ZIP 导出、只读 JDBC 驱动、XML 签章 | 已实现（M5+） |
+| `fc-history` | 内存编年史、查询模型、CSV/XML/XSLT/XSD/ZIP 导出、只读 JDBC 驱动、XML 签章、档案库镜像 | 已实现（M5+） |
 | `fc-cli` | 命令解析、星图、面板与报告 | 已实现 |
 | `fc-persist` | 存档仓库、偏好、本地化 | 已实现（M5） |
 | `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX、HTTP、音频 | 已实现（M5+） |
@@ -193,7 +209,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 10.4%、包 36.4%、模块 10/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 11.0%、包 36.9%、模块 10/20。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。

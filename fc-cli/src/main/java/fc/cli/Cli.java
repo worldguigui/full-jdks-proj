@@ -19,6 +19,7 @@ import fc.history.jdbc.ChronicleSessions;
 import fc.history.query.ChronicleExport;
 import fc.history.query.ChronicleQuery;
 import fc.history.sign.EvidenceSignature;
+import fc.history.vault.ChronicleVault;
 import fc.science.ResearchService;
 import fc.science.SurveyService;
 import fc.sim.DecisionResolver;
@@ -145,6 +146,8 @@ public final class Cli {
                     "星图工坊：带图例/罗盘/缩略图的 PNG/JPEG 制图"),
             new Cmd("music", List.of("soundtrack"), "music [mid|wav] [路径]",
                     "按当前世界状态生成确定性 MIDI 配乐或 WAV"),
+            new Cmd("vault", List.of("archive"), "vault [write|list|check|watch] [目录]",
+                    "档案库：编年史快照镜像、索引校验与变更监视"),
             new Cmd("sign", List.of(), "sign <文件> [输出]",
                     "用本地证据密钥做 XML Signature 签章"),
             new Cmd("verify", List.of(), "verify <证据文件>",
@@ -241,6 +244,7 @@ public final class Cli {
             case "export" -> doExport(tokens);
             case "atlas" -> doAtlas(tokens);
             case "music" -> doMusic(tokens);
+            case "vault" -> doVault(tokens);
             case "sign" -> doSign(tokens);
             case "verify" -> doVerify(tokens);
             case "help" -> help();
@@ -375,6 +379,64 @@ public final class Cli {
             return "已导出 " + chronicle.all().size() + " 条事件 → " + output;
         } catch (IOException e) {
             return "导出失败：" + e.getMessage();
+        }
+    }
+
+    /** 档案库：快照写入、索引列出、摘要校验与变更监视；默认目录 vault。 */
+    private String doVault(List<String> tokens) {
+        String action = tokens.size() >= 2 ? tokens.get(1).toLowerCase(java.util.Locale.ROOT)
+                : "write";
+        Path dir = tokens.size() >= 3 ? Path.of(tokens.get(2)) : Path.of("vault");
+        try {
+            return switch (action) {
+                case "write" -> {
+                    ChronicleVault.Snapshot snapshot =
+                            ChronicleVault.write(loop.state().chronicle(), dir);
+                    yield "档案快照已写入 → " + snapshot.path(dir.toAbsolutePath())
+                            + "｜" + snapshot.events() + " 事件｜" + snapshot.bytes()
+                            + " 字节｜sha256 " + snapshot.sha256().substring(0, 12);
+                }
+                case "list" -> {
+                    var snapshots = ChronicleVault.list(dir);
+                    if (snapshots.isEmpty()) {
+                        yield "档案库为空：" + dir.toAbsolutePath();
+                    }
+                    StringBuilder sb = new StringBuilder("---- 档案库 ")
+                            .append(snapshots.size()).append(" 份 ----");
+                    for (ChronicleVault.Snapshot snapshot : snapshots) {
+                        sb.append("\n  ").append(snapshot.file())
+                                .append("｜日 ").append(snapshot.day())
+                                .append("｜").append(snapshot.bytes()).append(" 字节")
+                                .append("｜").append(snapshot.events()).append(" 事件")
+                                .append("｜sha ").append(snapshot.sha256(), 0, 12);
+                    }
+                    yield sb.toString();
+                }
+                case "check" -> {
+                    var checks = ChronicleVault.verify(dir);
+                    if (checks.isEmpty()) {
+                        yield "档案库没有可校验的快照：" + dir.toAbsolutePath();
+                    }
+                    long bad = checks.stream().filter(c -> !c.ok()).count();
+                    StringBuilder sb = new StringBuilder("---- 档案校验：通过 ")
+                            .append(checks.size() - bad).append("，失败 ").append(bad);
+                    for (ChronicleVault.Check check : checks) {
+                        sb.append("\n  ").append(check.ok() ? "OK  " : "FAIL")
+                                .append(' ').append(check.file()).append("｜")
+                                .append(check.detail());
+                    }
+                    yield sb.toString();
+                }
+                case "watch" -> {
+                    var created = ChronicleVault.watch(dir, java.time.Duration.ofSeconds(3));
+                    yield created.isEmpty()
+                            ? "3 秒内没有观察到新快照：" + dir.toAbsolutePath()
+                            : "观察到新快照：" + String.join("、", created);
+                }
+                default -> "用法：vault [write|list|check|watch] [目录]";
+            };
+        } catch (IOException | IllegalArgumentException e) {
+            return "档案库操作失败：" + e.getMessage();
         }
     }
 

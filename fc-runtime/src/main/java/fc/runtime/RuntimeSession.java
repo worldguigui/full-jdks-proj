@@ -202,7 +202,7 @@ public final class RuntimeSession {
         return switch (name) {
             case "save", "load", "saves", "hash", "help", "quit", "exit",
                     "query", "export", "atlas", "chart", "music", "soundtrack",
-                    "sign", "verify" -> false;
+                    "vault", "archive", "sign", "verify" -> false;
             default -> true;
         };
     }

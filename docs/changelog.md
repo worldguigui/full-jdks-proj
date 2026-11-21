@@ -5,6 +5,28 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.5.5 2026-11-21 阶段五 M10：档案库镜像与并发安全
+
+1. **内容寻址快照**：`fc.history.vault.ChronicleVault` 把编年史写成
+   `chronicle-<日>-<摘要前 12 位>.zip`（内容即 ZIP 证据包）；同一内容重复写入幂等，
+   不产生第二份文件、不重复记索引。
+2. **并发写入**：档案库目录内的 `.vault.lock` 用 `FileChannel.tryLock` 做跨进程排他，
+   同一时刻只允许一个写入者；索引追加另用 `FileChannel.lock` 保护。锁被占用时抛
+   `VaultException` 并拒绝写入。
+3. **异步落盘**：快照字节经 `AsynchronousFileChannel` + `CompletionHandler` 分批写入，
+   `CountDownLatch` 收口、`FileChannel.force(true)` 落盘；失败不会留下半个索引行。
+4. **索引与校验**：`index.tsv` 逐行记录文件、日、字节数、SHA-256、事件数与 CRC32；
+   读取用 `MappedByteBuffer` + UTF-8 严格解码，坏行/坏 CRC 直接拒绝；`verify` 用直接
+   `ByteBuffer` 流式计算摘要并核对字节数。
+5. **变更监视**：`watch` 用 `WatchService` 等待新快照落盘，忽略索引、锁与临时文件；
+   超时返回空列表而不阻塞。
+6. **CLI**：新增 `vault [write|list|check|watch] [目录]`（别名 `archive`），默认目录 `vault`；
+   与其他写文件命令一样不进入重放日志。
+7. **测试**：新增 `ChronicleVaultTest` 6 个用例与运行时 1 个集成用例；当前共 18 个套件、
+   180 个用例通过；既有测试未删除、未跳过、未放宽。
+8. **审计基线**：类型 422/3836（11.0%）、包 65/176（36.9%）、模块 10/20、304 个 class、
+   Preview 违规 0。
+
 ## v0.5.4 2026-11-21 阶段五 M9：配乐工坊与离线音频
 
 1. **确定性作曲**：`fc.extensions.Soundtrack` 以 `StateHasher` 摘要混合星历作为种子，

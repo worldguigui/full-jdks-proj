@@ -171,6 +171,33 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void vaultMirrorsChronicleAndStaysOutOfReplayLog() throws Exception {
+        RuntimeSession session = boot();
+        session.execute("next 5");
+        Path dir = Files.createTempDirectory("fc-runtime-vault-");
+        try {
+            String written = session.execute("vault write " + dir);
+            assert written.contains("档案快照已写入") : written;
+            assert written.contains("sha256") : written;
+            try (var listing = Files.list(dir)) {
+                assert listing.anyMatch(p -> p.getFileName().toString().endsWith(".zip"))
+                        : "应写出 ZIP 快照";
+            }
+            assert session.execute("vault list " + dir).contains("份") : "索引应可列出";
+            assert session.execute("archive check " + dir).contains("通过") : "校验应通过";
+        } finally {
+            try (var walk = Files.walk(dir)) {
+                for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
+        }
+        assert session.commandHistory().stream()
+                .noneMatch(c -> c.startsWith("vault") || c.startsWith("archive"))
+                : "档案库命令不应进入重放日志";
+    }
+
+    @FcTest
     public void signAndVerifyEvidenceRoundTrip() throws Exception {
         RuntimeSession session = boot();
         Path dir = Files.createTempDirectory("fc-runtime-sign-");
