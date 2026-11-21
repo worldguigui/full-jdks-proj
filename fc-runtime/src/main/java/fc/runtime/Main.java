@@ -6,6 +6,9 @@ import fc.extensions.ModLoader;
 import fc.extensions.StarMapRenderer;
 import fc.extensions.StatusServer;
 import fc.persist.SaveRepository;
+import fc.tui.SystemTerminal;
+import fc.tui.TuiApp;
+import fc.tui.TuiGame;
 import fc.world.WorldState;
 
 import java.io.BufferedReader;
@@ -45,7 +48,11 @@ public final class Main {
             catalog = registerCatalog();
             status = startStatusServer(args, session);
 
-            repl(session, telemetry);
+            if (tuiRequested(args)) {
+                runTui(session.get(), telemetry);
+            } else {
+                repl(session, telemetry);
+            }
         } catch (fc.config.ConfigException e) {
             System.err.println("启动失败：" + e.getMessage());
             System.exit(2);
@@ -96,6 +103,54 @@ public final class Main {
             System.err.println("JMX 遥测不可用（已降级）：" + e.getMessage());
             return null;
         }
+    }
+
+    private static boolean tuiRequested(String[] args) {
+        for (String arg : args) {
+            if ("--tui".equals(arg) || "-tui".equals(arg)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 全屏指挥终端。TUI 只通过 {@link TuiGame} 读取状态/提交命令；
+     * 每条命令执行后刷新 JMX 遥测，界面刷新本身不推进世界。
+     */
+    private static void runTui(RuntimeSession session, GameTelemetry telemetry) {
+        TuiGame game = new TuiGame() {
+            @Override
+            public WorldState state() {
+                return session.state();
+            }
+
+            @Override
+            public String execute(String command) {
+                String out = session.execute(command);
+                publish(telemetry, session);
+                return out;
+            }
+
+            @Override
+            public String marketReport() {
+                return session.marketReport();
+            }
+
+            @Override
+            public String researchReport() {
+                return session.researchReport();
+            }
+
+            @Override
+            public String technologiesReport() {
+                return session.technologiesReport();
+            }
+        };
+        try (TuiApp app = new TuiApp(game, new SystemTerminal())) {
+            app.run();
+        }
+        System.out.println("指挥终端已退出。");
     }
 
     /** 注册动态 MBean 遥测目录；不可用时降级。 */

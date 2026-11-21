@@ -154,6 +154,10 @@
         </dependency>
         <dependency>
             <groupId>fc</groupId>
+            <artifactId>fc-tui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>fc</groupId>
             <artifactId>fc-persist</artifactId>
         </dependency>
         <dependency>

@@ -302,6 +302,28 @@ Mod 或导出器）用标准 flavor 协议交换货单，而不是互相引用�
 - `StringSelection` 作为纯文本路径；CLI `manifest copy|paste|text|flavors|status`
   只操纵进程内状态，不进入重放日志，也不要求图形环境。
 
+### 3.17 星际远征指挥终端（fc-tui）
+
+`fc-tui` 是独立客户端模块，不依赖 `fc-cli`/`fc-runtime`，只依赖 `fc-world`
+与 `fc-history`；由 `Main --tui` 注入应用层适配器启动。
+
+- **应用边界**：`TuiGame` 暴露 `state()`、`execute(command)` 与市场/科研报告；
+  `SnapshotBuilder` 在命令后构建只读 `Snapshot`。页面不直接改世界，渲染也不会
+  推进 Tick——只有 `n`/`n5`/空格行/`next` 命令才推进游戏时间。
+- **渲染内核**：`TextWidth` 处理 CJK/emoji/组合字符宽度；`ScreenBuffer` 是字符 +
+  样式双缓冲（宽字符占两列、控制字符清洗）；`DiffRenderer` 只输出变化单元格，
+  首帧/尺寸变化时清屏，绘制期间关闭自动换行；`CharSet` 提供 Unicode/ASCII 降级，
+  `Style` 固定深空蓝黑 + 冷青 + 琥珀调色板。
+- **终端适配**：`Terminal` 抽象输出侧；`SystemTerminal` 使用备用屏幕、UTF-8、
+  真彩 SGR，并探测行列（`FC_TUI_COLS/ROWS` 覆盖、Windows `mode con`、
+  Unix `stty size`）。Java SE 21 无跨平台 Raw Mode，本版输入为行模式：
+  单字符行是快捷键，整行是 CLI 命令，空格行推进 1 天；不支持时自动 ASCII 降级。
+- **页面**：舰桥总览（星图/舰队/情报/组织条）、星域导航、舰队、殖民地、科研、
+  贸易、情报、帮助，以及统一的详情弹窗与命令反馈行。所有页面共享同一视觉规范与
+  选择/返回语义；地图是二维字符投影，只显示已知地点，渲染不做寻路。
+- **生命周期**：`TuiApp.run()` 进入备用屏幕，退出/Q/EOF 恢复终端；异常写入
+  `java.util.logging` 并显示在状态行，不中断客户端。
+
 ## 4. 模块与依赖
 
 ```
@@ -309,6 +331,7 @@ fc-world ← fc-config ← fc-sim ← 领域模块（fleet/colony/economy/scienc
                                    ↑
                              fc-cli / fc-runtime
 fc-persist ← fc-runtime        fc-extensions ← fc-cli / fc-runtime
+fc-tui ← fc-world / fc-history；fc-runtime ← fc-tui（TUI 客户端）
 fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 ```
 
@@ -324,13 +347,14 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 | `fc-diplomacy` | 势力采购、声望与条约、委托、冲突结算、D0–D4 目标 | 已实现（M4） |
 | `fc-history` | 内存编年史、查询模型、导出、只读 JDBC 驱动、XML 签章、档案库镜像、PKCS#12 证据封存 | 已实现（M5+） |
 | `fc-cli` | 命令解析、星图、面板与报告 | 已实现 |
+| `fc-tui` | 全屏终端客户端：渲染内核、差量刷新、宽度处理、输入适配、星图/舰队/殖民地/科研/贸易/情报页面 | 已实现（M5+） |
 | `fc-persist` | 存档仓库、偏好、本地化 | 已实现（M5） |
 | `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册/回环远程管理/通知与监视器、真实时间心跳、聊天室中继、fc:// 命名上下文、TLS 与证书信任、Frontier Script、XA 两阶段文件事务、货单剪贴板、HTTP、音频 | 已实现（M5+） |
-| `fc-runtime` | 装配、REPL、存档/读档、PNG、Mod 装载、遥测与状态端点、单文件 jar | 已实现 |
+| `fc-runtime` | 装配、REPL 与 `--tui` 客户端启动、存档/读档、PNG、Mod 装载、遥测与状态端点、单文件 jar | 已实现 |
 | `fc-testkit` | 注解 + 反射的零依赖测试框架 | 已实现 |
 | `fc-audit` | API 覆盖审计（classfile 常量池 → 证据） | 已实现（M5） |
 
-依赖方向：`fc-world ← fc-config ← fc-sim / 领域模块 ← fc-cli / fc-runtime`。领域模块之间不互相依赖；跨域协作通过 `WorldState` 与 `GameEvent`。`fc-persist` 只依赖 JDK；`fc-extensions` 依赖 JDK 与 `fc-world`/`fc-sim`/`fc-config`（`fc-cli` 仅为 `atlas` 制图与 `music` 配乐依赖它，无反向依赖）；`fc-audit` 独立。`fc-testkit` 只作为测试作用域依赖。`fc-audit` 位于反应堆最后，确保审计能读取全部模块产物。
+依赖方向：`fc-world ← fc-config ← fc-sim / 领域模块 ← fc-cli / fc-runtime`。领域模块之间不互相依赖；跨域协作通过 `WorldState` 与 `GameEvent`。`fc-persist` 只依赖 JDK；`fc-extensions` 依赖 JDK 与 `fc-world`/`fc-sim`/`fc-config`（`fc-cli` 仅为 `atlas` 制图与 `music` 配乐依赖它，无反向依赖）；`fc-tui` 只依赖 `fc-world`/`fc-history`，通过 `TuiGame` 接口与运行时解耦，`fc-runtime` 负责注入适配器；`fc-audit` 独立。`fc-testkit` 只作为测试作用域依赖。`fc-audit` 位于反应堆最后，确保审计能读取全部模块产物。
 
 ## 5. 运行时装配
 
@@ -343,7 +367,9 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 5. 扫描工作目录 `mods/` 装载扩展（单个失败只告警）；
 6. 注册 JMX `fc.telemetry:type=Game` 与动态目录 `fc.telemetry:type=Catalog`；若给出
    `--serve[=端口]`，在回环地址启动只读状态端点；
-7. 进入 REPL；`save`/`load`/`saves`/`png` 由运行时拦截，其余命令交给 `Cli`。
+7. 若给出 `--tui`，以 `TuiGame` 适配器启动全屏指挥终端（命令仍走
+   `RuntimeSession`，每条命令刷新遥测）；否则进入 REPL；
+8. REPL 中 `save`/`load`/`saves`/`png` 由运行时拦截，其余命令交给 `Cli`。
 
 存档/读档复用同一 `assemble` 路径：读档时按存档中的世界来源重新装配，再按序重放命令并核验哈希。所有世界数据来自配置，核心代码不硬编码地点、舰船、货物或配方。`RuntimeSession` 与 REPL 分离，使集成测试可以复用完全相同的装配路径。
 
@@ -360,7 +386,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 15.2%、包 46.6%、模块 16/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 15.3%、包 46.6%、模块 16/20。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。

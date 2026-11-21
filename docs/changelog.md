@@ -5,6 +5,37 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.9.0 2026-11-21 阶段五 M20：星际远征指挥终端（TUI）
+
+1. **独立客户端模块**：新增 `fc-tui`，只依赖 `fc-world`/`fc-history`；通过
+   `TuiGame`（状态 + 命令 + 市场/科研报告）与运行时解耦，`fc-runtime` 负责注入
+   适配器。`SnapshotBuilder` 在每条命令后构建只读 `Snapshot`，页面渲染不触碰
+   游戏对象，也不推进 Tick。
+2. **渲染内核**：`TextWidth` 计算 CJK/emoji/组合字符宽度；`ScreenBuffer` 为字符 +
+   样式双缓冲（宽字符两列、控制字符清洗）；`DiffRenderer` 只输出变化单元格，
+   首帧/尺寸变化清屏，绘制期间关闭自动换行；ANSI 序列集中在 `Ansi`，主题为
+   深空蓝黑 + 冷青 + 琥珀，提供 Unicode/ASCII 字符降级。
+3. **终端适配**：`Terminal` 抽象 + `SystemTerminal`（备用屏幕、UTF-8、真彩 SGR）；
+   尺寸优先 `FC_TUI_COLS/ROWS`，其次 `COLUMNS/LINES`、Windows `mode con`、
+   Unix `stty size`，全部带失败与超时回退；`FC_TUI_ASCII`/`NO_COLOR` 控制降级。
+4. **交互**：Java SE 21 无跨平台 Raw Mode，本版采用行输入——单字符行是快捷键
+   （M/F/C/R/T/E/H/B/J/K/I/N/Q 与空格行推进），其余整行经 `TuiGame` 提交给 CLI；
+   所有重要操作仍由游戏命令与已有校验执行；Q/EOF 恢复正常终端。
+5. **页面**：舰桥总览（星图/舰队/情报/组织条）、星域导航（二维字符投影 +
+   地点详情）、舰队、殖民地、科研、贸易、情报、帮助，统一详情弹窗、选中高亮与
+   命令反馈行；星图只显示已知地点，渲染不做寻路或探索。
+6. **启动集成**：`java -jar frontier-chronicle.jar --tui` 进入指挥终端；命令经
+   `RuntimeSession.execute` 进入重放/存档逻辑，并刷新 JMX 遥测。
+7. **测试**：新增 `TuiEngineTest` 8 个用例（含 ANSI 回放逐行重建、尺寸变化全量
+   重绘、ASCII 降级与命令失败恢复）；当前共 29 个套件、250 个用例通过；
+   既有测试未删除、未跳过、未放宽。
+8. **审计基线**：类型 586/3836（15.3%）、包 82/176（46.6%）、模块 16/20、
+   389 个 class、Preview 违规 0；`java.logging` 2/17（`Level`/`Logger` 用于
+   客户端诊断）。
+9. **已知限制**：本版不宣称 Raw Mode。Windows 经典控制台需 Windows Terminal 等
+   ANSI 终端；行输入需回车提交。后续可在 `Terminal` 接口下增加平台适配 Provider，
+   不影响页面与业务边界。
+
 ## v0.8.2 2026-11-21 阶段五 M19：货单剪贴板与 Transferable
 
 1. **货单快照**：新增 `CargoManifest`，把当前星历、信用点、舰船数、地点数与结局

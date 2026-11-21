@@ -13,6 +13,7 @@ import fc.economy.MarketSystemImpl;
 import fc.economy.ProductionSystemImpl;
 import fc.economy.TradeService;
 import fc.history.InMemoryChronicle;
+import fc.science.ResearchService;
 import fc.science.ResearchSystemImpl;
 import fc.sim.GameLoop;
 import fc.sim.StateHasher;
@@ -50,12 +51,13 @@ public final class RuntimeSession {
     private final TickPipeline pipeline;
     private final GameLoop loop;
     private final Cli cli;
+    private final TradeService trade;
     private final String worldSource;
     private final List<String> commandHistory = new ArrayList<>();
 
     private RuntimeSession(WorldAssembler.AssembledWorld world, WorldState state,
                            Economy economy, RngStreams rng, TickPipeline pipeline,
-                           GameLoop loop, Cli cli, String worldSource) {
+                           GameLoop loop, Cli cli, TradeService trade, String worldSource) {
         this.world = world;
         this.state = state;
         this.economy = economy;
@@ -63,6 +65,7 @@ public final class RuntimeSession {
         this.pipeline = pipeline;
         this.loop = loop;
         this.cli = cli;
+        this.trade = trade;
         this.worldSource = worldSource;
     }
 
@@ -138,7 +141,7 @@ public final class RuntimeSession {
                 () -> new fc.sim.tick.TickContext(world.production(), rng,
                         world.loanDailyRate(), world.events()));
         RuntimeSession session = new RuntimeSession(world, state, economy, rng, pipeline, loop,
-                cli, worldSource);
+                cli, trade, worldSource);
         // 脚本本身不写入存档；脚本展开的每条命令按普通命令规则记录，读档时可重放。
         cli.recordCommands(command -> {
             if (replayable(command)) {
@@ -179,6 +182,25 @@ public final class RuntimeSession {
 
     public String worldSource() {
         return worldSource;
+    }
+
+    /** 供 TUI/其他客户端读取的市场报告（只读，不改变世界）。 */
+    public String marketReport() {
+        var ships = state.graph().ships();
+        if (ships.isEmpty()) {
+            return "当前没有可用舰船，无法读取市场报价。";
+        }
+        return trade.marketTable(state, ships.get(0));
+    }
+
+    /** 当前科研进度文本（只读）。 */
+    public String researchReport() {
+        return ResearchService.status(state);
+    }
+
+    /** 科技树文本（只读）。 */
+    public String technologiesReport() {
+        return ResearchService.technologies(state);
     }
 
     /** 存档中使用过的命令（只读快照）。 */

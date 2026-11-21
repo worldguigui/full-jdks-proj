@@ -23,6 +23,7 @@
         <module>fc-diplomacy</module>
         <module>fc-history</module>
         <module>fc-cli</module>
+        <module>fc-tui</module>
         <module>fc-persist</module>
         <module>fc-extensions</module>
         <module>fc-testkit</module>
@@ -86,6 +87,11 @@
             <dependency>
                 <groupId>fc</groupId>
                 <artifactId>fc-cli</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>fc</groupId>
+                <artifactId>fc-tui</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
