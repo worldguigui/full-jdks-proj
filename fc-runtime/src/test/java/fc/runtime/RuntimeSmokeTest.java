@@ -314,6 +314,38 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void scriptsExpandIntoReplayableCommands() throws Exception {
+        RuntimeSession session = boot();
+        String inline = session.execute("script eval set n 2; repeat 2 next 1; echo 巡逻 ${n}");
+        assert inline.contains("脚本执行完成") : inline;
+        assert session.commandHistory().stream().filter("next 1"::equals).count() == 2
+                : session.commandHistory();
+        assert session.commandHistory().stream().noneMatch(c -> c.startsWith("script"))
+                : "脚本本身不应进入重放日志";
+
+        Path dir = Files.createTempDirectory("fc-runtime-script-");
+        try {
+            Path file = dir.resolve("patrol.fcs");
+            Files.writeString(file, "# 巡逻\nrepeat 3 next 1\necho 完成\n",
+                    java.nio.charset.StandardCharsets.UTF_8);
+            String ran = session.execute("script run " + file);
+            assert ran.contains("已执行脚本") : ran;
+            assert ran.contains("完成") : ran;
+        } finally {
+            try (var walk = Files.walk(dir)) {
+                for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
+        }
+        assert session.commandHistory().stream().filter("next 1"::equals).count() == 5
+                : session.commandHistory();
+
+        String bad = session.execute("script eval repeat");
+        assert bad.contains("脚本错误") && bad.contains("第 1 行") : bad;
+    }
+
+    @FcTest
     public void sealAndUnsealEvidenceRoundTrip() throws Exception {
         RuntimeSession session = boot();
         Path dir = Files.createTempDirectory("fc-runtime-seal-");

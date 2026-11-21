@@ -12,6 +12,7 @@ import fc.economy.TradeService;
 import fc.extensions.CertificateChains;
 import fc.extensions.ChatRelay;
 import fc.extensions.FcNaming;
+import fc.extensions.FcScriptEngine;
 import fc.extensions.MapAtlas;
 import fc.extensions.RemoteJmx;
 import fc.extensions.SecureChannel;
@@ -65,9 +66,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import javax.net.ssl.SSLContext;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineFactory;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 
 /**
  * CLI 命令壳。
@@ -163,6 +169,8 @@ public final class Cli {
                     "fc:// 命名上下文：定位、枚举与注册进程内资源"),
             new Cmd("trust", List.of(), "trust init|status [目录]",
                     "本机信任库：生成根/服务端/客户端证书并做 PKIX 链校验"),
+            new Cmd("script", List.of("fcs"), "script [engines|eval <脚本>|run <文件>]",
+                    "Frontier Script：set/echo/repeat 编排命令，逐条记入重放日志"),
             new Cmd("vault", List.of("archive"), "vault [write|list|check|watch] [目录]",
                     "档案库：编年史快照镜像、索引校验与变更监视"),
             new Cmd("seal", List.of(), "seal <文件> [输出]",
@@ -190,6 +198,8 @@ public final class Cli {
     private ChatRelay chat;
     private SSLContext chatClient;
     private FcNaming naming;
+    private Consumer<String> recorder = command -> {
+    };
 
     public Cli(GameLoop loop) {
         this(loop, null, null, null, null);
@@ -274,6 +284,7 @@ public final class Cli {
             case "chat" -> doChat(tokens);
             case "res" -> doRes(tokens);
             case "trust" -> doTrust(tokens);
+            case "script" -> doScript(tokens);
             case "seal" -> doSeal(tokens);
             case "unseal" -> doUnseal(tokens);
             case "sign" -> doSign(tokens);
@@ -287,6 +298,17 @@ public final class Cli {
             }
             default -> "未知命令: " + tokens.get(0) + "（输入 help 查看全部 " + COMMANDS.size() + " 条命令）";
         };
+    }
+
+    /**
+     * 注入重放记录器：脚本展开的每条命令都先交给它，再执行。
+     *
+     * <p>脚本本身不进入存档（文件可能已不存在），但脚本内实际执行的命令必须进入，
+     * 否则读档重放会少走世界推进。是否记录由会话层按命令类别过滤。</p>
+     */
+    public void recordCommands(Consumer<String> sink) {
+        this.recorder = sink == null ? command -> {
+        } : sink;
     }
 
     /** 查看最近事件（默认 8 条；更早的折叠并提示）。命令名 log（chronicle 同义）。 */
@@ -892,6 +914,68 @@ public final class Cli {
                 + "\n  服务端 " + CertificateChains.describe(server)
                 + "\n  客户端 " + CertificateChains.describe(client)
                 + "\n  链 服务端→根、客户端→根 均通过 PKIX";
+    }
+
+    /** Frontier Script：编排命令；展开的命令逐条记入重放日志。 */
+    private String doScript(List<String> tokens) {
+        String action = tokens.size() >= 2
+                ? tokens.get(1).toLowerCase(java.util.Locale.ROOT) : "engines";
+        return switch (action) {
+            case "engines", "list", "help" -> scriptEngines();
+            case "eval" -> {
+                if (tokens.size() < 3) {
+                    yield "用法：script eval <脚本>";
+                }
+                yield runScript(String.join(" ", tokens.subList(2, tokens.size())), null);
+            }
+            case "run" -> {
+                if (tokens.size() < 3) {
+                    yield "用法：script run <文件>";
+                }
+                Path file = Path.of(tokens.get(2));
+                String source;
+                try {
+                    source = Files.readString(file, StandardCharsets.UTF_8);
+                } catch (IOException e) {
+                    yield "读取脚本失败：" + e.getMessage();
+                }
+                yield runScript(source, file.toString());
+            }
+            default -> "用法：script engines|eval <脚本>|run <文件>";
+        };
+    }
+
+    private String scriptEngines() {
+        StringBuilder sb = new StringBuilder("---- 脚本引擎 ----");
+        for (ScriptEngineFactory factory : new ScriptEngineManager().getEngineFactories()) {
+            sb.append("\n  ").append(String.join("/", factory.getNames())).append(" → ")
+                    .append(factory.getEngineName()).append(' ')
+                    .append(factory.getEngineVersion()).append("（")
+                    .append(String.join(",", factory.getExtensions())).append("）");
+        }
+        return sb.append("\n  set <变量> <值> / echo <文本> / repeat <次数> <一行命令>"
+                + "\n  用法 script eval <脚本>｜script run <文件>").toString();
+    }
+
+    private String runScript(String source, String fileName) {
+        ScriptEngine engine = new ScriptEngineManager().getEngineByName("frontier");
+        if (engine == null) {
+            return "未发现 Frontier Script 引擎（检查 META-INF/services 注册）";
+        }
+        try {
+            engine.put(FcScriptEngine.HOST, (FcScriptEngine.Host) this::scriptCommand);
+            Object out = engine.eval(source);
+            String text = out == null ? "" : out.toString();
+            return (fileName == null ? "脚本执行完成" : "已执行脚本 " + fileName)
+                    + (text.isBlank() ? "（无输出）" : "\n" + text);
+        } catch (ScriptException e) {
+            return "脚本错误（第 " + e.getLineNumber() + " 行）：" + e.getMessage();
+        }
+    }
+
+    private String scriptCommand(String command) throws Exception {
+        recorder.accept(command);
+        return execute(command);
     }
 
     /** 封存文件：PKCS#12 密钥库中的 AES-256 密钥 + GCM，失败不改动原文件。 */

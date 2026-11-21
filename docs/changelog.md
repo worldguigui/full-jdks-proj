@@ -5,6 +5,26 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.7.0 2026-11-21 阶段五 M16：Frontier Script 脚本引擎
+
+1. **自研 javax.script 引擎**：JDK 21 不带脚本引擎，新增 `fc.extensions.FcScriptEngine`
+   （`AbstractScriptEngine` + `Compilable`）与 `FcScriptEngineFactory`，经
+   `META-INF/services/javax.script.ScriptEngineFactory` 注册；`ScriptEngineManager`
+   可按 `frontier` / `fcs` 发现，扩展名 `.fcs`、MIME `text/x-frontier-script`。
+2. **确定性批处理语法**：`#` 注释、`;`/换行分隔、`set`/`echo`/`repeat` 与普通游戏命令；
+   `${name}` 在求值期替换，未知变量报错；`repeat` 上限 1000 次、嵌套 8 层。
+3. **预编译**：`compile` 只做语法检查并返回可重复求值的 `CompiledScript`；
+   语法错误以 `ScriptException` 带文件名与行号报告；宿主异常同样转为脚本错误。
+4. **CLI**：新增 `script engines|eval <脚本>|run <文件>`；执行宿主回连 `Cli.execute`，
+   可用变量与循环编排巡逻、巡检等重复操作。
+5. **重放语义**：脚本展开的每条命令在执行前交给 `Cli.recordCommands`，由会话按普通
+   命令规则过滤后写档；`script` 本身不进入存档，读档只重放展开后的命令，
+   不依赖脚本文件仍在磁盘上。
+6. **测试**：新增 `FcScriptTest` 6 个用例与运行时 1 个集成用例；当前共 25 个套件、
+   226 个用例通过；既有测试未删除、未跳过、未放宽。
+7. **审计基线**：类型 540/3836（14.1%）、包 76/176（43.2%）、模块 13/20、345 个 class、
+   Preview 违规 0；`java.scripting` 覆盖 10/12（83.3%），新增 `javax.script` 包。
+
 ## v0.6.0 2026-11-21 阶段五 M15：TLS 加密信道与证书信任
 
 1. **自签根与证书签发**：`fc.extensions.TrustAuthority` 只用公开 API 生成 RSA 密钥，

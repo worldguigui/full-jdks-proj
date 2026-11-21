@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 24 个测试套件、219 个用例。
+当前共 25 个测试套件、226 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -42,7 +42,7 @@ mvn -B package
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
 | `fc-history` | `ChronicleVaultTest` | 6 | 快照与索引、幂等写入、篡改/缺失检测、排他锁、WatchService、坏索引拒绝 |
 | `fc-history` | `EvidenceSealTest` | 6 | PKCS#12 往返、AES-GCM 封存/解封、错钥/篡改拒绝、输入过滤器、错误口令、参数校验 |
-| `fc-runtime` | `RuntimeSmokeTest` | 17 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、封存、签章、非法启动参数 |
+| `fc-runtime` | `RuntimeSmokeTest` | 18 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、封存、签章、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
@@ -54,6 +54,7 @@ mvn -B package
 | `fc-extensions` | `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` | `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |
 | `fc-extensions` | `TlsChatTest` | 5 | 双向 TLS 握手与匿名拒绝、TLS 消息面、密钥库文件装配、明文拒绝、关闭释放 |
+| `fc-extensions` | `FcScriptTest` | 6 | ServiceLoader 发现、命令/变量、repeat、编译复用、错误语义、绑定与工厂元数据 |
 | `fc-audit` | `AuditTest` | 5 | CSV、基准分母与 Preview、classfile 类型提取、报告证据、预览标记 |
 
 `fc-science`、`fc-diplomacy`、`fc-colony` 等领域模块的玩法链由 `fc-runtime.M4GameplayTest`
@@ -94,7 +95,7 @@ mvn -B package
 - 同种子、同命令序列保存后读档，`StateHasher` 必须一致；明文与加密路径分别验证。
 - 错误口令、篡改密文、损坏的校验和、未来格式版本必须被拒绝，且不替换当前会话。
 - 槽位名校验必须阻止路径穿越；`saves` 按字母序返回。
-- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`vault`、`seal`、`unseal`、`sign`、`verify`、`jmx`、`chat`、`res`、`trust` 不进入重放日志。
+- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`vault`、`seal`、`unseal`、`sign`、`verify`、`jmx`、`chat`、`res`、`trust`、`script` 不进入重放日志。
 
 ### 编年史查询与导出
 
@@ -161,6 +162,18 @@ mvn -B package
   无证书的匿名客户端握手失败，且中继在拒绝后仍可服务。
 - `trust init` 不得覆盖已有信任库；`trust status` 必须完成有效期与 PKIX 校验；
   `trust` 与 `chat` 命令不进入重放日志。
+
+### Frontier Script
+
+- 引擎必须能通过 `ScriptEngineManager` 按名 `frontier`/`fcs` 被发现，
+  元数据（名称、扩展名、MIME）与 `getParameter` 一致。
+- `set`/`echo`/`repeat` 与 `${变量}` 只影响脚本自身；未知变量、非法次数、
+  缺宿主都以 `ScriptException` 报告，并带行号。
+- `compile` 在编译期拒绝语法错误，`CompiledScript` 可重复求值；
+  变量替换发生在求值期。
+- CLI 执行脚本时，展开的每条命令都必须先进入重放记录再执行；
+  脚本文件本身与 `script` 命令不得进入存档，否则读档会缺命令或依赖已删除的文件。
+- 宿主抛出的异常应转成带行号的脚本错误，不得打断 REPL。
 
 ### 聊天室中继
 

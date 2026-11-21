@@ -137,8 +137,15 @@ public final class RuntimeSession {
         Cli cli = new Cli(loop, trade, shipyards, goals,
                 () -> new fc.sim.tick.TickContext(world.production(), rng,
                         world.loanDailyRate(), world.events()));
-        return new RuntimeSession(world, state, economy, rng, pipeline, loop, cli,
-                worldSource);
+        RuntimeSession session = new RuntimeSession(world, state, economy, rng, pipeline, loop,
+                cli, worldSource);
+        // 脚本本身不写入存档；脚本展开的每条命令按普通命令规则记录，读档时可重放。
+        cli.recordCommands(command -> {
+            if (replayable(command)) {
+                session.commandHistory.add(command);
+            }
+        });
+        return session;
     }
 
     /** 启动横幅（每行一条）。 */
@@ -203,7 +210,7 @@ public final class RuntimeSession {
             case "save", "load", "saves", "hash", "help", "quit", "exit",
                     "query", "export", "atlas", "chart", "music", "soundtrack",
                     "vault", "archive", "seal", "unseal", "jmx", "chat", "res", "trust",
-            "sign", "verify" -> false;
+            "script", "sign", "verify" -> false;
             default -> true;
         };
     }
