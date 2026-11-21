@@ -19,7 +19,8 @@ import java.util.logging.Logger;
  * <p>渲染走 {@link ScreenBuffer} + {@link DiffRenderer}；页面只读 {@link Snapshot}；
  * 所有世界推进/操作都通过 {@link TuiGame#execute(String)} 进入游戏应用层。
  * 页面命令直接复用 CLI 命令名（map/ships/colonies/research/market/log/status/
- * decisions/help）：执行后完整输出进入底部 CONSOLE，再切到对应可视化页面。
+ * decisions/help）：执行后切到对应可视化页面。双窗口模式下 TUI 只读，完整输出
+ * 由独立的 CLI 窗口显示；单窗口模式在状态行显示最后反馈。
  * 界面刷新与游戏时间分离，渲染从不推进 Tick。</p>
  *
  * <p>输入采用标准输入逐行读取（Java SE 21 无跨平台 Raw Mode）。</p>
@@ -48,7 +49,10 @@ public final class TuiApp implements AutoCloseable {
     private boolean detail;
     private boolean running = true;
     private String status = "READY";
+    private String notice = "";
     private List<String> helpLines = List.of();
+    private volatile boolean viewOnly;
+    private volatile boolean dirty;
 
     public TuiApp(TuiGame game, Terminal terminal) {
         if (game == null || terminal == null) {
@@ -104,7 +108,8 @@ public final class TuiApp implements AutoCloseable {
      *
      * <p>不引入单字母缩写，也不新增 screen 之类的导航语法。map/ships/colonies/
      * research/market/log/status/decisions/help 直接复用 CLI 命令：先执行命令
-     * （输出进入 CONSOLE），再切换到对应可视化页面。select/inspect/back 是列表
+     * （双窗口下由独立 CLI 窗口显示完整输出），再切换到对应可视化页面。
+     * select/inspect/back 是列表
      * 操作，quit/exit 退出，其余整行原样交给游戏。</p>
      */
     public boolean handle(String rawLine) {
@@ -140,7 +145,7 @@ public final class TuiApp implements AutoCloseable {
         return running;
     }
 
-    /** 页面命令：执行 CLI 命令，完整输出进 CONSOLE，然后切换到可视化页面。 */
+    /** 页面命令：执行 CLI 命令，然后切换到可视化页面。 */
     private void navigate(String command) {
         String output = executeCommand(command);
         switch (command) {
@@ -163,6 +168,67 @@ public final class TuiApp implements AutoCloseable {
         detail = false;
     }
 
+    /** 双窗口模式下 TUI 只读：命令由独立 CLI 窗口输入。 */
+    public void setViewOnly(boolean viewOnly) {
+        this.viewOnly = viewOnly;
+    }
+
+    /** CLI 窗口执行完命令后通知 TUI：刷新快照，并在是页面命令时切换视图。 */
+    public void externalUpdate(String command) {
+        String head = head(command == null ? "" : command);
+        switch (head) {
+            case "map" -> page = Page.MAP;
+            case "ships" -> page = Page.FLEET;
+            case "colonies" -> page = Page.COLONY;
+            case "research" -> page = Page.RESEARCH;
+            case "market" -> page = Page.TRADE;
+            case "log", "decisions" -> page = Page.INTEL;
+            case "help" -> page = Page.HELP;
+            case "status" -> page = Page.BRIDGE;
+            default -> {
+            }
+        }
+        if (PAGE_COMMANDS.contains(head)) {
+            selection = 0;
+            detail = false;
+        }
+        dirty = true;
+    }
+
+    /** 请求 TUI 退出（双窗口模式下由 CLI 的 quit 或宿主关闭触发）。 */
+    public void requestStop() {
+        running = false;
+        dirty = true;
+    }
+
+    /**
+     * 只读可视化循环：不读标准输入，按宿主事件刷新画面。
+     * 用于 TUI + 独立 CLI 窗口模式。
+     */
+    public void runViewOnly() {
+        terminal.enter();
+        terminal.write(Ansi.CURSOR_HIDE);
+        try {
+            draw();
+            while (running) {
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                if (dirty) {
+                    dirty = false;
+                    refresh();
+                    renderer.reset();
+                    draw();
+                }
+            }
+        } finally {
+            terminal.exit();
+        }
+    }
+
     /** 生成当前帧画布（测试与渲染器共用）。 */
     public ScreenBuffer frame() {
         TerminalSize size = terminal.size();
@@ -180,8 +246,13 @@ public final class TuiApp implements AutoCloseable {
     public void draw() {
         ScreenBuffer frame = frame();
         terminal.write(renderer.render(frame));
-        // 命令行在倒数第二行（0 基 rows-2），提示文本从第 2 列开始。
-        terminal.moveCursor(Math.max(1, terminal.size().rows() - 1), PROMPT.length() + 2);
+        if (viewOnly) {
+            terminal.moveCursor(terminal.size().rows(), 1);
+        } else {
+            // 命令行在倒数第二行（0 基 rows-2），提示文本从第 2 列开始。
+            terminal.moveCursor(Math.max(1, terminal.size().rows() - 1),
+                    PROMPT.length() + 2);
+        }
     }
 
     public Page page() {
@@ -297,7 +368,7 @@ public final class TuiApp implements AutoCloseable {
         return output;
     }
 
-    /** 时间被待决事项阻塞时，把原因与可执行路径直接写进 CONSOLE 并切到情报页。 */
+    /** 时间被待决事项阻塞时，记下原因与可执行路径并切到情报页。 */
     private void blockedNotice() {
         page = Page.INTEL;
         selection = 0;
@@ -321,7 +392,12 @@ public final class TuiApp implements AutoCloseable {
 
     private void refresh() {
         try {
-            snapshot = SnapshotBuilder.build(game);
+            synchronized (game.lock()) {
+                snapshot = SnapshotBuilder.build(game);
+            }
+            notice = snapshot.decisions().isEmpty() ? ""
+                    : "! 有 " + snapshot.decisions().size()
+                            + " 项待办：时间推进被阻塞；decisions 查看，decide <id> <选项>";
             int count = selectableCount();
             if (count <= 0) {
                 selection = 0;
@@ -362,11 +438,10 @@ public final class TuiApp implements AutoCloseable {
         buffer.clear(Style.DEFAULT);
         drawHeader(buffer, width);
 
-        int orgRow = height - 4;
-        int consoleHeight = height >= 30 ? 7 : 5;
-        int consoleTop = Math.max(3, orgRow - consoleHeight);
-        Rect body = new Rect(1, 3, Math.max(0, width - 2),
-                Math.max(0, consoleTop - 3));
+        int bodyTop = 3;
+        int bodyBottom = height - 6;
+        Rect body = new Rect(1, bodyTop, Math.max(0, width - 2),
+                Math.max(0, bodyBottom - bodyTop));
         if (body.height() > 0 && body.width() > 0) {
             switch (page) {
                 case BRIDGE -> BridgeView.render(buffer, body, snapshot, chars);
@@ -382,9 +457,8 @@ public final class TuiApp implements AutoCloseable {
         if (detail) {
             drawDetail(buffer, body);
         }
-        drawConsole(buffer, new Rect(1, consoleTop, Math.max(0, width - 2),
-                Math.max(0, orgRow - consoleTop)));
-        drawOrganization(buffer, width, orgRow);
+        drawOrganization(buffer, width, height - 5);
+        drawLog(buffer, width, height - 4);
         drawKeys(buffer, width, height - 3);
         drawPrompt(buffer, width, height - 2);
     }
@@ -442,44 +516,23 @@ public final class TuiApp implements AutoCloseable {
         }
     }
 
-    private void drawConsole(ScreenBuffer buffer, Rect rect) {
-        if (rect.height() < 3 || rect.width() < 8) {
+    private void drawLog(ScreenBuffer buffer, int width, int y) {
+        if (y < 0 || y >= buffer.height()) {
             return;
         }
-        Rect inner = Draw.panel(buffer, rect, "CONSOLE / 命令输出", chars);
-        List<String> lines = lastConsoleLines(inner.height());
-        if (lines.isEmpty()) {
-            Draw.line(buffer, inner, 0,
-                    "命令输出会显示在这里；map/ships/colonies/research/market/log/help 直接切页。",
-                    Style.PANEL_MUTED);
-            Draw.line(buffer, inner, 1,
-                    "待办出现时 next 会暂停：用 decisions 查看，decide <id> <选项> 处理。",
-                    Style.PANEL_MUTED);
-            return;
-        }
-        for (int i = 0; i < lines.size(); i++) {
-            String line = lines.get(i);
-            Style style = line.startsWith(">") ? Style.PANEL_ACCENT
-                    : line.startsWith("!") ? Style.PANEL_WARN : Style.PANEL;
-            Draw.line(buffer, inner, i, line, style);
-        }
-    }
-
-    private List<String> lastConsoleLines(int count) {
-        if (log.isEmpty() || count <= 0) {
-            return List.of();
-        }
-        List<String> lines = new ArrayList<>(log);
-        int from = Math.max(0, lines.size() - count);
-        return lines.subList(from, lines.size());
+        String line = notice.isBlank() ? status : notice;
+        buffer.putClipped(1, y, TextWidth.truncate(line, Math.max(0, width - 2)),
+                notice.isBlank() ? Style.MUTED : Style.WARN, Math.max(0, width - 2));
     }
 
     private void drawKeys(ScreenBuffer buffer, int width, int y) {
         if (y < 0 || y >= buffer.height()) {
             return;
         }
-        String keys = "页面 map ships colonies research market log status decisions help | "
-                + "列表 select N/up/down inspect back | next N | quit";
+        String keys = viewOnly
+                ? "在 CLI 窗口输入 map/ships/colonies/research/market/log/status/decisions/help 切换视图"
+                : "页面 map ships colonies research market log status decisions help | "
+                        + "列表 select N/up/down inspect back | next N | quit";
         buffer.putClipped(1, y, TextWidth.truncate(keys, Math.max(0, width - 2)),
                 Style.MUTED, Math.max(0, width - 2));
     }
@@ -489,7 +542,10 @@ public final class TuiApp implements AutoCloseable {
             return;
         }
         buffer.fill(new Rect(0, y, width, 1), Style.PANEL);
-        buffer.putClipped(1, y, PROMPT, Style.ACCENT, width - 1);
+        String prompt = viewOnly
+                ? "CLI WINDOW > 命令请在独立命令行窗口输入；此窗口只做可视化。"
+                : PROMPT;
+        buffer.putClipped(1, y, prompt, Style.ACCENT, width - 1);
         int bottom = buffer.height() - 1;
         buffer.put(0, bottom, chars.doubleBottomLeft(), Style.ACCENT);
         buffer.horizontal(bottom, 1, Math.max(0, width - 2),

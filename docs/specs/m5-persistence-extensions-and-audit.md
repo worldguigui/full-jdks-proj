@@ -123,7 +123,7 @@ public interface FrontierMod {
 | 心跳 | `Heartbeat` | `Timer` MBean 按真实时间广播 `fc.heartbeat`；内部监听器统计触发次数，不推进 Tick |
 | XA 双写 | `TwoPhaseFiles` / `FileXaResource` / `FcXid` | 自研 `XAResource` 文件分支：prepare 暂存 + 恢复日志，commit 原子发布；`export` 两个路径时全成或全不成 |
 | 货单剪贴板 | `CargoManifest` / `LocalClipboard` / `ManifestTransfer` | `Transferable` 货单 + 进程内 `Clipboard`；所有权通知、`FlavorEvent`、`SystemFlavorMap` 原生名与 MIME 校验 |
-| 指挥终端 | `fc-tui`：`TuiApp` / `ScreenBuffer` / `DiffRenderer` / `TextWidth` | 全屏 ANSI 客户端：舰桥总览 + 六个工作区、详情弹窗、CONSOLE 命令输出；直接复用 CLI 页面命令、行输入 + ASCII 降级，渲染不推进世界 |
+| 指挥终端 | `fc-tui` / `ConsoleHost` / `SplitConsoleServer` / `ConsoleClient` | 单窗口 TUI 或双窗口模式（只读可视化 + 独立 CLI 窗口）；CLI 命令完整输出、回环令牌接入、存档/读档由宿主统一执行 |
 | 回环 JMX | `RemoteJmx` | 本机 RMI 注册表 + `RMIConnectorServer`，只监听回环；`start/status/stop/beans` 与 `QueryExp` 筛选；只读属性写入按 JMX 语义返回空列表 |
 | 聊天室中继 | `ChatRelay` | 回环 TCP 行协议（NICK/MSG/WHO/HIST/PING/QUIT）+ 虚拟线程；RMI 控制面 `fc-chat-control` 暴露成员表与广播 |
 | 脚本 | `FcScriptEngine` / `FcScriptEngineFactory` | 自研 `javax.script` 引擎（ServiceLoader 注册）：`set`/`echo`/`repeat`、变量替换、预编译；脚本展开的命令逐条进入重放日志 |
@@ -206,6 +206,7 @@ java -cp fc-audit/target/classes fc.audit.AuditMain --out docs/audit
 | `fc-extensions` `TwoPhaseFilesTest` | 5 | XA 双写提交、prepare 失败全回滚、重启恢复日志、协议错误与同 RM、单阶段提交与参数校验 |
 | `fc-extensions` `ManifestTransferTest` | 4 | 货单 flavor/文本回退、剪贴板所有权与 FlavorEvent、FlavorMap 原生名与 MIME 校验、空剪贴板 |
 | `fc-tui` `TuiEngineTest` | 11 | 总览渲染、CLI 页面/详情、命令桥接、差量刷新、ANSI 重建、页面无残留、回显清除、宽度/ASCII、尺寸变化、失败恢复、待办阻塞提示 |
+| `fc-runtime` `SplitConsoleTest` | 4 | 令牌拒绝、完整 help/log 输出、ConsoleClient 子进程往返、quit 停止宿主 |
 | `fc-extensions` `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |
 | `fc-extensions` `TlsChatTest` | 5 | 双向 TLS 握手与匿名拒绝、TLS 消息面、密钥库文件装配、明文拒绝、关闭释放 |

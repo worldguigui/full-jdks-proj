@@ -302,34 +302,37 @@ Mod 或导出器）用标准 flavor 协议交换货单，而不是互相引用�
 - `StringSelection` 作为纯文本路径；CLI `manifest copy|paste|text|flavors|status`
   只操纵进程内状态，不进入重放日志，也不要求图形环境。
 
-### 3.17 星际远征指挥终端（fc-tui）
+### 3.17 星际远征指挥终端（fc-tui）与双窗口模式
 
 `fc-tui` 是独立客户端模块，不依赖 `fc-cli`/`fc-runtime`，只依赖 `fc-world`
-与 `fc-history`；由 `Main --tui` 注入应用层适配器启动。
+与 `fc-history`。TUI 是 CLI 的可视化层：命令仍由 CLI 语义执行，完整输出不进入
+TUI 画布。
 
-- **应用边界**：`TuiGame` 暴露 `state()`、`execute(command)` 与市场/科研报告；
-  `SnapshotBuilder` 在命令后构建只读 `Snapshot`。页面不直接改世界，渲染也不会
-  推进 Tick——只有显式 `next <天数>` 命令才推进游戏时间。
+- **两种启动方式**：
+  - `--tui`：单窗口 TUI，命令栏输入 CLI 命令，底部一行显示最后反馈；
+  - `--tui --console`（或 `--split`）：双窗口模式。本窗口是**只读可视化 TUI**，
+    另开一个独立 CLI 窗口接收命令并显示**完整输出**（`help`、`log all` 等不会被截断）。
+- **权威宿主**：`fc-runtime.ConsoleHost` 持有 `RuntimeSession`，在同步锁内执行命令、
+  存档/读档/PNG 与遥测刷新；TUI 构建快照时使用同一把锁，避免读到半个世界。
+  CLI 窗口通过 `SplitConsoleServer`（回环地址 + 随机令牌 + Base64 帧）提交命令；
+  `ConsoleClient` 打印完整输出。Windows 用 `cmd /c start` 新开控制台，其他平台
+  打印可直接运行的手工命令；`FC_CONSOLE_NO_WINDOW=1` 用于测试/手动排障。
+- **TUI 页面命令**：`map`/`ships`/`colonies`/`research`/`market`/`log`/`status`/
+  `decisions`/`help` 直接复用 CLI 命令名；CLI 窗口执行后，宿主通知 TUI
+  刷新快照并切换到对应可视化页面。
 - **渲染内核**：`TextWidth` 处理 CJK/emoji/组合字符宽度；`ScreenBuffer` 是字符 +
   样式双缓冲（宽字符占两列、控制字符清洗）；`DiffRenderer` 只输出变化单元格，
-  首帧/尺寸变化时清屏，绘制期间关闭自动换行；`CharSet` 提供 Unicode/ASCII 降级，
-  `Style` 固定深空蓝黑 + 冷青 + 琥珀调色板。
+  首帧/尺寸变化清屏，绘制期间关闭自动换行；`CharSet` 提供 Unicode/ASCII 降级，
+  `Style` 固定深空蓝黑 + 冷青 + 琥珀调色板。每次输入后全量重绘，清除行回显。
 - **终端适配**：`Terminal` 抽象输出侧；`SystemTerminal` 使用备用屏幕、UTF-8、
   真彩 SGR，并探测行列（`FC_TUI_COLS/ROWS` 覆盖；Windows 优先 PowerShell
   `WindowSize`，其次 `mode con`；Unix 用 `stty size`；默认 100×30）。
-  Java SE 21 无跨平台 Raw Mode，本版输入为行模式。页面命令直接复用 CLI
-  已有命令名（`map`/`ships`/`colonies`/`research`/`market`/`log`/`status`/
-  `decisions`/`help`）：先执行命令并把完整输出写进底部 CONSOLE，再切换到
-  对应的可视化页面；列表用 `select`/`inspect`/`back`，其余整行保持 CLI 语义，
-  不引入单字母缩写或额外导航语法。每次提交后强制全量重绘，清除终端行回显
-  并避免旧页面残留。
-- **页面与反馈**：舰桥总览（星图/舰队/情报/组织条）、星域导航、舰队、殖民地、
-  科研、贸易、情报、帮助，统一的详情弹窗，以及持久 CONSOLE 输出面板。
-  待决事项出现时 `next` 按规则停止推进；TUI 自动切到情报页，在 CONSOLE 写明
-  阻塞原因、决策 id/选项 id 与 `decisions`/`decide <id> <选项>` 的解法，
-  组织条同时显示待办计数。地图只显示已知地点，渲染不做寻路。
-- **生命周期**：`TuiApp.run()` 进入备用屏幕，退出/quit/EOF 恢复终端；异常写入
-  `java.util.logging` 并显示在状态行，不中断客户端。
+  Java SE 21 无跨平台 Raw Mode，本版输入为行模式。
+- **待办阻塞**：`next` 因待决事项停止时，TUI 在状态行显示阻塞计数与
+  `decisions`/`decide <id> <选项>` 路径并切到情报页；CLI 窗口同时收到完整原因。
+  情报页展示决策 id 与选项 id，组织条显示待办计数。
+- **生命周期**：单窗口 `quit`/EOF 恢复终端；双窗口由 CLI 的 `quit` 通知宿主停止，
+  TUI 退出并关闭控制台服务。
 
 ## 4. 模块与依赖
 

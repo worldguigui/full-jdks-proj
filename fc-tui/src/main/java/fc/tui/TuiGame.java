@@ -19,6 +19,14 @@ public interface TuiGame {
     /** 执行一条游戏命令，返回人类可读输出；不负责终端绘制。 */
     String execute(String command);
 
+    /**
+     * 快照构建期间使用的锁。宿主（如双窗口模式）用它把命令执行与界面读取
+     * 串行化；默认返回自身，测试实现无需关心并发。
+     */
+    default Object lock() {
+        return this;
+    }
+
     default String marketReport() {
         return "市场服务未接入";
     }

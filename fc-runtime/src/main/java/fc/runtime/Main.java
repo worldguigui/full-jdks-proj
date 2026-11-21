@@ -8,7 +8,6 @@ import fc.extensions.StatusServer;
 import fc.persist.SaveRepository;
 import fc.tui.SystemTerminal;
 import fc.tui.TuiApp;
-import fc.tui.TuiGame;
 import fc.world.WorldState;
 
 import java.io.BufferedReader;
@@ -48,7 +47,9 @@ public final class Main {
             catalog = registerCatalog();
             status = startStatusServer(args, session);
 
-            if (tuiRequested(args)) {
+            if (splitRequested(args)) {
+                runSplit(session, telemetry);
+            } else if (tuiRequested(args)) {
                 runTui(session, telemetry);
             } else {
                 repl(session, telemetry);
@@ -105,85 +106,73 @@ public final class Main {
         }
     }
 
-    private static boolean tuiRequested(String[] args) {
+    private static boolean hasArg(String[] args, String... names) {
         for (String arg : args) {
-            if ("--tui".equals(arg) || "-tui".equals(arg)) {
-                return true;
+            for (String name : names) {
+                if (name.equals(arg)) {
+                    return true;
+                }
             }
         }
         return false;
     }
 
+    private static boolean tuiRequested(String[] args) {
+        return hasArg(args, "--tui", "-tui");
+    }
+
+    private static boolean splitRequested(String[] args) {
+        return hasArg(args, "--console", "--split");
+    }
+
     /**
-     * 全屏指挥终端。TUI 只通过 {@link TuiGame} 读取状态/提交命令；
-     * 每条命令执行后刷新 JMX 遥测，界面刷新本身不推进世界。
+     * 单窗口 TUI：TUI 负责命令输入与可视化；命令经 {@link ConsoleHost} 执行，
+     * 存档/读档/PNG 与普通命令共用同一入口。
      */
     private static void runTui(AtomicReference<RuntimeSession> holder, GameTelemetry telemetry) {
-        SaveRepository saves = SaveRepository.defaultRepository();
-        TuiGame game = new TuiGame() {
-            @Override
-            public WorldState state() {
-                return holder.get().state();
-            }
-
-            @Override
-            public String execute(String command) {
-                String[] parts = command.strip().split("\\s+");
-                String head = parts.length == 0 ? ""
-                        : parts[0].toLowerCase(java.util.Locale.ROOT);
-                switch (head) {
-                    case "save" -> {
-                        return save(holder.get(), saves, parts);
-                    }
-                    case "load" -> {
-                        if (parts.length < 2) {
-                            return "用法: load <槽位名> [口令]";
-                        }
-                        String password = parts.length > 2 ? parts[2] : null;
-                        try {
-                            RuntimeSession loaded = RuntimeSession.load(saves, parts[1],
-                                    password);
-                            holder.set(loaded);
-                            publish(telemetry, loaded);
-                            return "读档成功：" + parts[1] + "（" + loaded.state().now()
-                                    + "，哈希 " + fc.sim.StateHasher.hash(loaded.state())
-                                    + "）";
-                        } catch (IOException | IllegalArgumentException e) {
-                            return "读档失败：" + e.getMessage();
-                        }
-                    }
-                    case "saves" -> {
-                        return listSaves(saves);
-                    }
-                    case "png" -> {
-                        return renderPng(holder.get(), parts);
-                    }
-                    default -> {
-                        RuntimeSession current = holder.get();
-                        String out = current.execute(command);
-                        publish(telemetry, current);
-                        return out;
-                    }
-                }
-            }
-
-            @Override
-            public String marketReport() {
-                return holder.get().marketReport();
-            }
-
-            @Override
-            public String researchReport() {
-                return holder.get().researchReport();
-            }
-
-            @Override
-            public String technologiesReport() {
-                return holder.get().technologiesReport();
-            }
-        };
-        try (TuiApp app = new TuiApp(game, new SystemTerminal())) {
+        ConsoleHost host = new ConsoleHost(holder.get(),
+                SaveRepository.defaultRepository(),
+                session -> publish(telemetry, session), null, null);
+        try (TuiApp app = new TuiApp(host, new SystemTerminal())) {
             app.run();
+        }
+        System.out.println("指挥终端已退出。");
+    }
+
+    /**
+     * 双窗口模式：本窗口是只读可视化 TUI；另开一个独立 CLI 窗口，
+     * 通过回环套接字提交命令并显示完整输出。
+     */
+    private static void runSplit(AtomicReference<RuntimeSession> holder,
+                                 GameTelemetry telemetry) {
+        java.util.concurrent.atomic.AtomicReference<TuiApp> appRef =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        ConsoleHost host = new ConsoleHost(holder.get(),
+                SaveRepository.defaultRepository(),
+                session -> publish(telemetry, session),
+                command -> {
+                    TuiApp app = appRef.get();
+                    if (app != null) {
+                        app.externalUpdate(command);
+                    }
+                },
+                () -> {
+                    TuiApp app = appRef.get();
+                    if (app != null) {
+                        app.requestStop();
+                    }
+                });
+        try (SplitConsoleServer server = SplitConsoleServer.start(host)) {
+            System.out.println("双窗口模式：本窗口为可视化 TUI，CLI 命令窗口独立打开。");
+            ConsoleLauncher.launch(server.port(), server.token(), System.out);
+            TuiApp app = new TuiApp(host, new SystemTerminal());
+            app.setViewOnly(true);
+            appRef.set(app);
+            app.runViewOnly();
+        } catch (IOException e) {
+            System.err.println("双窗口模式启动失败：" + e.getMessage());
+        } finally {
+            appRef.set(null);
         }
         System.out.println("指挥终端已退出。");
     }

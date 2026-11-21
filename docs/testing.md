@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 29 个测试套件、253 个用例。
+当前共 30 个测试套件、257 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -45,6 +45,7 @@ mvn -B package
 | `fc-runtime` | `RuntimeSmokeTest` | 19 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出（含 XA 双份）、制图、配乐、档案库、封存、签章、JMX 目录与心跳、货单剪贴板、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
+| `fc-runtime` | `SplitConsoleTest` | 4 | 令牌拒绝、完整 help/log 输出、ConsoleClient 子进程往返、quit 停止宿主 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
 | `fc-extensions` | `ExtensionsTest` | 9 | 内存编译、Mod 装载与签名要求、宏、PNG、JMX、HTTP、音频、描述符 |
 | `fc-extensions` | `MapAtlasTest` | 6 | PNG/JPEG 元数据、逐像素确定性、滤镜、缩略图、区域读取、参数校验 |
@@ -183,21 +184,21 @@ mvn -B package
   `FlavorTable` 能双向查询；非法 MIME 以 `MimeTypeParseException` 拒绝。
 - `manifest` 命令只操纵进程内状态，不进入重放日志；无图形环境时必须可用。
 
-### 星际远征指挥终端（TUI）
+### 星际远征指挥终端（TUI）与双窗口模式
 
-- `--tui` 启动后进入备用屏幕；帧尺寸与终端一致；`FC_TUI_ASCII=1` 时不出现
-  Unicode 线框/符号；`FC_TUI_COLS/ROWS` 可覆盖行列。
-- TUI 是 CLI 的可视化层，不新增 `screen` 语法：`map`/`ships`/`colonies`/`research`/
-  `market`/`log`/`status`/`decisions`/`help` 直接复用 CLI 命令，执行后完整输出进入
-  底部 CONSOLE，再切到对应可视化页面；其他命令保持 CLI 语义。
-- 渲染只消费 `Snapshot`：重复渲染不得执行命令或推进 Tick；只有显式
-  `next <天数>` 才改变世界。界面刷新频率与游戏时间严格分离。
-- 每次提交后必须全量重绘：行输入回显不在画布中，差量比较无法感知，
-  否则命令字符会残留并与提示/旧页面混排；页面切换也不得残留上一页内容。
-- 待决事项出现时 `next` 必须停止推进，并在 CONSOLE 明确说明「规则阻塞」、
-  决策 id、选项 id 与 `decisions`/`decide <id> <选项>` 处理方法；不得只表现为无反馈。
-- 列表操作为 `select <N|up|down>`、`inspect`、`back`；`quit`/`exit` 或 EOF 恢复终端。
-  地图只显示已知地点；中文/emoji 按显示宽度计算，数据中的控制字符必须清洗。
+- `--tui` 单窗口模式：TUI 接收命令，底部一行显示最后反馈；每次提交后全量重绘，
+  行输入回显不得残留，页面切换不得叠加上一页内容。
+- `--tui --console`（或 `--split`）：本窗口只读可视化，独立 CLI 窗口通过
+  回环地址 + 随机令牌连接；`help`/`log all` 等完整输出在 CLI 窗口显示，不得截断。
+  CLI 的页面命令（map/ships/colonies/research/market/log/status/decisions/help）
+  必须让 TUI 刷新并切换页面；`quit` 必须同时结束 CLI 与 TUI。
+- 渲染只消费 `Snapshot`：重复渲染不得执行命令或推进 Tick；只有 CLI 的
+  `next <天数>` 才改变世界。快照构建与命令执行必须串行化。
+- 待决事项出现时 `next` 必须停止推进：TUI 状态行与情报页必须说明“规则阻塞”，
+  给出决策 id、选项 id 与 `decisions`/`decide <id> <选项>` 处理方法；
+  CLI 窗口同时收到完整原因。不得只表现为无反馈。
+- 列表操作为 `select <N|up|down>`、`inspect`、`back`；中文/emoji 按显示宽度
+  计算，数据中的控制字符必须清洗；`FC_TUI_COLS/ROWS` 可覆盖尺寸。
 
 ### fc:// 命名上下文
 

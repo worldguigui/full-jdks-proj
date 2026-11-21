@@ -32,7 +32,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Properties;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.w3c.dom.Document;
@@ -151,11 +150,6 @@ public final class ChronicleExport {
                 throw new IOException("XSLT 转换失败: " + e.getMessage(), e);
             }
 
-            Properties manifest = new Properties();
-            manifest.setProperty("format", "1");
-            manifest.setProperty("count", Integer.toString(events.size()));
-            manifest.setProperty("generator", "Frontier Chronicle");
-
             try (OutputStream raw = Files.newOutputStream(output);
                  BufferedOutputStream buffered = new BufferedOutputStream(raw);
                  ZipOutputStream zip = new ZipOutputStream(buffered,
@@ -163,10 +157,13 @@ public final class ChronicleExport {
                 put(zip, "chronicle.xml", Files.readAllBytes(xml));
                 put(zip, "chronicle.csv", Files.readAllBytes(csv));
                 put(zip, "chronicle.html", html.getBytes(StandardCharsets.UTF_8));
-                StringWriter props = new StringWriter();
-                manifest.store(props, "Frontier Chronicle bundle");
+                // 固定键顺序、不写 Properties.store 的时间注释，保证同一编年史
+                // 生成的 ZIP 字节完全一致（档案库按摘要做内容寻址）。
+                String properties = "format=1\n"
+                        + "count=" + events.size() + "\n"
+                        + "generator=Frontier Chronicle\n";
                 put(zip, "manifest.properties",
-                        props.toString().getBytes(StandardCharsets.ISO_8859_1));
+                        properties.getBytes(StandardCharsets.ISO_8859_1));
             }
             return output;
         } finally {
@@ -264,7 +261,11 @@ public final class ChronicleExport {
     }
 
     private static void put(ZipOutputStream zip, String name, byte[] data) throws IOException {
-        zip.putNextEntry(new ZipEntry(name));
+        ZipEntry entry = new ZipEntry(name);
+        // 固定 ZIP 条目时间（DOS 时间无时区），避免同一内容因写入时刻不同
+        // 产生不同摘要，破坏快照幂等与确定性导出。
+        entry.setTimeLocal(java.time.LocalDateTime.of(2000, 1, 1, 0, 0));
+        zip.putNextEntry(entry);
         zip.write(data);
         zip.closeEntry();
     }

@@ -25,7 +25,9 @@ public final class HelpView {
         row++;
 
         if (cliHelp == null || cliHelp.isEmpty()) {
-            Draw.line(buffer, panel, row, "输入 help 查看完整命令列表。", Style.PANEL);
+            Draw.line(buffer, panel, row,
+                    "完整 CLI 帮助请在独立命令行窗口输入 help；本页只显示可视化提示。",
+                    Style.PANEL);
             return;
         }
         int width = Math.max(1, panel.width());
