@@ -260,7 +260,13 @@ public final class Main {
 
     private static void repl(AtomicReference<RuntimeSession> holder, GameTelemetry telemetry) {
         SaveRepository saves = SaveRepository.defaultRepository();
-        publish(telemetry, holder.get());
+        ConsoleHost host = new ConsoleHost(holder.get(), saves,
+                session -> {
+                    holder.set(session);
+                    publish(telemetry, session);
+                }, null, null);
+        SplitConsoleServer consoleServer = null;
+        publish(telemetry, host.session());
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
             while (true) {
@@ -270,33 +276,45 @@ public final class Main {
                 if (line == null) {
                     break;
                 }
-                String[] parts = line.strip().split("\\s+");
+                String[] parts = line.strip().split("\s+");
                 String command = parts.length == 0 ? "" : parts[0].toLowerCase(
                         java.util.Locale.ROOT);
-                if ("save".equals(command)) {
-                    System.out.println(save(holder.get(), saves, parts));
-                    continue;
-                }
-                if ("load".equals(command)) {
-                    RuntimeSession loaded = load(saves, parts);
-                    if (loaded != null) {
-                        holder.set(loaded);
-                        loaded.banner().forEach(System.out::println);
-                        publish(telemetry, loaded);
+                if ("window".equals(command)) {
+                    try {
+                        if (consoleServer == null) {
+                            consoleServer = SplitConsoleServer.start(host);
+                            System.out.println("多窗口宿主已启动：可重复执行 window 打开多个 CLI 窗口。");
+                        }
+                        ConsoleLauncher.launch(consoleServer.port(), consoleServer.token(),
+                                System.out);
+                    } catch (IOException e) {
+                        System.out.println("打开窗口失败：" + e.getMessage());
                     }
                     continue;
                 }
-                if ("saves".equals(command)) {
-                    System.out.println(listSaves(saves));
+                if ("tui".equals(command)) {
+                    String action = parts.length > 1
+                            ? parts[1].toLowerCase(java.util.Locale.ROOT) : "status";
+                    if ("off".equals(action) || "status".equals(action)) {
+                        System.out.println("TUI 未开启（输入 tui on 进入可视化界面）。");
+                        continue;
+                    }
+                    if (!"on".equals(action)) {
+                        System.out.println("用法：tui on|off");
+                        continue;
+                    }
+                    TuiApp app = new TuiApp(host, new SystemTerminal());
+                    app.run(reader);
+                    holder.set(host.session());
+                    if (app.gameQuit()) {
+                        System.out.println("再见。");
+                        break;
+                    }
+                    System.out.println("已返回 CLI（world 继续运行，可用 window 另开命令窗口）。");
                     continue;
                 }
-                if ("png".equals(command)) {
-                    System.out.println(renderPng(holder.get(), parts));
-                    continue;
-                }
-                RuntimeSession session = holder.get();
-                String out = session.execute(line);
-                publish(telemetry, session);
+                String out = host.execute(line);
+                holder.set(host.session());
                 if ("bye".equals(out)) {
                     System.out.println("再见。");
                     break;
@@ -307,6 +325,10 @@ public final class Main {
             }
         } catch (Exception e) {
             System.err.println("REPL 异常: " + e);
+        } finally {
+            if (consoleServer != null) {
+                consoleServer.close();
+            }
         }
     }
 

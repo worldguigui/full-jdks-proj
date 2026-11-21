@@ -53,6 +53,7 @@ public final class TuiApp implements AutoCloseable {
     private List<String> helpLines = List.of();
     private volatile boolean viewOnly;
     private volatile boolean dirty;
+    private boolean gameQuit;
 
     public TuiApp(TuiGame game, Terminal terminal) {
         if (game == null || terminal == null) {
@@ -65,11 +66,17 @@ public final class TuiApp implements AutoCloseable {
         this.snapshot = SnapshotBuilder.build(game);
     }
 
-    /** 交互式运行，直到输入 EOF 或按 q。 */
+    /** 交互式运行，直到输入 EOF 或 quit。 */
     public void run() {
+        run(new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8)));
+    }
+
+    /**
+     * 从已有 Reader 运行：CLI 内 tui on 时复用 REPL 的 BufferedReader，
+     * 避免两个读取器互相抢缓冲输入。
+     */
+    public void run(BufferedReader reader) {
         terminal.enter();
-        BufferedReader reader = new BufferedReader(
-                new InputStreamReader(System.in, StandardCharsets.UTF_8));
         try {
             draw();
             while (running) {
@@ -94,11 +101,7 @@ public final class TuiApp implements AutoCloseable {
                 draw();
             }
         } finally {
-            try {
-                reader.close();
-            } catch (IOException ignored) {
-                // 标准输入关闭失败不影响终端恢复。
-            }
+            // 不关闭 System.in：TUI 可以从 CLI REPL 内进入，退出后 REPL 还要继续读。
             terminal.exit();
         }
     }
@@ -122,9 +125,19 @@ public final class TuiApp implements AutoCloseable {
             return running;
         }
         String lower = line.toLowerCase(Locale.ROOT);
+        if ("tui off".equals(lower) || "tui".equals(lower)) {
+            running = false;
+            gameQuit = false;
+            return false;
+        }
+        if ("tui on".equals(lower)) {
+            status = "已在 TUI 中";
+            return running;
+        }
         switch (lower) {
             case "quit", "exit" -> {
                 running = false;
+                gameQuit = true;
                 return false;
             }
             case "back" -> back();
@@ -269,6 +282,11 @@ public final class TuiApp implements AutoCloseable {
 
     public boolean running() {
         return running;
+    }
+
+    /** TUI 是否因 quit/exit 请求结束整个游戏；tui off 不算。 */
+    public boolean gameQuit() {
+        return gameQuit;
     }
 
     public String status() {

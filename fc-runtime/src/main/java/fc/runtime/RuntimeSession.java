@@ -233,7 +233,7 @@ public final class RuntimeSession {
                     "query", "export", "atlas", "chart", "music", "soundtrack",
                     "vault", "archive", "seal", "unseal", "jmx", "chat", "res", "trust",
                     "script", "manifest", "workbench", "auth", "diagnostics",
-                    "sign", "verify" -> false;
+                    "window", "tui", "sign", "verify" -> false;
             default -> true;
         };
     }

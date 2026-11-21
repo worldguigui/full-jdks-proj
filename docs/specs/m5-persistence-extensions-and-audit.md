@@ -213,7 +213,7 @@ java -cp fc-audit/target/classes fc.audit.AuditMain --out docs/audit
 | `fc-agent` `AgentProbe` | 4 | -javaagent MBean、能力/类列表、浅层大小、未知目标拒绝 |
 | `fc-auth` `AuthTest` | 6 | 机制发现、多轮认证、失败路径、Callback、释放、Kerberos 降级 |
 | `fc-history` `ChronicleWorkbenchTest` | 5 | CachedRowSet、过滤、排序分页、WebRowSet 版本校验、Join |
-| `fc-tui` `TuiEngineTest` | 11 | 总览渲染、CLI 页面/详情、命令桥接、差量刷新、ANSI 重建、页面无残留、回显清除、宽度/ASCII、尺寸变化、失败恢复、待办阻塞提示 |
+| `fc-tui` `TuiEngineTest` | 12 | 总览渲染、CLI 页面/详情、命令桥接、差量刷新、ANSI 重建、页面无残留、回显清除、宽度/ASCII、尺寸变化、失败恢复、待办阻塞提示 |
 | `fc-runtime` `SplitConsoleTest` | 4 | 令牌拒绝、完整 help/log 输出、ConsoleClient 子进程往返、quit 停止宿主 |
 | `fc-extensions` `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |

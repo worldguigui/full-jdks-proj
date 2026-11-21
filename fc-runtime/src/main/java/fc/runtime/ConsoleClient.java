@@ -69,7 +69,7 @@ public final class ConsoleClient {
                 return;
             }
             out.println();
-            out.println("提示：输入 help/log/decision 等命令；quit 结束游戏并关闭两个窗口。");
+            out.println("提示：输入 help/log/decision 等命令；quit 关闭本控制台（主窗口/分屏模式会结束会话）。");
             while (true) {
                 out.print("> ");
                 out.flush();

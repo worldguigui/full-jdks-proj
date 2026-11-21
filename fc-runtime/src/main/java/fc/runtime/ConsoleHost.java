@@ -47,6 +47,10 @@ final class ConsoleHost implements TuiGame {
     public synchronized String execute(String command) {
         String[] parts = command.strip().split("\\s+");
         String head = parts.length == 0 ? "" : parts[0].toLowerCase(Locale.ROOT);
+        if ("tui".equals(head) || "window".equals(head)) {
+            return "请在主 CLI 窗口执行 " + head
+                    + "；副窗口只共享世界命令，不负责切换主窗口界面。";
+        }
         String output;
         switch (head) {
             case "save" -> output = save(parts);

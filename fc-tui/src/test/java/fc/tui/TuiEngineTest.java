@@ -466,6 +466,18 @@ public final class TuiEngineTest {
     }
 
     @FcTest
+    public void tuiOffReturnsToCliAndQuitRequestsGameExit() {
+        FakeGame game = new FakeGame();
+        TuiApp off = new TuiApp(game, new FakeTerminal(new TerminalSize(100, 30), true));
+        assert !off.handle("tui off") : "tui off 应结束 TUI";
+        assert !off.gameQuit() : "tui off 不应结束游戏";
+
+        TuiApp quit = new TuiApp(game, new FakeTerminal(new TerminalSize(100, 30), true));
+        quit.handle("quit");
+        assert !quit.running() && quit.gameQuit() : "quit 应请求结束游戏";
+    }
+
+    @FcTest
     public void commandFailureIsReportedWithoutStoppingTheClient() {
         FakeGame game = new FakeGame();
         game.fail = true;

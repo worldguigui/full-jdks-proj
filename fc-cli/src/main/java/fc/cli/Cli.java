@@ -2486,7 +2486,9 @@ public final class Cli {
                   load <槽位> [口令]          读档并校验状态哈希
                   saves                      列出存档槽位
                   png [路径]                 导出星图 PNG（默认 starmap.png）
-                启动参数：--world <文件>、--serve[=<端口>]（只读状态端点）
+                  window                    另开一个共享同一世界的 CLI 窗口（可重复）
+                  tui on|off                在主窗口进入/离开可视化 TUI
+                启动参数：--world <文件>、--serve[=<端口>]（只读状态端点）、--tui/--split
                 JMX：fc.telemetry:type=Game""");
         return sb.toString();
     }
