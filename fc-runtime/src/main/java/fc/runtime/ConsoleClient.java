@@ -52,8 +52,6 @@ public final class ConsoleClient {
             out.println();
             out.println("提示：输入 help/log 等命令；tui on 在本窗口开启可视化；"
                     + "window 再开一个窗口；quit 关闭本控制台。");
-            out.println("select/inspect/back 是 TUI 局部命令：请在 TUI 窗口输入，"
-                    + "或在本窗口先执行 tui on。");
             while (true) {
                 out.print("> ");
                 out.flush();

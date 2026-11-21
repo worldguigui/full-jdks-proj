@@ -319,9 +319,7 @@ TUI 画布。
   CLI 窗口通过 `SplitConsoleServer`（回环地址 + 随机令牌 + Base64 帧）提交命令，
   TUI 直接调用宿主；两者都在同一把锁内串行。`ConsoleClient` 打印完整输出。
   Windows 用 `cmd /c start` 打开新控制台，并先用生成的批处理执行 `chcp 65001`、
-  以 UTF-8 读写，避免本地代码页导致中文乱码；新控制台以**最小化**方式启动，
-  否则 Windows Terminal/控制台会把焦点切到 CLI，主 TUI 看起来无法输入。
-  需要完整输出时从任务栏恢复 CLI 窗口。其他平台打印可直接运行的手工命令；
+  以 UTF-8 读写，避免本地代码页导致中文乱码；其他平台打印可直接运行的手工命令；
   `FC_CONSOLE_NO_WINDOW=1` 用于测试/排障。
 - **TUI 页面命令**：`map`/`ships`/`colonies`/`research`/`market`/`log`/`status`/
   `decisions`/`goals`/`help` 直接复用 CLI 命令名；任一窗口执行后，宿主通知

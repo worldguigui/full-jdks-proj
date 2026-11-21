@@ -200,9 +200,6 @@ mvn -B package
 - 输入必须走阻塞行读取。禁止用 `Reader.ready()`/`InputStream.available()`
   轮询决定是否读命令：Windows 控制台可能始终返回不可读，导致 TUI 无法输入。
   双窗口 TUI 由守护输入线程 + 100 ms 队列轮询驱动，外部 `quit` 后不得再等一次回车。
-- Windows 自动打开的 CLI 窗口必须最小化启动，避免抢占前台焦点；否则用户会把
-  `select`/`inspect`/`back` 输入到 CLI 窗口，误判为 TUI 无法输入。
-  TUI 局部命令只在 TUI 窗口有效；CLI 窗口需先 `tui on` 才具备同一语义。
 - Windows 新窗口必须在启动前切到 UTF-8（`chcp 65001`）并以 UTF-8 读写，
   中文帮助/事件/提示不得出现乱码。
 - 渲染只消费 `Snapshot`：重复渲染不得执行命令或推进 Tick；只有 CLI 的

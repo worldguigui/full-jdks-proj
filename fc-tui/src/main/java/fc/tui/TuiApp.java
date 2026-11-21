@@ -664,9 +664,6 @@ public final class TuiApp implements AutoCloseable {
         }
         String keys = "页面 map ships colonies research market log status decisions goals help | "
                 + "列表 select N/up/down inspect back | next N | quit";
-        if (hostControlled) {
-            keys += " | CLI 窗口已最小化，从任务栏恢复";
-        }
         buffer.putClipped(1, y, TextWidth.truncate(keys, Math.max(0, width - 2)),
                 Style.MUTED, Math.max(0, width - 2));
     }

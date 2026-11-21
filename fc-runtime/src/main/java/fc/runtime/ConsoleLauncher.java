@@ -47,12 +47,8 @@ final class ConsoleLauncher {
                 Files.writeString(script, bat.toString(),
                         StandardCharsets.US_ASCII);
                 script.toFile().deleteOnExit();
-                // 最小化启动：Windows Terminal/控制台默认会把新窗口切到前台，
-                // 导致用户输入落到 CLI 窗口，主 TUI 看起来“无法输入”。
                 new ProcessBuilder("cmd.exe", "/c", "start",
-                        "Frontier Chronicle CLI", "/min", script.toString()).start();
-                info.println("CLI 窗口已最小化启动，避免抢走 TUI 输入焦点；"
-                        + "需要完整输出时请从任务栏恢复。");
+                        "Frontier Chronicle CLI", script.toString()).start();
             } catch (Exception e) {
                 info.println("无法自动打开 CLI 窗口：" + e.getMessage());
             }
