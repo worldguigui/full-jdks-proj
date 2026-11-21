@@ -31,11 +31,11 @@ public final class TuiApp implements AutoCloseable {
     private static final String PROMPT = "COMMAND > ";
     private static final Set<String> PAGE_COMMANDS = Set.of(
             "map", "ships", "colonies", "research", "market", "log",
-            "status", "decisions", "help");
+            "status", "decisions", "goals", "help");
 
     /** 页面标识。 */
     public enum Page {
-        BRIDGE, MAP, FLEET, COLONY, RESEARCH, TRADE, INTEL, HELP
+        BRIDGE, MAP, FLEET, COLONY, RESEARCH, TRADE, INTEL, GOALS, HELP
     }
 
     private final TuiGame game;
@@ -80,25 +80,47 @@ public final class TuiApp implements AutoCloseable {
         try {
             draw();
             while (running) {
-                String line;
+                boolean ready;
                 try {
-                    line = reader.readLine();
+                    ready = reader.ready();
                 } catch (IOException e) {
-                    LOG.log(Level.WARNING, "终端输入失败", e);
-                    appendLog("输入失败：" + e.getMessage());
+                    LOG.log(Level.WARNING, "终端输入检测失败", e);
                     break;
                 }
-                if (line == null) {
-                    break;
+                if (ready) {
+                    String line;
+                    try {
+                        line = reader.readLine();
+                    } catch (IOException e) {
+                        LOG.log(Level.WARNING, "终端输入失败", e);
+                        appendLog("输入失败：" + e.getMessage());
+                        break;
+                    }
+                    if (line == null) {
+                        break;
+                    }
+                    handle(line);
+                    if (!running) {
+                        break;
+                    }
+                    if (terminal instanceof SystemTerminal system) {
+                        system.refreshSize();
+                    }
+                    draw();
+                } else {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                    if (dirty) {
+                        dirty = false;
+                        refresh();
+                        renderer.reset();
+                        draw();
+                    }
                 }
-                handle(line);
-                if (!running) {
-                    break;
-                }
-                if (terminal instanceof SystemTerminal system) {
-                    system.refreshSize();
-                }
-                draw();
             }
         } finally {
             // 不关闭 System.in：TUI 可以从 CLI REPL 内进入，退出后 REPL 还要继续读。
@@ -172,6 +194,7 @@ public final class TuiApp implements AutoCloseable {
             case "research" -> page = Page.RESEARCH;
             case "market" -> page = Page.TRADE;
             case "log", "decisions" -> page = Page.INTEL;
+            case "goals" -> page = Page.GOALS;
             case "help" -> {
                 page = Page.HELP;
                 helpLines = output == null ? List.of()
@@ -200,6 +223,7 @@ public final class TuiApp implements AutoCloseable {
             case "research" -> page = Page.RESEARCH;
             case "market" -> page = Page.TRADE;
             case "log", "decisions" -> page = Page.INTEL;
+            case "goals" -> page = Page.GOALS;
             case "help" -> page = Page.HELP;
             case "status" -> page = Page.BRIDGE;
             default -> {
@@ -318,6 +342,7 @@ public final class TuiApp implements AutoCloseable {
             case RESEARCH -> "科研中心";
             case TRADE -> "贸易中心";
             case INTEL -> "情报中心";
+            case GOALS -> "目标与胜利路线";
             case HELP -> "帮助";
         };
     }
@@ -473,6 +498,7 @@ public final class TuiApp implements AutoCloseable {
                 case RESEARCH -> ResearchView.render(buffer, body, snapshot, chars);
                 case TRADE -> TradeView.render(buffer, body, snapshot, chars);
                 case INTEL -> IntelView.render(buffer, body, snapshot, selection, chars);
+                case GOALS -> GoalsView.render(buffer, body, snapshot, chars);
                 case HELP -> HelpView.render(buffer, body, helpLines, chars);
             }
         }
@@ -552,8 +578,8 @@ public final class TuiApp implements AutoCloseable {
             return;
         }
         String keys = viewOnly
-                ? "在 CLI 窗口输入 map/ships/colonies/research/market/log/status/decisions/help 切换视图"
-                : "页面 map ships colonies research market log status decisions help | "
+                ? "在 CLI 窗口输入 map/ships/colonies/research/market/log/status/decisions/goals/help 切换视图"
+                : "页面 map ships colonies research market log status decisions goals help | "
                         + "列表 select N/up/down inspect back | next N | quit";
         buffer.putClipped(1, y, TextWidth.truncate(keys, Math.max(0, width - 2)),
                 Style.MUTED, Math.max(0, width - 2));

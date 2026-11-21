@@ -99,6 +99,11 @@ final class ConsoleHost implements TuiGame {
         return current.get().technologiesReport();
     }
 
+    @Override
+    public synchronized String goalsReport() {
+        return current.get().goalsReport();
+    }
+
     /** CLI 的 quit/exit：关闭宿主，让 TUI 退出并由 Main 收尾。 */
     void stop() {
         if (stopCallback != null) {

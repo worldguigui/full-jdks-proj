@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 33 个测试套件、275 个用例。
+当前共 33 个测试套件、278 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -42,7 +42,7 @@ mvn -B package
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
 | `fc-history` | `ChronicleVaultTest` | 6 | 快照与索引、幂等写入、篡改/缺失检测、排他锁、WatchService、坏索引拒绝 |
 | `fc-history` | `EvidenceSealTest` | 6 | PKCS#12 往返、AES-GCM 封存/解封、错钥/篡改拒绝、输入过滤器、错误口令、参数校验 |
-| `fc-runtime` | `RuntimeSmokeTest` | 20 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出（含 XA 双份）、制图、配乐、档案库、封存、签章、JMX 目录与心跳、货单剪贴板、非法启动参数 |
+| `fc-runtime` | `RuntimeSmokeTest` | 23 | 默认世界启动（24 地点/27 航线）、命令响应、账本一致、同种子哈希、查询导出（含 XA 双份）、制图、配乐、档案库、封存、签章、JMX、货单、三种胜利路线 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-agent` | `AgentProbe` | 4 | -javaagent 注册、能力与类列表、浅层大小、释放/未知目标 |
@@ -57,7 +57,7 @@ mvn -B package
 | `fc-extensions` | `TelemetryMBeansTest` | 5 | 属性变化/命令通知与过滤、动态 MBean 快照、GaugeMonitor 阈值通知、Timer 心跳、QueryExp 目录筛选 |
 | `fc-extensions` | `TwoPhaseFilesTest` | 5 | XA 双写提交、prepare 失败全回滚、重启恢复日志、协议错误与同 RM、单阶段提交与参数校验 |
 | `fc-extensions` | `ManifestTransferTest` | 4 | 货单 flavor 与文本回退、剪贴板往返/所有权/FlavorEvent、FlavorMap 原生名与 MIME 校验、空剪贴板与不支持类型 |
-| `fc-tui` | `TuiEngineTest` | 12 | 总览渲染、CLI 页面命令/选择/详情、命令桥接与不自动推进、差量刷新、ANSI 回放重建、页面无残留、回显清除、宽度/ASCII、尺寸变化、失败恢复、待办阻塞提示、tui off 返回 CLI |
+| `fc-tui` | `TuiEngineTest` | 12 | 总览渲染、CLI 页面命令/选择/详情、命令桥接与不自动推进、差量刷新、ANSI 回放重建、页面无残留、回显清除、宽度/ASCII、尺寸变化、失败恢复、待办阻塞提示、tui off 返回 CLI、目标页 |
 | `fc-extensions` | `ChatRelayTest` | 6 | 加入与广播、成员表与历史、RMI 控制面、非法输入、离开广播、关闭与端口校验 |
 | `fc-extensions` | `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` | `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |
@@ -279,6 +279,18 @@ mvn -B package
 - `workbench` 的 `CachedRowSet` 在连接关闭后仍可分页/过滤/排序；`WebRowSet`
   导出带 `schema_version=fc-workbench/1`，非法 XML/缺列/不兼容版本必须拒绝；
   `JoinRowSet` 能连接事件与地点目录；命令不进入重放日志。
+
+### 世界规模与多路线胜利
+
+- 默认世界必须包含 24 个地点、27 条航线，新增外缘星区与原环线相连且可探索；
+  `ConfigTest` 锁定该规模。
+- 任一胜利路线达成后必须设置 ending、写入终局事件并冻结时间：
+  - 商业霸权：信用点 ≥ 10000；
+  - 外交联盟：任一势力声望 ≥ 60；
+  - 星域测绘：全部地点达到 CHARTED；
+  - 工程终局：星门或信标工程完成（原有路线）。
+- `goals` 面板必须同时展示 D0–D4、V1–V3 进度与目标阈值；TUI `goals` 页渲染同一面板。
+- 多窗口/`tui on` 时，宿主通知 + TUI 轮询必须自动刷新快照；不得只靠手动重进。
 
 ### 审计
 

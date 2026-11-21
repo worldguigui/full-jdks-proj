@@ -32,11 +32,11 @@ public final class RuntimeSmokeTest {
     public void defaultWorldBootsFromConfiguration() {
         RuntimeSession session = boot();
         WorldState st = session.state();
-        assert st.graph().placeCount() == 16 : "静态地点数 " + st.graph().placeCount();
+        assert st.graph().placeCount() == 24 : "静态地点数 " + st.graph().placeCount();
         assert st.graph().ships().size() == 3 : "舰船数 " + st.graph().ships().size();
         assert st.agents().size() == 36 : "主体数 " + st.agents().size();
         assert st.factions().size() == 4 : "势力数 " + st.factions().size();
-        assert st.colonies().size() == 3 : "殖民地数（含玩家前哨）" + st.colonies().size();
+        assert st.colonies().size() == 4 : "殖民地数（含玩家前哨）" + st.colonies().size();
         assert st.credits().compareTo(new BigDecimal("1000")) == 0;
         assert session.banner().size() == 7;
         st.verifyLedger();
@@ -505,6 +505,35 @@ public final class RuntimeSmokeTest {
         assert session.commandHistory().stream()
                 .noneMatch(c -> c.startsWith("sign") || c.startsWith("verify"))
                 : "签章命令不应进入重放日志";
+    }
+
+    @FcTest
+    public void creditsVictoryEndsTheGame() {
+        RuntimeSession session = boot();
+        session.state().depositPlayer(new BigDecimal("9000"), "测试注资");
+        session.execute("next 1");
+        assert "商业霸权".equals(session.state().ending())
+                : "信用点达到门槛应触发商业胜利：" + session.state().ending();
+    }
+
+    @FcTest
+    public void reputationVictoryEndsTheGame() {
+        RuntimeSession session = boot();
+        session.state().adjustReputation(new fc.world.Ids.FactionId(1), 60);
+        session.execute("next 1");
+        assert "外交联盟".equals(session.state().ending())
+                : "声望达到门槛应触发外交胜利：" + session.state().ending();
+    }
+
+    @FcTest
+    public void explorationVictoryEndsTheGame() {
+        RuntimeSession session = boot();
+        for (fc.world.Ids.LocationId id : session.state().locationIds()) {
+            session.state().setKnowledge(id, fc.world.KnowledgeState.CHARTED);
+        }
+        session.execute("next 1");
+        assert "星域测绘".equals(session.state().ending())
+                : "全部地点已知应触发测绘胜利：" + session.state().ending();
     }
 
     @FcTest

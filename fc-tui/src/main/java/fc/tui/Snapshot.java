@@ -30,7 +30,8 @@ public record Snapshot(
         String researchReport,
         String technologiesReport,
         int knownPlaces,
-        int unknownPlaces) implements Serializable {
+        int unknownPlaces,
+        String goalsReport) implements Serializable {
 
     public Snapshot {
         places = List.copyOf(places);
@@ -45,6 +46,7 @@ public record Snapshot(
         marketReport = marketReport == null ? "" : marketReport;
         researchReport = researchReport == null ? "" : researchReport;
         technologiesReport = technologiesReport == null ? "" : technologiesReport;
+        goalsReport = goalsReport == null ? "" : goalsReport;
     }
 
     /** 地点行：kind 为稳定的中文类型名。 */

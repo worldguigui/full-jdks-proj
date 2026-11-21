@@ -52,12 +52,14 @@ public final class RuntimeSession {
     private final GameLoop loop;
     private final Cli cli;
     private final TradeService trade;
+    private final GoalService goals;
     private final String worldSource;
     private final List<String> commandHistory = new ArrayList<>();
 
     private RuntimeSession(WorldAssembler.AssembledWorld world, WorldState state,
                            Economy economy, RngStreams rng, TickPipeline pipeline,
-                           GameLoop loop, Cli cli, TradeService trade, String worldSource) {
+                           GameLoop loop, Cli cli, TradeService trade, GoalService goals,
+                           String worldSource) {
         this.world = world;
         this.state = state;
         this.economy = economy;
@@ -66,6 +68,7 @@ public final class RuntimeSession {
         this.loop = loop;
         this.cli = cli;
         this.trade = trade;
+        this.goals = goals;
         this.worldSource = worldSource;
     }
 
@@ -141,7 +144,7 @@ public final class RuntimeSession {
                 () -> new fc.sim.tick.TickContext(world.production(), rng,
                         world.loanDailyRate(), world.events()));
         RuntimeSession session = new RuntimeSession(world, state, economy, rng, pipeline, loop,
-                cli, trade, worldSource);
+                cli, trade, goals, worldSource);
         // 脚本本身不写入存档；脚本展开的每条命令按普通命令规则记录，读档时可重放。
         cli.recordCommands(command -> {
             if (replayable(command)) {
@@ -201,6 +204,11 @@ public final class RuntimeSession {
     /** 科技树文本（只读）。 */
     public String technologiesReport() {
         return ResearchService.technologies(state);
+    }
+
+    /** 目标与胜利路线面板（只读）。 */
+    public String goalsReport() {
+        return goals.panel(state);
     }
 
     /** 存档中使用过的命令（只读快照）。 */

@@ -260,11 +260,19 @@ public final class Main {
 
     private static void repl(AtomicReference<RuntimeSession> holder, GameTelemetry telemetry) {
         SaveRepository saves = SaveRepository.defaultRepository();
+        java.util.concurrent.atomic.AtomicReference<TuiApp> activeTui =
+                new java.util.concurrent.atomic.AtomicReference<>();
         ConsoleHost host = new ConsoleHost(holder.get(), saves,
                 session -> {
                     holder.set(session);
                     publish(telemetry, session);
-                }, null, null);
+                },
+                command -> {
+                    TuiApp app = activeTui.get();
+                    if (app != null) {
+                        app.externalUpdate(command);
+                    }
+                }, null);
         SplitConsoleServer consoleServer = null;
         publish(telemetry, host.session());
         try (BufferedReader reader = new BufferedReader(
@@ -304,7 +312,12 @@ public final class Main {
                         continue;
                     }
                     TuiApp app = new TuiApp(host, new SystemTerminal());
-                    app.run(reader);
+                    activeTui.set(app);
+                    try {
+                        app.run(reader);
+                    } finally {
+                        activeTui.set(null);
+                    }
                     holder.set(host.session());
                     if (app.gameQuit()) {
                         System.out.println("再见。");

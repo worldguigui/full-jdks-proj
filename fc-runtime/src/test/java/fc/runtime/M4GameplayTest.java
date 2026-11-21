@@ -119,6 +119,9 @@ public final class M4GameplayTest {
             assert goals.contains(stage) : "目标面板缺少 " + stage;
         }
         assert goals.contains("已知地点");
+        for (String route : List.of("商业霸权", "外交联盟", "星域测绘")) {
+            assert goals.contains(route) : "胜利路线面板缺少 " + route;
+        }
         assert session.cli().execute("research").contains("测绘无人机");
         assert session.cli().execute("project").contains("星门");
         assert session.cli().execute("order ships").contains("科考船");

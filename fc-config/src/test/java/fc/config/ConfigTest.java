@@ -82,8 +82,8 @@ public final class ConfigTest {
     public void defaultWorldMatchesSpecifiedScale() {
         WorldDefinition w = XmlWorldLoader.loadResource("world/default-world.xml");
 
-        assert w.locations().size() == 16 : "地点数 " + w.locations().size();
-        assert w.links().size() == 17 : "航线数 " + w.links().size();
+        assert w.locations().size() == 24 : "地点数 " + w.locations().size();
+        assert w.links().size() == 27 : "航线数 " + w.links().size();
         assert w.ships().size() == 3 : "舰船数 " + w.ships().size();
         assert w.agents().size() == 36 : "主体数 " + w.agents().size();
         assert w.factions().size() == 4 : "势力数 " + w.factions().size();

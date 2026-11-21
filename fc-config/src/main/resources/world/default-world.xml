@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  默认世界：16 个地点、17 条航线、3 艘舰船、5 种船型、36 个主体、4 个势力。
+  默认世界：24 个地点、27 条航线、3 艘舰船、5 种船型、36 个主体、4 个势力。
   M4 内容：六维技能、初始星图知识、设施工种与工位、实验室/船坞、事件规则。
   全部世界数据来自本文件，核心代码不硬编码任何地点/船/货物/配方。
   信用点只存在于财务账户（playerCredits / 地点 credits / 势力储备），不进入库存。
@@ -186,6 +186,83 @@
                 <need resource="medicine" amount="10"/>
             </upgrade>
         </location>
+
+        <!-- 17–24 外缘星区：未知区域、研究站与独立殖民地 -->
+        <location id="17" kind="StarSystem" name="Altair 牵牛星" credits="180"
+                  knowledge="SURVEYED">
+            <stock>
+                <item resource="fuel" amount="70"/>
+                <item resource="ore" amount="40"/>
+                <item resource="research" amount="4"/>
+            </stock>
+        </location>
+        <location id="18" kind="Planet" name="Altair IV 牵牛四" parent="17" credits="100"
+                  knowledge="DETECTED" facilityKind="MINE" workers="2">
+            <stock>
+                <item resource="ore" amount="160"/>
+                <item resource="metal" amount="30"/>
+                <item resource="luxury" amount="5"/>
+            </stock>
+            <production resource="ore" perDay="2"/>
+        </location>
+        <location id="19" kind="OrbitalStation" name="Altair Relay 牵牛中继站" parent="17"
+                  credits="250" knowledge="DETECTED" facilityKind="REFINERY" workers="2">
+            <stock>
+                <item resource="fuel" amount="60"/>
+                <item resource="equipment" amount="15"/>
+                <item resource="energy" amount="40"/>
+            </stock>
+        </location>
+
+        <location id="20" kind="StarSystem" name="Procyon 南河三" credits="220"
+                  knowledge="SURVEYED">
+            <stock>
+                <item resource="food" amount="120"/>
+                <item resource="water" amount="90"/>
+                <item resource="medicine" amount="8"/>
+            </stock>
+        </location>
+        <location id="21" kind="Planet" name="Procyon Haven 南河避风港" parent="20"
+                  credits="140" knowledge="DETECTED" facilityKind="FARM" workers="2">
+            <stock>
+                <item resource="food" amount="200"/>
+                <item resource="water" amount="150"/>
+                <item resource="ore" amount="40"/>
+            </stock>
+            <production resource="food" perDay="2"/>
+        </location>
+        <location id="22" kind="Anomaly" name="Echo Rift 回声裂隙" credits="90"
+                  knowledge="DETECTED">
+            <stock>
+                <item resource="research" amount="10"/>
+                <item resource="luxury" amount="12"/>
+            </stock>
+        </location>
+        <location id="23" kind="Colony" name="Procyon Colony 南河殖民地" parent="20"
+                  credits="280" level="1" owner="faction:4" population="30"
+                  knowledge="SURVEYED" facilityKind="COLONY" workers="3">
+            <stock>
+                <item resource="food" amount="100"/>
+                <item resource="water" amount="80"/>
+                <item resource="research" amount="8"/>
+            </stock>
+            <upgrade level="2" credits="900">
+                <need resource="material" amount="25"/>
+                <need resource="equipment" amount="8"/>
+            </upgrade>
+            <upgrade level="3" credits="1400">
+                <need resource="material" amount="40"/>
+                <need resource="medicine" amount="10"/>
+            </upgrade>
+        </location>
+        <location id="24" kind="Facility" name="Echo Lab 回声实验室" parent="23"
+                  credits="180" knowledge="DETECTED" facilityKind="LAB" workers="2">
+            <stock>
+                <item resource="research" amount="6"/>
+                <item resource="equipment" amount="10"/>
+                <item resource="energy" amount="20"/>
+            </stock>
+        </location>
     </locations>
 
     <links>
@@ -209,6 +286,18 @@
         <link from="13" to="14" kind="SurfaceRoute" ticks="2" risk="0.02" cost="2"/>
         <link from="14" to="15" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
         <link from="13" to="16" kind="InternalLane" ticks="2" risk="0.0" cost="1"/>
+
+        <!-- 外缘星区航线：与既有环线相连，探索可达 -->
+        <link from="13" to="20" kind="WarpRoute" ticks="5" risk="0.10" cost="6"/>
+        <link from="20" to="17" kind="WarpRoute" ticks="4" risk="0.12" cost="5"/>
+        <link from="17" to="22" kind="WarpRoute" ticks="3" risk="0.22" cost="6"/>
+        <link from="22" to="10" kind="WarpRoute" ticks="4" risk="0.18" cost="6"/>
+        <link from="22" to="12" kind="WarpRoute" ticks="2" risk="0.15" cost="4"/>
+        <link from="17" to="18" kind="SurfaceRoute" ticks="2" risk="0.02" cost="2"/>
+        <link from="17" to="19" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
+        <link from="20" to="21" kind="SurfaceRoute" ticks="2" risk="0.02" cost="2"/>
+        <link from="20" to="23" kind="SurfaceRoute" ticks="2" risk="0.01" cost="2"/>
+        <link from="23" to="24" kind="InternalLane" ticks="1" risk="0.0" cost="1"/>
     </links>
 
     <ships>

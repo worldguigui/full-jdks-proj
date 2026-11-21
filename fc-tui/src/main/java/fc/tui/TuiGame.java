@@ -46,4 +46,8 @@ public interface TuiGame {
     default String technologiesReport() {
         return "科技数据未接入";
     }
+
+    default String goalsReport() {
+        return "";
+    }
 }

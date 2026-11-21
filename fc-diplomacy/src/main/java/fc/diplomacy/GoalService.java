@@ -5,6 +5,7 @@ import fc.config.world.WorldDefinition;
 import fc.sim.spi.GoalSystem;
 import fc.sim.tick.TickContext;
 import fc.world.ColonyState;
+import fc.world.GameEvent;
 import fc.world.Ids;
 import fc.world.KnowledgeState;
 import fc.world.ResourceKind;
@@ -40,6 +41,14 @@ public final class GoalService implements GoalSystem {
     public static final String D2 = "D2";
     public static final String D3 = "D3";
     public static final String D4 = "D4";
+    public static final String V_CREDITS = "V1";
+    public static final String V_REPUTATION = "V2";
+    public static final String V_EXPLORATION = "V3";
+
+    /** 信用点胜利门槛。 */
+    public static final BigDecimal VICTORY_CREDITS = new BigDecimal("10000");
+    /** 任一势力声望胜利门槛。 */
+    public static final int VICTORY_REPUTATION = 60;
 
     private static final List<String> TIER2 = List.of("WARP_COIL", "AUTOMATION", "TRADE_PROTOCOL");
 
@@ -80,7 +89,47 @@ public final class GoalService implements GoalSystem {
                 newly.add(e.getKey() + " " + name(e.getKey()));
             }
         }
+        if (state.ending() == null) {
+            Map<String, Boolean> victories = victoryStatus(state);
+            for (Map.Entry<String, Boolean> e : victories.entrySet()) {
+                if (!e.getValue()) {
+                    continue;
+                }
+                String ending = victoryEnding(e.getKey());
+                state.setEnding(ending);
+                state.markGoalReached(e.getKey());
+                Ids.LocationId where = state.playerColonies().isEmpty()
+                        ? state.locationIds().get(0)
+                        : state.playerColonies().get(0).id();
+                state.chronicle().record(new GameEvent.EndingReached(state.now(), where,
+                        ending, "胜利路线 " + name(e.getKey()) + " 达成。"));
+                ctx.report("★ 胜利路线达成：" + ending + "（时间冻结，仍可查询世界）");
+                break;
+            }
+        }
         return newly;
+    }
+
+    /** 三条可选的商业/外交/探索胜利路线。 */
+    public Map<String, Boolean> victoryStatus(WorldState state) {
+        Map<String, Boolean> out = new LinkedHashMap<>();
+        out.put(V_CREDITS, state.credits().compareTo(VICTORY_CREDITS) >= 0);
+        int reputation = state.reputations().values().stream()
+                .mapToInt(Integer::intValue).max().orElse(0);
+        out.put(V_REPUTATION, reputation >= VICTORY_REPUTATION);
+        // 探索胜利要求真正完成测绘，而不是仅仅“探测到坐标”。
+        int charted = state.locationsWithKnowledge(KnowledgeState.CHARTED).size();
+        out.put(V_EXPLORATION, charted >= state.graph().placeCount());
+        return out;
+    }
+
+    private static String victoryEnding(String route) {
+        return switch (route) {
+            case V_CREDITS -> "商业霸权";
+            case V_REPUTATION -> "外交联盟";
+            case V_EXPLORATION -> "星域测绘";
+            default -> "胜利";
+        };
     }
 
     /** 各目标当前是否达成（按 D0..D4 顺序）。 */
@@ -172,18 +221,38 @@ public final class GoalService implements GoalSystem {
     /** 目标面板。 */
     public String panel(WorldState state) {
         Map<String, Boolean> status = status(state);
-        StringBuilder sb = new StringBuilder("---- 阶段目标 D0–D4 ----\n");
+        Map<String, Boolean> victories = victoryStatus(state);
+        StringBuilder sb = new StringBuilder("---- 阶段目标 D0–D4 ----").append('\n');
         for (Map.Entry<String, Boolean> e : status.entrySet()) {
             sb.append("  ").append(e.getKey()).append(' ').append(name(e.getKey()))
                     .append("：").append(e.getValue() ? "已达成" : "进行中")
                     .append("　").append(detail(state, e.getKey())).append('\n');
         }
-        sb.append("  已知地点 ").append(state.locationsWithKnowledge(KnowledgeState.DETECTED).size())
+        sb.append("---- 胜利路线（任一达成即结束）----").append('\n');
+        sb.append("  V1 商业霸权：")
+                .append(Boolean.TRUE.equals(victories.get(V_CREDITS)) ? "已达成" : "进行中")
+                .append("　信用点 ")
+                .append(state.credits().stripTrailingZeros().toPlainString())
+                .append('/').append(VICTORY_CREDITS.stripTrailingZeros().toPlainString())
+                .append('\n');
+        int maxReputation = state.reputations().values().stream()
+                .mapToInt(Integer::intValue).max().orElse(0);
+        sb.append("  V2 外交联盟：")
+                .append(Boolean.TRUE.equals(victories.get(V_REPUTATION)) ? "已达成" : "进行中")
+                .append("　最高声望 ").append(maxReputation).append('/')
+                .append(VICTORY_REPUTATION).append('\n');
+        int known = state.locationsWithKnowledge(KnowledgeState.CHARTED).size();
+        sb.append("  V3 星域测绘：")
+                .append(Boolean.TRUE.equals(victories.get(V_EXPLORATION)) ? "已达成" : "进行中")
+                .append("　已知地点 ").append(known).append('/')
+                .append(state.graph().placeCount()).append('\n');
+        sb.append("  D4 工程终局：完成星门或边境信标").append('\n');
+        sb.append("  已知地点 ").append(known)
                 .append('/').append(state.graph().placeCount())
                 .append("｜舰队 ").append(state.graph().ships().size())
                 .append(" 艘｜科技 ").append(state.techs().size())
                 .append(" 项｜条约 ").append(state.treaties().values().stream()
-                        .mapToInt(java.util.Set::size).sum()).append(" 项\n");
+                        .mapToInt(java.util.Set::size).sum()).append(" 项").append('\n');
         if (state.ending() != null) {
             sb.append("  ★ 终局已达成：").append(state.ending()).append('\n');
         }
@@ -197,6 +266,9 @@ public final class GoalService implements GoalSystem {
             case D2 -> "扩张";
             case D3 -> "自主";
             case D4 -> "终局";
+            case V_CREDITS -> "商业霸权";
+            case V_REPUTATION -> "外交联盟";
+            case V_EXPLORATION -> "星域测绘";
             default -> goal;
         };
     }
@@ -224,6 +296,15 @@ public final class GoalService implements GoalSystem {
                     + state.treaties().values().stream()
                             .mapToInt(s -> s.contains(Treaty.ALLIANCE) ? 1 : 0).sum();
             case D4 -> state.ending() == null ? "工程未完成" : state.ending();
+            case V_CREDITS -> state.credits().stripTrailingZeros().toPlainString()
+                    + "/" + VICTORY_CREDITS.stripTrailingZeros().toPlainString();
+            case V_REPUTATION -> {
+                int max = state.reputations().values().stream()
+                        .mapToInt(Integer::intValue).max().orElse(0);
+                yield max + "/" + VICTORY_REPUTATION;
+            }
+            case V_EXPLORATION -> state.locationsWithKnowledge(KnowledgeState.CHARTED).size()
+                    + "/" + state.graph().placeCount();
             default -> "";
         };
     }

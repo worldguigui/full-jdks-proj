@@ -16,7 +16,7 @@ public final class HelpView {
         Rect panel = Draw.panel(buffer, body, "帮助 / HELP", chars);
         int row = 0;
         Draw.line(buffer, panel, row++,
-                "页面命令（直接输入）：map ships colonies research market log status decisions help",
+                "页面命令（直接输入）：map ships colonies research market log status decisions goals help",
                 Style.PANEL_ACCENT);
         Draw.line(buffer, panel, row++,
                 "列表：select <N|up|down>  inspect  back    推进：next <天数>",

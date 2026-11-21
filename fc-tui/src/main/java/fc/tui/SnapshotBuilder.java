@@ -146,7 +146,7 @@ public final class SnapshotBuilder {
                 places, ships, colonies, factions, events,
                 new ArrayList<>(new TreeSet<>(state.techs())), jobs, decisions,
                 resources, game.marketReport(), game.researchReport(),
-                game.technologiesReport(), known, unknown);
+                game.technologiesReport(), known, unknown, game.goalsReport());
     }
 
     private static String kindOf(Location location) {
