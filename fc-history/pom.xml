@@ -50,6 +50,23 @@
                             </arguments>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>run-evidence-signature-tests</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <classpathScope>test</classpathScope>
+                            <arguments>
+                                <argument>-ea</argument>
+                                <argument>-classpath</argument>
+                                <classpath/>
+                                <argument>fc.history.EvidenceSignatureTest</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>

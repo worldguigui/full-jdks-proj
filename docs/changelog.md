@@ -5,6 +5,24 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.5.3 2026-11-21 阶段五 M8：档案签章与证据完整性
+
+1. **XML Signature**：`fc.history.sign.EvidenceSignature` 生成自包含证据 XML
+   （`urn:fc:evidence`）：负载以 Base64 封装在 `#chronicle` 元素中，JSR-105 引用摘要
+   SHA-256、签名 RSA-SHA256、独占 C14N，`KeyInfo` 内嵌 RSA `KeyValue`。
+2. **验签**：内嵌公钥验签（完整性）与传入可信公钥验签（身份）两种路径；
+   篡改负载、错误公钥、缺失/伪造文件均返回无效；`KeySelector` 从 `KeyInfo` 取键。
+3. **密钥管理**：2048–8192 位 RSA 生成（`RSAKeyGenParameterSpec` + `SecureRandom`）；
+   X.509/PKCS#8 DER 读写（`KeyFactory`）；SHA-256 公钥指纹；`loadOrCreateKeyPair`
+   首次落盘、之后复用。
+4. **安全解析**：关闭 DOCTYPE/外部实体；转换工厂关闭外部 DTD 与样式表。
+5. **CLI**：`sign <文件> [输出]` 与 `verify <证据文件>`；默认密钥目录
+   `~/.frontier-chronicle/keys`（可用 `-Dfc.keys.dir` 覆盖），不进入重放日志。
+6. **测试**：新增 `EvidenceSignatureTest` 5 个用例与运行时 1 个集成用例；
+   当前共 16 个套件、167 个用例通过；既有测试未删除、未跳过、未放宽。
+7. **审计基线**：类型 386/3836（10.1%）、包 63/176（35.8%）、模块 10/20、296 个 class、
+   Preview 违规 0。
+
 ## v0.5.2 2026-11-21 阶段五 M7：星图工坊与出版级制图
 
 1. **制图管线**：`fc.extensions.MapAtlas` 在无头环境绘制出版级星图：渐变星野、

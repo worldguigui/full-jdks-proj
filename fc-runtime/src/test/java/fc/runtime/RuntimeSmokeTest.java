@@ -145,6 +145,39 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void signAndVerifyEvidenceRoundTrip() throws Exception {
+        RuntimeSession session = boot();
+        Path dir = Files.createTempDirectory("fc-runtime-sign-");
+        String previousKeys = System.getProperty("fc.keys.dir");
+        System.setProperty("fc.keys.dir", dir.resolve("keys").toString());
+        try {
+            Path payload = dir.resolve("note.xml");
+            Files.writeString(payload, "<note>边境纪事</note>", java.nio.charset.StandardCharsets.UTF_8);
+            Path signed = dir.resolve("note.evidence.xml");
+            String signedOut = session.execute("sign " + payload + " " + signed);
+            assert signedOut.contains("已签名") : signedOut;
+            assert Files.exists(signed);
+
+            String verified = session.execute("verify " + signed);
+            assert verified.contains("验签通过") : verified;
+        } finally {
+            if (previousKeys == null) {
+                System.clearProperty("fc.keys.dir");
+            } else {
+                System.setProperty("fc.keys.dir", previousKeys);
+            }
+            try (var walk = Files.walk(dir)) {
+                for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
+        }
+        assert session.commandHistory().stream()
+                .noneMatch(c -> c.startsWith("sign") || c.startsWith("verify"))
+                : "签章命令不应进入重放日志";
+    }
+
+    @FcTest
     public void missingWorldArgumentIsRejected() {
         try {
             RuntimeSession.create(new String[] {"--world"});

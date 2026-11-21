@@ -17,6 +17,7 @@ import fc.history.jdbc.ChronicleDriver;
 import fc.history.jdbc.ChronicleSessions;
 import fc.history.query.ChronicleExport;
 import fc.history.query.ChronicleQuery;
+import fc.history.sign.EvidenceSignature;
 import fc.science.ResearchService;
 import fc.science.SurveyService;
 import fc.sim.DecisionResolver;
@@ -141,6 +142,10 @@ public final class Cli {
                     "导出编年史（默认 chronicle.<格式>）"),
             new Cmd("atlas", List.of("chart"), "atlas [png|jpeg] [路径]",
                     "星图工坊：带图例/罗盘/缩略图的 PNG/JPEG 制图"),
+            new Cmd("sign", List.of(), "sign <文件> [输出]",
+                    "用本地证据密钥做 XML Signature 签章"),
+            new Cmd("verify", List.of(), "verify <证据文件>",
+                    "验证签章完整性并打印签名者指纹"),
             new Cmd("status", List.of(), "status",
                     "世界概况：时间、地点数、舰船数、事件数"),
             new Cmd("help", List.of(), "help",
@@ -232,6 +237,8 @@ public final class Cli {
             case "query" -> doQuery(tokens);
             case "export" -> doExport(tokens);
             case "atlas" -> doAtlas(tokens);
+            case "sign" -> doSign(tokens);
+            case "verify" -> doVerify(tokens);
             case "help" -> help();
             case "quit" -> "bye";
             default -> "未知命令: " + tokens.get(0) + "（输入 help 查看全部 " + COMMANDS.size() + " 条命令）";
@@ -387,6 +394,46 @@ public final class Cli {
         } catch (IOException | IllegalArgumentException e) {
             return "制图失败：" + e.getMessage();
         }
+    }
+
+    /** 用本地证据密钥签名任意导出文件（首次使用时自动生成 2048 位 RSA 密钥）。 */
+    private String doSign(List<String> tokens) {
+        if (tokens.size() < 2) {
+            return "用法：sign <文件> [输出]";
+        }
+        Path source = Path.of(tokens.get(1));
+        Path output = tokens.size() >= 3 ? Path.of(tokens.get(2))
+                : Path.of(source.getFileName() + ".evidence.xml");
+        try {
+            Path keys = keyDirectory();
+            var keyPair = EvidenceSignature.loadOrCreateKeyPair(keys, 2048);
+            Path signed = EvidenceSignature.sign(source, output, keyPair);
+            return "已签名 → " + signed + "｜密钥 " + keys
+                    + "｜指纹 " + EvidenceSignature.fingerprint(keyPair.getPublic());
+        } catch (IOException | IllegalArgumentException e) {
+            return "签章失败：" + e.getMessage();
+        }
+    }
+
+    /** 验证自包含证据文件；内嵌公钥只证明完整性，身份需带外核对指纹。 */
+    private String doVerify(List<String> tokens) {
+        if (tokens.size() < 2) {
+            return "用法：verify <证据文件>";
+        }
+        Path signed = Path.of(tokens.get(1));
+        var result = EvidenceSignature.verify(signed);
+        String head = result.valid() ? "验签通过" : "验签失败";
+        String fingerprint = result.signerFingerprint() == null
+                ? "（无内嵌公钥）" : result.signerFingerprint();
+        return head + "｜指纹 " + fingerprint + "｜负载 " + result.payload().length + " 字节";
+    }
+
+    private static Path keyDirectory() {
+        String override = System.getProperty("fc.keys.dir");
+        if (override != null && !override.isBlank()) {
+            return Path.of(override);
+        }
+        return Path.of(System.getProperty("user.home"), ".frontier-chronicle", "keys");
     }
 
     /** 事件渲染：sealed + 模式匹配（含 ExtensionEvent 扩展口，故保留 default）。 */

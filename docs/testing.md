@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 15 个测试套件、161 个用例。
+当前共 16 个测试套件、167 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -39,7 +39,8 @@ mvn -B package
 | `fc-colony` | `ColonyTest` | 11 | 升级、人口与消费、运输在途、补给线间隔/跳过/取消 |
 | `fc-economy` | `EconomyTest` | 20 | 定价、交易守恒与部分成交、配方生产、工人独占、工资、利息、税率与精度 |
 | `fc-history` | `HistoryQueryTest` | 10 | 查询过滤/分页、CSV/XML/XSD/XSLT/ZIP、XXE 拒绝、JDBC 驱动与 DataSource |
-| `fc-runtime` | `RuntimeSmokeTest` | 9 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、非法启动参数 |
+| `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
+| `fc-runtime` | `RuntimeSmokeTest` | 10 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、签章、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
@@ -95,6 +96,13 @@ mvn -B package
 - XML 解析必须拒绝 DOCTYPE 与外部实体（XXE），样式表转换关闭外部访问。
 - 只读 JDBC 驱动必须支持 `DriverManager`、`DataSource`、`PreparedStatement`、`LIKE`、
   `COUNT(*)` 与结果集元数据，并拒绝写入/DDL；未绑定会话返回 `SQLException`。
+
+### 档案签章
+
+- 签名产物必须能被内嵌 `KeyValue` 验签，并能还原原始负载字节。
+- 篡改负载、使用另一把公钥、伪造或缺失文件必须验签失败。
+- 公钥（X.509）与私钥（PKCS#8）DER 往返后仍可签可验，公钥指纹稳定。
+- 首次调用生成密钥并落盘，第二次调用复用同一密钥。
 
 ### 扩展与外围能力
 
