@@ -9,11 +9,14 @@ import fc.diplomacy.DiplomacyService;
 import fc.diplomacy.GoalService;
 import fc.economy.LoanService;
 import fc.economy.TradeService;
+import fc.extensions.CertificateChains;
 import fc.extensions.ChatRelay;
 import fc.extensions.FcNaming;
 import fc.extensions.MapAtlas;
 import fc.extensions.RemoteJmx;
+import fc.extensions.SecureChannel;
 import fc.extensions.Soundtrack;
+import fc.extensions.TrustAuthority;
 import fc.fleet.CrewService;
 import fc.fleet.MaintenanceService;
 import fc.fleet.VoyageService;
@@ -63,6 +66,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Supplier;
+
+import javax.net.ssl.SSLContext;
 
 /**
  * CLI 命令壳。
@@ -156,6 +161,8 @@ public final class Cli {
                     "本机聊天室中继：TCP 消息面 + RMI 控制面（仅回环）"),
             new Cmd("res", List.of(), "res [list [scope]|locate <fc:...>|register <fc:...> <类型> <端点>|unregister <fc:...>|services]",
                     "fc:// 命名上下文：定位、枚举与注册进程内资源"),
+            new Cmd("trust", List.of(), "trust init|status [目录]",
+                    "本机信任库：生成根/服务端/客户端证书并做 PKIX 链校验"),
             new Cmd("vault", List.of("archive"), "vault [write|list|check|watch] [目录]",
                     "档案库：编年史快照镜像、索引校验与变更监视"),
             new Cmd("seal", List.of(), "seal <文件> [输出]",
@@ -181,6 +188,7 @@ public final class Cli {
     private final Supplier<TickContext> tickContexts;
     private RemoteJmx.Server jmx;
     private ChatRelay chat;
+    private SSLContext chatClient;
     private FcNaming naming;
 
     public Cli(GameLoop loop) {
@@ -265,6 +273,7 @@ public final class Cli {
             case "jmx" -> doJmx(tokens);
             case "chat" -> doChat(tokens);
             case "res" -> doRes(tokens);
+            case "trust" -> doTrust(tokens);
             case "seal" -> doSeal(tokens);
             case "unseal" -> doUnseal(tokens);
             case "sign" -> doSign(tokens);
@@ -705,18 +714,35 @@ public final class Cli {
                         yield "聊天室中继已在运行 → " + chat.endpoint();
                     }
                     int port = 0;
-                    if (tokens.size() >= 3) {
+                    int next = 2;
+                    if (tokens.size() >= 3 && !tokens.get(2).equalsIgnoreCase("tls")) {
                         try {
                             port = Integer.parseInt(tokens.get(2));
                         } catch (NumberFormatException e) {
                             yield "端口必须是整数：" + tokens.get(2);
                         }
+                        next = 3;
                     }
-                    chat = ChatRelay.start(port);
+                    SSLContext tls = null;
+                    if (tokens.size() > next && tokens.get(next).equalsIgnoreCase("tls")) {
+                        if (tokens.size() <= next + 1) {
+                            yield "用法：chat open [端口] tls <信任库目录>";
+                        }
+                        Path dir = Path.of(tokens.get(next + 1));
+                        char[] password = TrustAuthority.DEFAULT_PASSWORD.toCharArray();
+                        tls = SecureChannel.serverContext(dir.resolve("server.p12"),
+                                dir.resolve("ca.p12"), password);
+                        chatClient = SecureChannel.clientContext(dir.resolve("client.p12"),
+                                dir.resolve("ca.p12"), password);
+                    }
+                    chat = ChatRelay.start(port, ChatRelay.DEFAULT_HISTORY, tls);
                     bindService("fc:service/chat", "chat", chat.endpoint());
                     yield "聊天室中继已启动 → " + chat.endpoint()
                             + "\n  控制面 " + chat.controlEndpoint()
-                            + "\n  协议 NICK <昵称> / MSG <文本> / WHO / HIST / QUIT（仅回环）";
+                            + (chat.secure()
+                                    ? "\n  TLS 双向认证：客户端须持有信任库签发的证书"
+                                    : "\n  仅回环明文，可用 chat open [端口] tls <目录> 启用 TLS")
+                            + "\n  协议 NICK <昵称> / MSG <文本> / WHO / HIST / QUIT";
                 }
                 case "say", "send" -> {
                     if (chat == null || !chat.isRunning()) {
@@ -727,7 +753,8 @@ public final class Cli {
                     }
                     String nick = tokens.get(2);
                     String text = String.join(" ", tokens.subList(3, tokens.size()));
-                    try (ChatRelay.Client client = chat.connect()) {
+                    try (ChatRelay.Client client = chat.secure()
+                            ? chat.connectTls(chatClient) : chat.connect()) {
                         client.readLine();
                         client.send("NICK " + nick);
                         String joined = client.readLine();
@@ -788,9 +815,10 @@ public final class Cli {
                     closeChat();
                     yield "聊天室中继已停止";
                 }
-                default -> "用法：chat open [端口]|say <昵称> <文本>|history [条数]|roster|close";
+                default -> "用法：chat open [端口] [tls <目录>]|say <昵称> <文本>"
+                        + "|history [条数]|roster|close";
             };
-        } catch (IOException | IllegalArgumentException e) {
+        } catch (IOException | IllegalArgumentException | java.security.GeneralSecurityException e) {
             return "聊天室操作失败：" + e.getMessage();
         }
     }
@@ -801,6 +829,69 @@ public final class Cli {
             chat.close();
             chat = null;
         }
+        chatClient = null;
+    }
+
+    /** 本机信任库：自签根 + 服务端/客户端证书；不进入重放日志。 */
+    private String doTrust(List<String> tokens) {
+        String action = tokens.size() >= 2
+                ? tokens.get(1).toLowerCase(java.util.Locale.ROOT) : "status";
+        Path dir = Path.of(tokens.size() >= 3 ? tokens.get(2) : "fc-trust");
+        char[] password = TrustAuthority.DEFAULT_PASSWORD.toCharArray();
+        try {
+            return switch (action) {
+                case "init" -> trustInit(dir, password);
+                case "status", "show" -> trustStatus(dir, password);
+                default -> "用法：trust init|status [目录]";
+            };
+        } catch (IOException | java.security.GeneralSecurityException e) {
+            return "信任库操作失败：" + e.getMessage();
+        }
+    }
+
+    private String trustInit(Path dir, char[] password) throws IOException,
+            java.security.GeneralSecurityException {
+        if (Files.exists(dir.resolve("ca.p12"))) {
+            return "信任库已存在：" + dir.toAbsolutePath().normalize()
+                    + "（用 trust status 查看）";
+        }
+        TrustAuthority.KeyMaterial ca = TrustAuthority.root("Frontier Chronicle Root CA");
+        TrustAuthority.KeyMaterial server = TrustAuthority.server(ca, "localhost");
+        TrustAuthority.KeyMaterial client = TrustAuthority.client(ca, "frontier-client");
+        SecureChannel.write(SecureChannel.trustStore(password, ca.certificate()),
+                dir.resolve("ca.p12"), password);
+        SecureChannel.write(SecureChannel.keyStore(server,
+                TrustAuthority.chain(server, ca), password), dir.resolve("server.p12"), password);
+        SecureChannel.write(SecureChannel.keyStore(client,
+                TrustAuthority.chain(client, ca), password), dir.resolve("client.p12"), password);
+        return "已生成信任库 → " + dir.toAbsolutePath().normalize()
+                + "\n  根证书 " + CertificateChains.describe(ca.certificate())
+                + "\n  服务端 " + CertificateChains.describe(server.certificate())
+                + "\n  客户端 " + CertificateChains.describe(client.certificate())
+                + "\n  用法 chat open [端口] tls " + dir;
+    }
+
+    private String trustStatus(Path dir, char[] password) throws IOException,
+            java.security.GeneralSecurityException {
+        Path caFile = dir.resolve("ca.p12");
+        if (!Files.exists(caFile)) {
+            return "信任库不存在：" + dir.toAbsolutePath().normalize()
+                    + "（先运行 trust init [目录]）";
+        }
+        var ca = SecureChannel.certificate(SecureChannel.read(caFile, password));
+        var server = SecureChannel.material(
+                SecureChannel.read(dir.resolve("server.p12"), password), password).certificate();
+        var client = SecureChannel.material(
+                SecureChannel.read(dir.resolve("client.p12"), password), password).certificate();
+        server.checkValidity();
+        client.checkValidity();
+        CertificateChains.verify(server, ca);
+        CertificateChains.verify(client, ca);
+        return "信任库 " + dir.toAbsolutePath().normalize() + " 校验通过"
+                + "\n  根证书 " + CertificateChains.describe(ca)
+                + "\n  服务端 " + CertificateChains.describe(server)
+                + "\n  客户端 " + CertificateChains.describe(client)
+                + "\n  链 服务端→根、客户端→根 均通过 PKIX";
     }
 
     /** 封存文件：PKCS#12 密钥库中的 AES-256 密钥 + GCM，失败不改动原文件。 */

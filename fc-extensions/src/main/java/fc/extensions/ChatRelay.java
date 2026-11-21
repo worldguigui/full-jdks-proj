@@ -28,6 +28,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
+
 /**
  * 联机通信第一阶段：只绑定回环地址的聊天室中继（TCP 消息面 + RMI 控制面）。
  *
@@ -39,6 +44,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>消息面用 {@link ServerSocket} + 虚拟线程处理连接；控制面把成员表与广播能力
  * 通过本机 RMI 注册表暴露为 {@code Control}，供管理工具查询。注册表与控制对象
  * 同样只使用回环套接字工厂，不做跨机暴露。历史消息是进程内最近若干条，不落盘。</p>
+ *
+ * <p>可选 TLS：传入 {@link SSLContext} 时消息面改用 {@link SSLServerSocket}，
+ * 并强制客户端证书（双向认证）——证书由 {@link TrustAuthority} 签发、
+ * {@link SecureChannel} 装配。控制面仍是本机 RMI，不受该选项影响。</p>
  */
 public final class ChatRelay implements AutoCloseable {
 
@@ -52,6 +61,7 @@ public final class ChatRelay implements AutoCloseable {
     public static final String CONTROL_NAME = "fc-chat-control";
 
     private final ServerSocket server;
+    private final SSLContext tls;
     private final int port;
     private final ExecutorService workers;
     private final ExecutorService acceptor;
@@ -75,9 +85,10 @@ public final class ChatRelay implements AutoCloseable {
     public record Message(long sequence, long id, String nick, String text, Instant at) {
     }
 
-    private ChatRelay(ServerSocket server, int historyLimit, Registry registry,
+    private ChatRelay(ServerSocket server, SSLContext tls, int historyLimit, Registry registry,
                       int controlPort) {
         this.server = server;
+        this.tls = tls;
         this.port = server.getLocalPort();
         this.historyLimit = historyLimit;
         this.registry = registry;
@@ -104,6 +115,18 @@ public final class ChatRelay implements AutoCloseable {
      * @param historyLimit  保留的历史消息数，必须为正
      */
     public static ChatRelay start(int requestedPort, int historyLimit) throws IOException {
+        return start(requestedPort, historyLimit, null);
+    }
+
+    /**
+     * 启动中继；{@code tls} 非空时消息面强制双向 TLS。
+     *
+     * @param requestedPort 消息面端口，0 表示自动选择
+     * @param historyLimit  保留的历史消息数，必须为正
+     * @param tls           服务端 SSL 上下文；为 {@code null} 时使用明文回环套接字
+     */
+    public static ChatRelay start(int requestedPort, int historyLimit, SSLContext tls)
+            throws IOException {
         if (requestedPort < 0 || requestedPort > 65_535) {
             throw new IllegalArgumentException("端口必须在 0–65535：" + requestedPort);
         }
@@ -112,7 +135,7 @@ public final class ChatRelay implements AutoCloseable {
         }
         ServerSocket server;
         try {
-            server = new ServerSocket();
+            server = newServerSocket(tls);
             server.setReuseAddress(true);
             server.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(),
                     requestedPort), 50);
@@ -126,7 +149,7 @@ public final class ChatRelay implements AutoCloseable {
             int controlPort = freePort();
             registry = LocateRegistry.createRegistry(controlPort,
                     new RemoteJmx.LoopbackClient(), new RemoteJmx.LoopbackServer());
-            ChatRelay relay = new ChatRelay(server, historyLimit, registry, controlPort);
+            ChatRelay relay = new ChatRelay(server, tls, historyLimit, registry, controlPort);
             control = UnicastRemoteObject.exportObject(relay.new ControlImpl(),
                     0, new RemoteJmx.LoopbackClient(), new RemoteJmx.LoopbackServer());
             relay.registryControl = control;
@@ -162,8 +185,23 @@ public final class ChatRelay implements AutoCloseable {
         });
     }
 
+    private static ServerSocket newServerSocket(SSLContext tls) throws IOException {
+        if (tls == null) {
+            return new ServerSocket();
+        }
+        SSLServerSocket socket =
+                (SSLServerSocket) tls.getServerSocketFactory().createServerSocket();
+        socket.setNeedClientAuth(true);
+        return socket;
+    }
+
     public int port() {
         return port;
+    }
+
+    /** 消息面是否启用 TLS 双向认证。 */
+    public boolean secure() {
+        return tls != null;
     }
 
     /** 控制面 RMI 注册表端口。 */
@@ -176,9 +214,9 @@ public final class ChatRelay implements AutoCloseable {
         return new InetSocketAddress(InetAddress.getLoopbackAddress(), port);
     }
 
-    /** 统一资源名，形如 {@code fc://chat/loopback:<端口>}。 */
+    /** 统一资源名，形如 {@code fc://chat/loopback:<端口>} 或 {@code fc://chat/tls:<端口>}。 */
     public String endpoint() {
-        return "fc://chat/loopback:" + port;
+        return "fc://chat/" + (secure() ? "tls" : "loopback") + ":" + port;
     }
 
     /** 控制面 URL，形如 {@code rmi://127.0.0.1:<端口>/fc-chat-control}。 */
@@ -226,10 +264,43 @@ public final class ChatRelay implements AutoCloseable {
 
     /** 连接一个中继；返回的客户端必须关闭。 */
     public Client connect() throws IOException {
+        if (secure()) {
+            throw new ChatException("中继已启用 TLS，请使用 connectTls");
+        }
         if (!isRunning()) {
             throw new ChatException("聊天室中继未运行");
         }
-        return new Client();
+        Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
+        socket.setSoTimeout(5_000);
+        return new Client(socket);
+    }
+
+    /**
+     * 用客户端 TLS 上下文连接中继并完成握手。
+     *
+     * @param clientContext 需同时提供客户端证书与信任库（双向认证）
+     */
+    public Client connectTls(SSLContext clientContext) throws IOException {
+        if (clientContext == null) {
+            throw new IllegalArgumentException("客户端 TLS 上下文不能为空");
+        }
+        if (!isRunning()) {
+            throw new ChatException("聊天室中继未运行");
+        }
+        SSLSocket socket = (SSLSocket) clientContext.getSocketFactory()
+                .createSocket(InetAddress.getLoopbackAddress(), port);
+        socket.setSoTimeout(5_000);
+        try {
+            socket.startHandshake();
+            return new Client(socket);
+        } catch (IOException e) {
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+                // 清理尽力而为。
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -510,9 +581,8 @@ public final class ChatRelay implements AutoCloseable {
         private final Writer writer;
         private final Object writeLock = new Object();
 
-        private Client() throws IOException {
-            this.socket = new Socket(InetAddress.getLoopbackAddress(), port);
-            this.socket.setSoTimeout(5_000);
+        private Client(Socket socket) throws IOException {
+            this.socket = socket;
             this.reader = new BufferedReader(new InputStreamReader(
                     socket.getInputStream(), StandardCharsets.UTF_8));
             this.writer = new BufferedWriter(new OutputStreamWriter(
@@ -534,6 +604,11 @@ public final class ChatRelay implements AutoCloseable {
             } catch (SocketTimeoutException e) {
                 return null;
             }
+        }
+
+        /** TLS 会话；明文连接返回 {@code null}。 */
+        public SSLSession session() {
+            return socket instanceof SSLSocket ssl ? ssl.getSession() : null;
         }
 
         /** 持续读取直到出现 {@code END}，返回包含 END 的全部行。 */

@@ -202,8 +202,8 @@ public final class RuntimeSession {
         return switch (name) {
             case "save", "load", "saves", "hash", "help", "quit", "exit",
                     "query", "export", "atlas", "chart", "music", "soundtrack",
-                    "vault", "archive", "seal", "unseal", "jmx", "chat", "res", "sign",
-            "verify" -> false;
+                    "vault", "archive", "seal", "unseal", "jmx", "chat", "res", "trust",
+            "sign", "verify" -> false;
             default -> true;
         };
     }

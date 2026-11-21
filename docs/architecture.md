@@ -211,6 +211,25 @@ CLI 只做薄封装：`query <SQL>` 绑定匿名会话后执行，`export <格�
 - CLI `res list|locate|register|unregister|services`；`chat`/`jmx` 端点自动登记为
   `fc:service/chat` 与 `fc:service/jmx`，停止时解除。命令不进入重放日志。
 
+### 3.12 TLS 加密信道与证书信任
+
+远程端点默认只绑定回环地址；`TrustAuthority` / `SecureChannel` / `CertificateChains`
+把「本地可信 ≠ 远程可信」落成可验证的证书边界。
+
+- `TrustAuthority` 只用公开 API 生成 RSA 密钥并按 RFC 5280 手工做 DER 编码，
+  签发自签根、中间 CA、服务端与客户端叶子证书；不接受 JDK 内部的
+  `sun.security.x509`。
+- 叶子证书带基本约束、密钥用途与扩展密钥用途（serverAuth/clientAuth）；
+  服务端证书带 `localhost` 主题备用名。
+- `CertificateChains` 用 PKIX 构建与校验链：`CertPathBuilder` 从候选池找路径，
+  `CertPathValidator` + 显式 `TrustAnchor` 校验签名、有效期与用法；
+  吊销检查关闭（自签信任库没有 CRL/OCSP）。
+- `SecureChannel` 统一 PKCS#12 密钥库与 `SSLContext`：私钥条目带链，信任库只放根；
+  握手后可从 `SSLSession` 取对端链并做指纹比对。
+- 聊天中继支持 `SSLServerSocket` + `setNeedClientAuth(true)`；`chat open <端口> tls <目录>`
+  的客户端必须持有信任库签发的证书，匿名客户端在握手阶段被拒。
+- CLI `trust init|status [目录]` 生成并复核信任库；命令不进入重放日志。
+
 ## 4. 模块与依赖
 
 ```
@@ -234,7 +253,7 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 | `fc-history` | 内存编年史、查询模型、导出、只读 JDBC 驱动、XML 签章、档案库镜像、PKCS#12 证据封存 | 已实现（M5+） |
 | `fc-cli` | 命令解析、星图、面板与报告 | 已实现 |
 | `fc-persist` | 存档仓库、偏好、本地化 | 已实现（M5） |
-| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册与回环远程管理、聊天室中继、fc:// 命名上下文、HTTP、音频 | 已实现（M5+） |
+| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册与回环远程管理、聊天室中继、fc:// 命名上下文、TLS 与证书信任、HTTP、音频 | 已实现（M5+） |
 | `fc-runtime` | 装配、REPL、存档/读档、PNG、Mod 装载、遥测与状态端点、单文件 jar | 已实现 |
 | `fc-testkit` | 注解 + 反射的零依赖测试框架 | 已实现 |
 | `fc-audit` | API 覆盖审计（classfile 常量池 → 证据） | 已实现（M5） |
@@ -268,7 +287,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 13.0%、包 40.9%、模块 12/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 13.8%、包 42.6%、模块 12/20。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。

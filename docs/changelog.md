@@ -5,6 +5,30 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.6.0 2026-11-21 阶段五 M15：TLS 加密信道与证书信任
+
+1. **自签根与证书签发**：`fc.extensions.TrustAuthority` 只用公开 API 生成 RSA 密钥，
+   按 RFC 5280 手工做 ASN.1/DER 编码，签发自签根、中间 CA、服务端与客户端叶子证书；
+   叶子带基本约束、密钥用途与 serverAuth/clientAuth 扩展用途，服务端证书带
+   `localhost` 主题备用名。证书用 `CertificateFactory` 回读，不依赖 `sun.security.x509`。
+2. **PKIX 链构建与校验**：`CertificateChains` 用 `PKIXBuilderParameters` + `CertStore`
+   从候选池构建「叶子 → 中间 → 根」路径，再用 `PKIXParameters` + 显式 `TrustAnchor`
+   校验签名、有效期与用法；过期证、异根、缺失中间证书均被拒绝。吊销检查关闭，
+   语义明确为「自签 + 显式信任锚」。
+3. **密钥库与 TLS 上下文**：`SecureChannel` 装配 PKCS#12（私钥条目带完整链、信任库只放根）、
+   `KeyManagerFactory` / `TrustManagerFactory` 与 `SSLContext`；支持文件读写、
+   对端链与叶子指纹提取。
+4. **聊天中继双向 TLS**：`ChatRelay.start(端口, 历史, SSLContext)` 改用
+   `SSLServerSocket` 并强制客户端证书；`connectTls` 完成握手后才建立行协议会话，
+   匿名客户端在握手阶段被拒。明文中继行为不变。
+5. **CLI**：新增 `trust init|status [目录]`，生成并复核根/服务端/客户端 PKCS#12；
+   `chat open [端口] tls <目录>` 以该信任库启动双向 TLS 中继，`chat say` 自动使用
+   客户端证书。`trust`、`chat` 不进入重放日志。
+6. **测试**：新增 `TrustAuthorityTest` 6 个用例、`TlsChatTest` 5 个用例与运行时
+   1 个集成用例；当前共 24 个套件、219 个用例通过；既有测试未删除、未跳过、未放宽。
+7. **审计基线**：类型 530/3836（13.8%）、包 75/176（42.6%）、模块 12/20、336 个 class、
+   Preview 违规 0；新增 `javax.net.ssl`、`java.time.format`、`java.time.temporal` 包覆盖。
+
 ## v0.5.9 2026-11-21 阶段五 M14：fc:// 统一资源命名上下文
 
 1. **命名格式**：`fc.extensions.FcNaming` 实现 `fc:<scope>/<path>[/<subpath>...]`，

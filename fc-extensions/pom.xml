@@ -110,6 +110,42 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>run-trust-authority-tests</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <classpathScope>test</classpathScope>
+                            <arguments>
+                                <argument>-ea</argument>
+                                <argument>-Djava.awt.headless=true</argument>
+                                <argument>-classpath</argument>
+                                <classpath/>
+                                <argument>fc.extensions.TrustAuthorityTest</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>run-tls-chat-tests</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <classpathScope>test</classpathScope>
+                            <arguments>
+                                <argument>-ea</argument>
+                                <argument>-Djava.awt.headless=true</argument>
+                                <argument>-classpath</argument>
+                                <classpath/>
+                                <argument>fc.extensions.TlsChatTest</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>run-chat-relay-tests</id>
                         <phase>test</phase>
                         <goals>

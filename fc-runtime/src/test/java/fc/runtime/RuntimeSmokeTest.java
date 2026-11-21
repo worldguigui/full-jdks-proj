@@ -276,6 +276,44 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void trustStoreIssuesCertificatesAndStaysOutOfReplayLog() throws Exception {
+        RuntimeSession session = boot();
+        Path dir = Files.createTempDirectory("fc-runtime-trust-");
+        try {
+            String init = session.execute("trust init " + dir);
+            assert init.contains("已生成信任库") : init;
+            assert init.contains("SHA-256") : init;
+            assert Files.exists(dir.resolve("ca.p12"));
+            assert Files.exists(dir.resolve("server.p12"));
+            assert Files.exists(dir.resolve("client.p12"));
+
+            String status = session.execute("trust status " + dir);
+            assert status.contains("校验通过") : status;
+            assert status.contains("PKIX") : status;
+            assert session.execute("trust init " + dir).contains("已存在");
+            assert session.execute("trust status " + dir.resolve("absent"))
+                    .contains("不存在");
+
+            String started = session.execute("chat open 0 tls " + dir);
+            assert started.contains("fc://chat/tls:") : started;
+            assert started.contains("TLS 双向认证") : started;
+            assert session.execute("chat say 舰长 加密信道").contains("加密信道")
+                    : "TLS 中继应可收发消息";
+            assert session.execute("chat close").contains("已停止");
+        } finally {
+            session.execute("chat close");
+            try (var walk = Files.walk(dir)) {
+                for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
+        }
+        assert session.commandHistory().stream()
+                .noneMatch(c -> c.startsWith("trust") || c.startsWith("chat"))
+                : "信任库与聊天命令不应进入重放日志";
+    }
+
+    @FcTest
     public void sealAndUnsealEvidenceRoundTrip() throws Exception {
         RuntimeSession session = boot();
         Path dir = Files.createTempDirectory("fc-runtime-seal-");
