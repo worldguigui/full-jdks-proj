@@ -267,6 +267,23 @@ JMX 端点不只是属性快照：遥测 MBean 主动广播，监视器与定时
 - CLI `jmx beans` 用 `QueryExp` 在服务端筛选已发布状态的 MBean；`jmx heartbeat [秒|stop|status]`
   管理真实时间心跳。两者与 `jmx` 一样不进入重放日志。
 
+### 3.15 XA 两阶段文件事务
+
+`TwoPhaseFiles` 是本地文件的事务协调器，`FileXaResource` 是 `XAResource` 的文件实现；
+用途是把同一份编年史导出双写到两个路径，避免一半成功、一半失败。
+
+- 每个目标是一个分支：同一 `FcXid`（格式号 `0x4643`）的全局事务，分支号按资源序号生成；
+  协调器按 XA 协议依次 `start`/`end`，全部 `prepare` 成功后逐个 `commit`。
+- prepare 只创建目标父目录、写同目录临时文件并 `force`，再写
+  `.fcxa-<global>-<branch>.xa` 恢复日志；目标文件保持不变。commit 用
+  `ATOMIC_MOVE`（不支持时退化为替换移动）发布，随后删除日志。
+- 任一 prepare 失败时，协调器回滚所有已准备分支；commit 阶段失败则报告
+  `XA_HEURMIX` 启发式混合，因为已提交分支无法撤销。
+- `recover` 扫描目标目录的恢复日志并重建 `Xid`，新进程可继续 commit 或 rollback；
+  协议误用以 `XAER_PROTO`/`XAER_NOTA`/`XAER_INVAL` 拒绝，不静默忽略。
+- CLI `export <格式> <路径A> <路径B>` 先在临时目录生成一次，再用该事务双写；
+  单路径仍走同一条提交路径。`export` 不进入重放日志。
+
 ## 4. 模块与依赖
 
 ```
@@ -290,7 +307,7 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 | `fc-history` | 内存编年史、查询模型、导出、只读 JDBC 驱动、XML 签章、档案库镜像、PKCS#12 证据封存 | 已实现（M5+） |
 | `fc-cli` | 命令解析、星图、面板与报告 | 已实现 |
 | `fc-persist` | 存档仓库、偏好、本地化 | 已实现（M5） |
-| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册/回环远程管理/通知与监视器、真实时间心跳、聊天室中继、fc:// 命名上下文、TLS 与证书信任、Frontier Script、HTTP、音频 | 已实现（M5+） |
+| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册/回环远程管理/通知与监视器、真实时间心跳、聊天室中继、fc:// 命名上下文、TLS 与证书信任、Frontier Script、XA 两阶段文件事务、HTTP、音频 | 已实现（M5+） |
 | `fc-runtime` | 装配、REPL、存档/读档、PNG、Mod 装载、遥测与状态端点、单文件 jar | 已实现 |
 | `fc-testkit` | 注解 + 反射的零依赖测试框架 | 已实现 |
 | `fc-audit` | API 覆盖审计（classfile 常量池 → 证据） | 已实现（M5） |
@@ -325,7 +342,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 14.8%、包 45.5%、模块 14/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 14.9%、包 46.0%、模块 15/20。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。

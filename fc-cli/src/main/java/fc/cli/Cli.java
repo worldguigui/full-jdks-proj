@@ -18,6 +18,7 @@ import fc.extensions.MapAtlas;
 import fc.extensions.RemoteJmx;
 import fc.extensions.SecureChannel;
 import fc.extensions.Soundtrack;
+import fc.extensions.TwoPhaseFiles;
 import fc.extensions.TrustAuthority;
 import fc.fleet.CrewService;
 import fc.fleet.MaintenanceService;
@@ -156,8 +157,8 @@ public final class Cli {
                     "查看编年史（默认最近 8 条；all 看全部）"),
             new Cmd("query", List.of(), "query <SQL>",
                     "只读 SQL 查询编年史（SELECT ... FROM chronicle）"),
-            new Cmd("export", List.of(), "export <csv|xml|html|zip> [路径]",
-                    "导出编年史（默认 chronicle.<格式>）"),
+            new Cmd("export", List.of(), "export <csv|xml|html|zip> [路径] [第二路径]",
+                    "导出编年史；给两个路径时用 XA 两阶段提交做双份留档"),
             new Cmd("atlas", List.of("chart"), "atlas [png|jpeg] [路径]",
                     "星图工坊：带图例/罗盘/缩略图的 PNG/JPEG 制图"),
             new Cmd("music", List.of("soundtrack"), "music [mid|wav] [路径]",
@@ -402,42 +403,52 @@ public final class Cli {
 
     /** 导出编年史：csv/xml/html/zip；默认文件名 chronicle.<格式>。 */
     private String doExport(List<String> tokens) {
-        if (tokens.size() < 2) {
-            return "用法：export <csv|xml|html|zip> [路径]";
+        if (tokens.size() < 2 || tokens.size() > 4) {
+            return "用法：export <csv|xml|html|zip> [路径] [第二路径]";
         }
         String format = tokens.get(1).toLowerCase(java.util.Locale.ROOT);
         if (!List.of("csv", "xml", "html", "zip").contains(format)) {
             return "未知导出格式：" + tokens.get(1) + "（可用 csv/xml/html/zip）";
         }
-        Path output = tokens.size() >= 3 ? Path.of(tokens.get(2)) : Path.of("chronicle." + format);
+        Path first = tokens.size() >= 3 ? Path.of(tokens.get(2)) : Path.of("chronicle." + format);
+        Path second = tokens.size() >= 4 ? Path.of(tokens.get(3)) : null;
+        if (second != null && first.toAbsolutePath().normalize()
+                .equals(second.toAbsolutePath().normalize())) {
+            return "两个导出目标不能相同：" + first;
+        }
         var chronicle = loop.state().chronicle();
         try {
-            if (format.equals("html")) {
-                Path parent = output.toAbsolutePath().getParent();
-                if (parent != null) {
-                    Files.createDirectories(parent);
+            Path work = Files.createTempDirectory("fc-export-");
+            try {
+                Path generated = work.resolve("chronicle." + format);
+                if (format.equals("html")) {
+                    String html = ChronicleExport.toHtml(chronicle,
+                            work.resolve("chronicle.xml"));
+                    Files.writeString(generated, html, StandardCharsets.UTF_8);
+                } else if (format.equals("csv")) {
+                    ChronicleExport.toCsv(chronicle, generated, ChronicleQuery.all());
+                } else if (format.equals("xml")) {
+                    ChronicleExport.toXml(chronicle, generated, ChronicleQuery.all());
+                } else {
+                    ChronicleExport.toZip(chronicle, generated, ChronicleQuery.all());
                 }
-                Path work = Files.createTempDirectory("fc-export-");
-                try {
-                    String html = ChronicleExport.toHtml(chronicle, work.resolve("chronicle.xml"));
-                    Files.writeString(output, html, StandardCharsets.UTF_8);
-                } finally {
-                    try (var walk = Files.walk(work)) {
-                        for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
-                            Files.deleteIfExists(p);
-                        }
+                byte[] bytes = Files.readAllBytes(generated);
+                if (second == null) {
+                    TwoPhaseFiles.commit(new TwoPhaseFiles.Artifact(first, bytes));
+                } else {
+                    TwoPhaseFiles.commit(new TwoPhaseFiles.Artifact(first, bytes),
+                            new TwoPhaseFiles.Artifact(second, bytes));
+                }
+            } finally {
+                try (var walk = Files.walk(work)) {
+                    for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                        Files.deleteIfExists(p);
                     }
                 }
-                return "已导出 " + chronicle.all().size() + " 条事件 → " + output;
             }
-            if (format.equals("csv")) {
-                ChronicleExport.toCsv(chronicle, output, ChronicleQuery.all());
-            } else if (format.equals("xml")) {
-                ChronicleExport.toXml(chronicle, output, ChronicleQuery.all());
-            } else {
-                ChronicleExport.toZip(chronicle, output, ChronicleQuery.all());
-            }
-            return "已导出 " + chronicle.all().size() + " 条事件 → " + output;
+            String targets = second == null ? first.toString()
+                    : first + "、" + second + "（两阶段提交）";
+            return "已导出 " + chronicle.all().size() + " 条事件 → " + targets;
         } catch (IOException e) {
             return "导出失败：" + e.getMessage();
         }

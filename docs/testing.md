@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 26 个测试套件、232 个用例。
+当前共 27 个测试套件、237 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -42,7 +42,7 @@ mvn -B package
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
 | `fc-history` | `ChronicleVaultTest` | 6 | 快照与索引、幂等写入、篡改/缺失检测、排他锁、WatchService、坏索引拒绝 |
 | `fc-history` | `EvidenceSealTest` | 6 | PKCS#12 往返、AES-GCM 封存/解封、错钥/篡改拒绝、输入过滤器、错误口令、参数校验 |
-| `fc-runtime` | `RuntimeSmokeTest` | 18 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、封存、签章、JMX 目录与心跳、非法启动参数 |
+| `fc-runtime` | `RuntimeSmokeTest` | 18 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出（含 XA 双份）、制图、配乐、档案库、封存、签章、JMX 目录与心跳、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
@@ -51,6 +51,7 @@ mvn -B package
 | `fc-extensions` | `SoundtrackTest` | 5 | 同种子同曲、SMF 往返、WAV 解码、音色/元数据/控制器、参数校验与设备探测 |
 | `fc-extensions` | `RemoteJmxTest` | 6 | 回环 RMI 连接、直接 RMI 客户端、多客户端、只读属性、停止后拒绝连接、端口与缺失遥测 |
 | `fc-extensions` | `TelemetryMBeansTest` | 5 | 属性变化/命令通知与过滤、动态 MBean 快照、GaugeMonitor 阈值通知、Timer 心跳、QueryExp 目录筛选 |
+| `fc-extensions` | `TwoPhaseFilesTest` | 5 | XA 双写提交、prepare 失败全回滚、重启恢复日志、协议错误与同 RM、单阶段提交与参数校验 |
 | `fc-extensions` | `ChatRelayTest` | 6 | 加入与广播、成员表与历史、RMI 控制面、非法输入、离开广播、关闭与端口校验 |
 | `fc-extensions` | `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` | `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |
@@ -153,6 +154,19 @@ mvn -B package
 - `QueryExp` 用字符串 `Query.match`（`?*`）筛选 `StateHash` 非空的 MBean；
   数值 `Query.gt` 不得用于字符串属性。
 - `jmx beans` 与 `jmx heartbeat` 不进入重放日志；心跳只消耗真实时间，不推进游戏 Tick。
+
+### XA 两阶段文件事务
+
+- `export <格式> <路径A> <路径B>` 必须在两阶段提交成功后才发布两份文件；
+  任一分支 prepare 失败时两个目标都不得出现，禁止“只写了一半”的导出。
+- 每个分支都走 `XAResource` 协议：`start`/`end`/`prepare`/`commit`；
+  prepare 只写同目录临时文件与 `.fcxa-*.xa` 恢复日志，commit 才原子替换目标。
+- 恢复日志必须记录分支 `Xid` 与临时文件名；进程重启后用新资源实例
+  `recover` 能找回未决分支并完成 commit 或 rollback。
+- 未 `start` 就 `end`、重复 `rollback`、未知分支 `commit` 必须以明确的
+  `XAException` 错误码（`XAER_PROTO`/`XAER_NOTA`）拒绝，不得静默成功。
+- 同一事务重复目标、空事务必须拒绝；完成后不得残留日志或临时文件；
+  `export` 不进入重放日志。
 
 ### fc:// 命名上下文
 

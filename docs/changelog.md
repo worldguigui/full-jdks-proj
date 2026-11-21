@@ -5,6 +5,25 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.8.1 2026-11-21 阶段五 M18：XA 两阶段文件事务与双份留档
+
+1. **文件 XA 资源**：新增 `FileXaResource`（`javax.transaction.xa.XAResource`）与
+   `FcXid`（格式号 `0x4643`，16 字节随机全局事务 + 递增分支号）。prepare 只写同目录
+   临时文件并 `force`，commit 用 ATOMIC_MOVE 发布，rollback 删除暂存；协议误用分别以
+   `XAER_PROTO`/`XAER_NOTA`/`XAER_INVAL` 拒绝。
+2. **持久恢复日志**：每个已准备分支写 `.fcxa-<global>-<branch>.xa`，记录 Xid 与临时
+   文件名；新进程用同一目标构造资源后 `recover` 可找回未决分支并继续提交或回滚。
+3. **两阶段协调器**：新增 `TwoPhaseFiles`，各分支独立 `start/end/prepare`，全部成功后
+   逐个 commit；prepare 失败时回滚全部分支，commit 阶段失败报告 `XA_HEURMIX`，
+   不把“部分成功”伪装成成功。
+4. **双份导出**：`export <csv|xml|html|zip> <路径A> <路径B>` 先在临时目录生成一次，
+   再用 XA 事务原子发布到两个路径；单路径导出复用同一提交路径。
+   重复目标、空事务被拒绝；`export` 仍不进入重放日志。
+5. **测试**：新增 `TwoPhaseFilesTest` 5 个用例，运行时导出用例增加双写与“无残留日志”
+   断言；当前共 27 个套件、237 个用例通过；既有测试未删除、未跳过、未放宽。
+6. **审计基线**：类型 571/3836（14.9%）、包 81/176（46.0%）、模块 15/20、353 个 class、
+   Preview 违规 0；`java.transaction.xa` 3/3（100%），新增 `javax.transaction.xa` 包覆盖。
+
 ## v0.8.0 2026-11-21 阶段五 M17：JMX 通知、动态目录、监视器与真实时间心跳
 
 1. **遥测主动通知**：`GameTelemetry` 改为继承 `NotificationBroadcasterSupport` 并实现

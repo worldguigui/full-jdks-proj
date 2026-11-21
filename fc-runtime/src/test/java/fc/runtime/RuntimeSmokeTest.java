@@ -110,6 +110,16 @@ public final class RuntimeSmokeTest {
             assert Files.exists(dir.resolve("c.html"));
             assert session.execute("export zip " + dir.resolve("c.zip")).contains("已导出");
             assert Files.exists(dir.resolve("c.zip"));
+            String dual = session.execute("export csv " + dir.resolve("a.csv")
+                    + " " + dir.resolve("b.csv"));
+            assert dual.contains("已双份导出") || dual.contains("两阶段提交") : dual;
+            assert Files.exists(dir.resolve("a.csv")) && Files.exists(dir.resolve("b.csv"));
+            assert Arrays.equals(Files.readAllBytes(dir.resolve("a.csv")),
+                    Files.readAllBytes(dir.resolve("b.csv"))) : "双份内容必须一致";
+            try (var listing = Files.list(dir)) {
+                assert listing.noneMatch(p -> p.getFileName().toString().startsWith(".fcxa-"))
+                        : "事务完成后不得残留 XA 恢复日志";
+            }
         } finally {
             try (var walk = Files.walk(dir)) {
                 for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {

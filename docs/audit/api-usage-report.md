@@ -6,11 +6,11 @@
 
 | 指标 | 已使用 | 分母 | 覆盖率 |
 |---|---:|---:|---:|
-| 类型 | 568 | 3836 | 14.8% |
-| 包 | 80 | 176 | 45.5% |
-| 模块 | 14 | 20 | 70.0% |
+| 类型 | 571 | 3836 | 14.9% |
+| 包 | 81 | 176 | 46.0% |
+| 模块 | 15 | 20 | 75.0% |
 
-扫描 class 文件 348 个；Preview 违规 0 项。
+扫描 class 文件 353 个；Preview 违规 0 项。
 
 ## 模块明细
 
@@ -33,7 +33,7 @@
 | java.security.sasl | 0 | 10 | 0.0% |
 | java.sql | 16 | 74 | 21.6% |
 | java.sql.rowset | 0 | 30 | 0.0% |
-| java.transaction.xa | 0 | 3 | 0.0% |
+| java.transaction.xa | 3 | 3 | 100.0% |
 | java.xml | 34 | 193 | 17.6% |
 | java.xml.crypto | 26 | 58 | 44.8% |
 
@@ -80,6 +80,7 @@
 - **java.rmi**（7）：java.rmi.Remote、java.rmi.RemoteException、java.rmi.registry.LocateRegistry、java.rmi.registry.Registry、java.rmi.server.RMIClientSocketFactory、java.rmi.server.RMIServerSocketFactory、java.rmi.server.UnicastRemoteObject
 - **java.scripting**（10）：javax.script.AbstractScriptEngine、javax.script.Bindings、javax.script.Compilable、javax.script.CompiledScript、javax.script.ScriptContext、javax.script.ScriptEngine、javax.script.ScriptEngineFactory、javax.script.ScriptEngineManager、javax.script.ScriptException、javax.script.SimpleBindings
 - **java.sql**（16）：java.sql.Connection、java.sql.DatabaseMetaData、java.sql.Date、java.sql.Driver、java.sql.DriverManager、java.sql.DriverPropertyInfo、java.sql.PreparedStatement、java.sql.ResultSet、java.sql.ResultSetMetaData、java.sql.SQLException、java.sql.SQLFeatureNotSupportedException、java.sql.Statement、java.sql.Time、java.sql.Timestamp、java.sql.Types、javax.sql.DataSource
+- **java.transaction.xa**（3）：javax.transaction.xa.XAException、javax.transaction.xa.XAResource、javax.transaction.xa.Xid
 - **java.xml**（34）：javax.xml.XMLConstants、javax.xml.namespace.QName、javax.xml.parsers.DocumentBuilder、javax.xml.parsers.DocumentBuilderFactory、javax.xml.parsers.ParserConfigurationException、javax.xml.stream.XMLOutputFactory、javax.xml.stream.XMLStreamException、javax.xml.stream.XMLStreamWriter、javax.xml.transform.OutputKeys、javax.xml.transform.Result、javax.xml.transform.Source、javax.xml.transform.Templates、javax.xml.transform.Transformer、javax.xml.transform.TransformerException、javax.xml.transform.TransformerFactory、javax.xml.transform.dom.DOMSource、javax.xml.transform.stream.StreamResult、javax.xml.transform.stream.StreamSource、javax.xml.validation.Schema、javax.xml.validation.SchemaFactory、javax.xml.validation.Validator、javax.xml.xpath.XPath、javax.xml.xpath.XPathConstants、javax.xml.xpath.XPathExpressionException、javax.xml.xpath.XPathFactory、org.w3c.dom.Document、org.w3c.dom.Element、org.w3c.dom.Node、org.w3c.dom.NodeList、org.xml.sax.ErrorHandler、org.xml.sax.InputSource、org.xml.sax.SAXException、org.xml.sax.SAXParseException、org.xml.sax.helpers.DefaultHandler
 - **java.xml.crypto**（26）：javax.xml.crypto.AlgorithmMethod、javax.xml.crypto.KeySelector、javax.xml.crypto.KeySelector$Purpose、javax.xml.crypto.KeySelectorException、javax.xml.crypto.KeySelectorResult、javax.xml.crypto.MarshalException、javax.xml.crypto.XMLCryptoContext、javax.xml.crypto.XMLStructure、javax.xml.crypto.dsig.CanonicalizationMethod、javax.xml.crypto.dsig.DigestMethod、javax.xml.crypto.dsig.Reference、javax.xml.crypto.dsig.SignatureMethod、javax.xml.crypto.dsig.SignedInfo、javax.xml.crypto.dsig.XMLSignContext、javax.xml.crypto.dsig.XMLSignature、javax.xml.crypto.dsig.XMLSignatureException、javax.xml.crypto.dsig.XMLSignatureFactory、javax.xml.crypto.dsig.XMLValidateContext、javax.xml.crypto.dsig.dom.DOMSignContext、javax.xml.crypto.dsig.dom.DOMValidateContext、javax.xml.crypto.dsig.keyinfo.KeyInfo、javax.xml.crypto.dsig.keyinfo.KeyInfoFactory、javax.xml.crypto.dsig.keyinfo.KeyValue、javax.xml.crypto.dsig.spec.C14NMethodParameterSpec、javax.xml.crypto.dsig.spec.DigestMethodParameterSpec、javax.xml.crypto.dsig.spec.SignatureMethodParameterSpec
 
