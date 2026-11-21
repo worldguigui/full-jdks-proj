@@ -1,9 +1,9 @@
 # 变更记录
 
-`README.md` 由项目所有者冻结，是不可改动的事实与规则；自 v0.4.0 起，版本迭代记录在本文件
-与本地 Git 提交信息中，格式沿用 README 的「版本号 + 日期 + 里程碑 + 编号条目」。
+## v1.0.0 2026-11-22 基础功能实现
 
-v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
+1. 基础功能完成，包括 CLI、TUI、世界模拟、舰队/殖民地/事件/科研/市场/目标等核心模块，支持单机运行与多窗口共享同一世界。
+2. 文档更新完毕，推送到远程。
 
 ## v0.11.6 2026-11-22 阶段五 M23 修订：帮助补充 TUI 命令说明
 
@@ -610,3 +610,104 @@ v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不
     `diplomacy`、`gift`、`treaty`、`threaten`、`commission`、`borrow`、`repay`。
 11. **测试**：9 个套件 117 个用例通过，其中 `M4GameplayTest` 9 个用例覆盖完整 M4 玩法链；
     既有测试未删除、未跳过、未放宽。
+
+### v0.3.0 2026-11-21 阶段五 M3：经济与贸易
+
+1. **供需定价**：`PriceModel` 幂函数定价（库存低于目标即涨价，夹在 0.3×–5×），买价 ×1.05 / 卖价 ×0.95。
+2. **配方生产**：`ProductionSystemImpl` 按配方扣输入开工、完工发产出；fuel 作为能源，缺料即停产（冶炼/农业/精炼/给养 4 条配方）。
+3. **组织收支**：`MarketSystemImpl` 阶段 9 发工资，地点没钱则欠薪 → 士气下降。
+4. **玩家交易**：`market` / `trade buy|sell|quote`，支持**部分成交**；货物与信用点总量守恒。
+5. **SPI 解耦**：`fc-sim` 定义 `ProductionSystem`/`MarketSystem` 接口，`fc-economy` 实现，运行时注入（避免 sim 反向依赖 economy）。
+6. 测试 35 个通过（M3 11 + M2 11 + M1 7 + fleet 6）。
+
+### v0.2.0 2026-11-21 阶段五 M2：主体与事件
+
+1. **十二阶段 Tick 管线**：`1-time → 2-environment → 3-faction → 4-perceive → 5-decide → 6-work → 7-voyage → 8-consumption → 9-market → 10-event → 11-chronicle → 12-report`（3/9 为显式占位，M3/M4 填充）。
+2. **统一主体决策**：船员/居民/使者同一类型三角色；饥饿/疲劳/士气驱动进食、休息、工作、**觅食迁徙**、拒绝指令。
+3. **确定性随机流**：`RngStreams`（L64X128MixRandom）按 weather/events/agents/market/factions 派生独立流；同种子两次历史逐字节一致。
+4. **事件分发**：tick 内有序 `EventQueue` → 阶段 11 唯一落库 → tick 后 `Flow` 广播（只读）。
+5. **新命令** `crew`：查看 14 个主体的角色/位置/需求/指派；`next` 附带回合报告行。
+6. 测试 24 个通过（M2 11 + M1 7 + fleet 6）。
+
+### v0.1.0 2026-11-20 阶段五 M1：星域与舰队
+
+1. **配置驱动世界**：新增 `fc-config.WorldDefinition` + `XmlWorldLoader`（DOM + XSD 校验 + 语义校验，XXE 防护）+ `world/default-world.xml`（16 地点 / 16 航线 / 3 舰船）。核心代码零硬编码。
+2. **Tick 三阶段管线**：`fc-sim.tick` 的 `TimeStage → MovementStage → InventoryStage`，`GameLoop` 改为逐日执行。
+3. **航行系统**：`fc-fleet.Navigation`（Dijkstra 最短路，按 tick 加权）+ `VoyageService`（在航/燃料/航路校验 + 扣油 + 事件）。
+4. **CLI 扩展**：`map`（ASCII 分层星图）/`ships`/`sail`；舰队与库存可视化。
+5. **验收四项全过**：配置驱动（16/16/3，换配置即换世界）、往返航行安全返航（燃料 120→100）、Tick 三阶段生效、13 个单元测试通过。
+
+### v0.0.9 2026-11-20 全模块覆盖落实
+
+1. **9 个未覆盖模块覆盖落实**：按全局设计理解，把 java.compiler（工具链核心）、datatransfer、instrument、management.rmi、scripting、sql.rowset、xml.crypto 的核心类型逐类型升 L3（+242）。
+2. **覆盖率突破**：类型级 43.56%→**49.87%**、模块级 55%→**90%（18/20）**、包级 61.93%；潜在上限 69.03%。
+3. **仅剩 2 个未覆盖模块**：`java.security.jgss`（16，可选 Kerberos/GSS 需 KDC，保持 L2）、`java.transaction.xa`（3，探索资格，保持 Excluded）。
+4. **聊天室技术选型落定**：TCP Socket + RMI 两者配合作核心，WebSocket 服务端可引入第三方实现（不计入覆盖）。
+
+### v0.0.8 2026-11-20 项目定位升级 + 12 模块采纳 + 联机系统设计
+
+1. **项目定位升级**：从「单机星际经营游戏」升级为 **Full JDK 21 Project —— 基于 Java SE 21 的可扩展星际模拟与联机管理平台**；新增「本地可信 ≠ 远程可信」安全边界。
+2. **12 个模块全部采纳**（进入功能设计范围），但严格区分「模块采纳 ≠ 功能锚点成立 ≠ 类型 L3」。
+3. **联机通信系统**：新增 `online-system-design.md`，第一阶段聊天室（通信基础设施）、第二阶段远征协同、第三阶段多人世界（后续）。
+4. **四个模块重审升 L3**：java.rmi（28）、java.net.http（20）、java.security.sasl（6）核心类型升 L3；java.security.jgss（16）重开为可选 Kerberos/GSS（L2）。
+5. **覆盖率**：Planned 1617→**1671**、类型级 42.15%→**43.56%**、模块级 40%→**55%（11/20）**、潜在上限 69.06%；未覆盖模块 12→**9**。
+
+### v0.0.7 2026-11-20 五项决策落地 + 未覆盖模块清单
+
+1. **JDBC**：核心自研只读 CSV Driver（不选 H2/SQLite），实现 Driver/Connection/Statement/ResultSet 标准接口，`runtime_requirement` 改 `NONE`。
+2. **规则编译**：本地可信 Mod 默认充分权限，不承诺进程内沙箱。
+3. **Swing 桌面客户端**：正式立项，模型层/视觉层分阶段审计，priority P3→P2。
+4. **JMX 时间模型**：新增 `docs/phase3/time-model-spec.md`（现实时间与游戏时间分离的正式规范）。
+5. **命名体系**：新增 `docs/phase3/naming-spec.md`（fc:// 统一资源命名的解析/注册/生命周期语义）。
+6. **未覆盖模块清单**：`docs/phase3/decisions-and-uncovered.md` 列出 12 个 Planned=0 的模块（compiler/datatransfer/instrument/management.rmi/net.http/rmi/scripting/jgss/sasl/sql.rowset/transaction.xa/xml.crypto），供用户设计功能。
+
+### v0.0.6 2026-11-20 阶段三补充：API 最大化覆盖机会扩张
+
+1. **新增 API 驱动能力簇**：桌面管理客户端（`ADMIN-DESKTOP`，Swing+AWT 模型类 112）、可选登录（`AUTH`，JAAS 36）、远程观战传输层（套接字 56 + 通道 39）。
+2. **核心接口升 L3**：JDBC 核心接口 30（CSV 查询，可选第三方 Driver，接口类型计入/Driver 实现不计入）、命名上下文核心 30、JMX monitor/timer 13（现实时间，与游戏 Stardate 分离）。
+3. **新增 `rules/api-exploration.tsv` 探索台账**（56 条）：追踪每个未纳入类型的探索过程，四态 UNEXPLORED/OPPORTUNITY_FOUND/FEATURE_DESIGNED/TYPE_JUSTIFIED；生成器读取并校验。
+4. **重新评估结果**：Planned 1544→**1617**、Pending 839→**1006**、Excluded 1453→**1213**；类型级 40.25%→**42.15%**，潜在上限 **68.38%**，模块级 30%→**40%**。
+5. **遵守六项技术约束**：不自研 JDBC 驱动换覆盖、Compiler≠沙箱、不以 SecurityManager 为基础、脚本 API 与 Provider 区分、设备能力支持探测降级、Swing/AWT 逐类型审计不整包纳入。
+
+### v0.0.5 2026-11-20 项目目标重构：API 覆盖优先 + 准入体系升级
+
+1. **目标变更**：项目正式采用 **B（API 覆盖优先，游戏作为承载载体）**，允许主动设计 API 驱动的新功能（远程管理、认证信任、命名发现、规则编译、运行监控、数据交换签名、多格式输出、开发测试工具）。
+2. **准入体系升级**：新增 `justification_level`（L0 模块 / L1 包 / L2 功能 / L3 类型 / L4 集成）。**Planned 必须 L3 逐类型论证**；L0/L1 不产出 Planned，L2 产出 Pending，L4 可 Verified。
+3. **新增 `feature_origin` 四类**：CORE / API_DRIVEN / INFRASTRUCTURE / DEVELOPER_TOOLING，四类同等准入资格；新增 `anchor_type`（PLAYER/OPERATOR/DEVELOPER），基础设施和工具不再强制玩家可见性。
+4. **`api-mapping.csv` 扩展为 26 列**：新增 type_name/feature_origin/anchor_type/justification_level/api_role/runtime_requirement/fallback_strategy/test_evidence 等字段；`type-keep.tsv` 改为「功能↔类型准入关系」（不再包级默认）；`feature-anchors.tsv` 扩展为 7 列。
+5. **14 个 API 方向重新盘点**（`api-opportunity-report.md`）：RMI/JNDI/TLS/证书/XML 签名/JDBC/规则编译/注解处理/Instrumentation/打印/剪贴板等从「排除」重开为 L2 候选（Pending）。
+6. **重新评估结果**：Planned 1684→**1544**（当前已论证）、Pending 128→**839**（L2 候选）、Excluded 2024→**1453**；类型级 43.90%→**40.25%**，潜在上限 **62.12%**（Pending 全部升 L3 后）。分母 3836 未动。
+7. **阶段调整**：阶段三=API 机会盘点 → 阶段四=类型级准入与论证 → 阶段五=分批实现 → 阶段六=最终覆盖审计。**本阶段不启动 M0。**
+
+### v0.0.4 2026-11-20 阶段三映射质量复核（用户审阅后）
+
+1. **裁决落地**：打印/剪贴板/Swing 模型/LDAP 四项上修一律不采用；`javax.swing.undo` 保留但撤销范围限定为未提交计划；M5 采用 M5a/M5b/M5c 拆分且 M5c 排在核心玩法稳定之后。
+2. **推翻「无 Pending」这一伪指标**：引入 `Pending` 状态并实际使用 128 行（JDBC 三簇 104 + `javax.tools` 24），把「做不到」与「还没设计」从「已规划」里分出来。
+3. **`fc-extensions` 712 → 103**：新增 `rules/type-keep.tsv`（按功能写保留清单，包内其余一律排除）与 `rules/feature-anchors.tsv`（每个类型必须挂到一条玩家可见验收标准）。远程管理/RMI/JNDI/TLS/证书/XML 签名/常量描述符/字节码增强 全部排除。
+4. **排除理由纠错**：把「没有产品需求」包装成「环境限制」的 203 行从 `ENV` 改回 `BIZ`（打印 135、LDAP 24、桌面 30、`awt.print` 10、`datatransfer` 数据模型 4）；`ENV` 只剩真有证据的 20 行。`java.awt.datatransfer` 按类型拆成 8 `ENV` + 4 `BIZ`。
+5. **音频 62 → 39**：只保留 WAV 事件音效链路（25）与默认音序器氛围乐（14），去掉麦克风采集、硬件端口、Soundbank、SysEx、设备枚举与转发。
+6. **硬证据**：JDK 21 无任何脚本引擎、无任何 JDBC 驱动（`tools/CapProbe.java` → `data/verification/runtime-capability-probe.md`）。
+7. **覆盖率如实下调**：Planned 2442 → **1684**，类型级 **43.90%**、包级 48.86%、完整包 39.20%、模块级 35.00%。63.66% 中约 758 行经不起「对应哪个玩家动作」一问。同时给出论证强度分解：逐类型审计 120 / 包级锚点 228 / 仅模块级 1336 —— 后者是阶段四每批开工前必须先补的部分。
+
+### v0.0.3 2026-11-20 阶段三 API-功能逐类型映射
+
+1. 基于冻结清单生成 **3874 行全量映射表**（`Planned` 2442 / `Excluded` 1394 分母内 + 38 Preview），无 `Pending`。
+2. 判定采用「177 包规则 + 类型级覆盖 + 生成器展开」三层结构，改口径只改规则表并重跑（`tools/Phase3Mapper.java` 带硬断言）。
+3. 新增环境能力探测 `tools/EnvProbe.java`，为 `Excluded/ENV` 提供可复现证据（剪贴板 HeadlessException、桌面集成 false、打印仅 PDF 虚拟服务、音频/ImageIO 可用）。
+4. 实测覆盖率：类型级 **63.66%**、包级 **71.02%**、完整包 **63.07%**、模块级 **80%**；阶段二预估的 80%/65–72%/90% 经逐包核算不成立，报告 §三给出逐域根因与修正建议（需裁决）。
+5. 核对阶段一口径：168 个 protected 嵌套类型与冻结清单**交集为 0**，分母 3836 = 3874 − 38 正确，无需二次扣减。
+6. 运行环境落位：文档约定的 `D:/Java/ms-21.0.13.0.2` 已不存在，实际 JDK 21 为 **`E:/jdks/ms-21.0.11`**（Microsoft Build of OpenJDK 21.0.11+10-LTS）。已用该 JDK 重扫全量清单并与阶段一冻结基线**逐行比对一致**（3887 类型 / 178 包，缺失 0、额外 0、字段差异 0），冻结数据无需重做；映射生成器在 21.0.11 上重跑产物哈希不变。
+
+### v0.0.2 2026-11-20 阶段二设计审查修订
+
+1. 修正 sealed 模型与 JPMS 模块边界：sealed 根与子类型统一收敛到 `fc-world`，扩展改走 `non-sealed`。
+2. 拆分 `WorldState` / `GameLoop` / `Chronicle` 职责，消除依赖环；新增 `fc-config` 模块（15 模块）。
+3. `Ship` 纳入 `Location` 移动子类型；资源口径改为 11 种货物 + credits（credits 仅记账本）。
+4. 配置装载提前到 M0/M1；Tick 内确定性事件队列，`Flow` 仅 tick 后投递；RNG 流状态入档。
+5. 覆盖率目标按逐包核算修正（包级 ≥80%、类型级 65–72%、模块级 ≥90%），`Excluded` 不改分母。
+6. 新增 `.gitattributes`（`eol=lf`），并注明冻结清单 SHA-256 基于 LF 内容。
+
+### v0.0.1 2026-11-20 规范盘点和游戏设计
+
+1. 与 agent 对齐项目的 api 规范。
+2. 根据提示词生成游戏设计方案（待审查）。

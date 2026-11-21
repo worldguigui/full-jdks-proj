@@ -4,23 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="097c6c33-ef2e-4e50-9435-6767862fcd71" name="Changes" comment="### v0.2.0 2026-11-21 阶段五 M2：主体与事件&#10;&#10;1. **十二阶段 Tick 管线**：`1-time → 2-environment → 3-faction → 4-perceive → 5-decide → 6-work → 7-voyage → 8-consumption → 9-market → 10-event → 11-chronicle → 12-report`（3/9 为显式占位，M3/M4 填充）。&#10;2. **统一主体决策**：船员/居民/使者同一类型三角色；饥饿/疲劳/士气驱动进食、休息、工作、**觅食迁徙**、拒绝指令。&#10;3. **确定性随机流**：`RngStreams`（L64X128MixRandom）按 weather/events/agents/market/factions 派生独立流；同种子两次历史逐字节一致。&#10;4. **事件分发**：tick 内有序 `EventQueue` → 阶段 11 唯一落库 → tick 后 `Flow` 广播（只读）。&#10;5. **新命令** `crew`：查看 14 个主体的角色/位置/需求/指派；`next` 附带回合报告行。&#10;6. 测试 24 个通过（M2 11 + M1 7 + fleet 6）。">
+    <list default="true" id="097c6c33-ef2e-4e50-9435-6767862fcd71" name="Changes" comment="## v1.0.0 2026-11-22 基础功能实现&#10;&#10;1. 基础功能完成，包括 CLI、TUI、世界模拟、舰队/殖民地/事件/科研/市场/目标等核心模块，支持单机运行与多窗口共享同一世界。&#10;2. 文档更新完毕，推送到远程。">
       <change beforePath="$PROJECT_DIR$/.workbuddy/memory/2026-11-20.md" beforeDir="false" afterPath="$PROJECT_DIR$/.workbuddy/memory/2026-11-20.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.workbuddy/memory/MEMORY.md" beforeDir="false" afterPath="$PROJECT_DIR$/.workbuddy/memory/MEMORY.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-cli/src/main/java/fc/cli/Cli.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-cli/src/main/java/fc/cli/Cli.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-config/src/main/java/fc/config/world/WorldDefinition.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-config/src/main/java/fc/config/world/WorldDefinition.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-config/src/main/java/fc/config/world/XmlWorldLoader.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-config/src/main/java/fc/config/world/XmlWorldLoader.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-config/src/main/resources/schema/world.xsd" beforeDir="false" afterPath="$PROJECT_DIR$/fc-config/src/main/resources/schema/world.xsd" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-config/src/main/resources/world/default-world.xml" beforeDir="false" afterPath="$PROJECT_DIR$/fc-config/src/main/resources/world/default-world.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-economy/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/fc-economy/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-runtime/src/main/java/fc/runtime/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-runtime/src/main/java/fc/runtime/Main.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/MarketStage.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/MarketStage.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/TickPipeline.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/TickPipeline.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/WorkStage.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-sim/src/main/java/fc/sim/tick/WorkStage.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/GameEvent.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/GameEvent.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/WorkUnit.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/WorkUnit.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/WorldState.java" beforeDir="false" afterPath="$PROJECT_DIR$/fc-world/src/main/java/fc/world/WorldState.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,23 +31,23 @@
 }]]></component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.465644997252967" />
-      <entry key="MS500" value="2.9589367878284984" />
-      <entry key="S2" value="3.6891782118539913" />
-      <entry key="S5" value="3.8709239702601344" />
-      <entry key="S10" value="3.9346875161916515" />
-      <entry key="S30" value="4.052789949536057" />
-      <entry key="S60" value="4.46251881138714" />
-      <entry key="M2" value="5.186334689138094" />
-      <entry key="M5" value="6.0715492242781135" />
-      <entry key="M10" value="6.493140096666579" />
-      <entry key="M15" value="6.65183031416305" />
-      <entry key="M30" value="6.820570932475835" />
-      <entry key="H1" value="6.908907979016026" />
-      <entry key="H2" value="6.954104298276617" />
-      <entry key="H4" value="6.976964052414258" />
-      <entry key="D1" value="6.996148382123767" />
-      <entry key="W1" value="6.999449467060682" />
+      <entry key="MS100" value="1.0000001936560623" />
+      <entry key="MS500" value="1.045436641166261" />
+      <entry key="S2" value="1.4620225405371021" />
+      <entry key="S5" value="1.8217375871706036" />
+      <entry key="S10" value="2.5199980281836307" />
+      <entry key="S30" value="4.763441688400742" />
+      <entry key="S60" value="6.11361320658979" />
+      <entry key="M2" value="7.560599007800977" />
+      <entry key="M5" value="10.635931599190231" />
+      <entry key="M10" value="13.03985466938769" />
+      <entry key="M15" value="14.144543991075759" />
+      <entry key="M30" value="15.45150176536186" />
+      <entry key="H1" value="16.198590943371805" />
+      <entry key="H2" value="16.664627145734485" />
+      <entry key="H4" value="17.135773600391282" />
+      <entry key="D1" value="21.00592226731163" />
+      <entry key="W1" value="24.23369334752001" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -82,23 +69,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3925127283541234" />
-      <entry key="MS500" value="2.9191165553325953" />
-      <entry key="S2" value="3.675559943019014" />
-      <entry key="S5" value="3.865097019414811" />
-      <entry key="S10" value="3.9317065033739107" />
-      <entry key="S30" value="4.05156385004673" />
-      <entry key="S60" value="4.461311132958906" />
-      <entry key="M2" value="5.185189977481733" />
-      <entry key="M5" value="6.070823940116444" />
-      <entry key="M10" value="6.492713488725358" />
-      <entry key="M15" value="6.65152983324775" />
-      <entry key="M30" value="6.820412138707594" />
-      <entry key="H1" value="6.9088263420212375" />
-      <entry key="H2" value="6.954062906560578" />
-      <entry key="H4" value="6.976943211572587" />
-      <entry key="D1" value="6.996144888369608" />
-      <entry key="W1" value="6.999448967454391" />
+      <entry key="MS100" value="0.8526350557453196" />
+      <entry key="MS500" value="1.012567976723914" />
+      <entry key="S2" value="1.450256003541985" />
+      <entry key="S5" value="1.8158287246947225" />
+      <entry key="S10" value="2.5159044881066297" />
+      <entry key="S30" value="4.760878315597476" />
+      <entry key="S60" value="6.111970438850356" />
+      <entry key="M2" value="7.559562656693554" />
+      <entry key="M5" value="10.63531258836465" />
+      <entry key="M10" value="13.039462766000256" />
+      <entry key="M15" value="14.144257295019282" />
+      <entry key="M30" value="15.451343327785507" />
+      <entry key="H1" value="16.198507410275226" />
+      <entry key="H2" value="16.664584075656613" />
+      <entry key="H4" value="17.135751347380342" />
+      <entry key="D1" value="21.005916837534073" />
+      <entry key="W1" value="24.23369234976523" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -114,6 +101,9 @@
   "keyToString": {
     "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "Application.Frontier Chronicle.executor": "Run",
+    "Maven.frontier-chronicle [clean].executor": "Run",
+    "Maven.frontier-chronicle [compile].executor": "Run",
+    "Maven.frontier-chronicle [package].executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -124,8 +114,10 @@
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "E:/copilot/full-jdks-proj",
     "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.jshint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.jshint": "",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "project.structure.last.edited": "Project",
@@ -189,6 +181,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="### v0.2.0 2026-11-21 阶段五 M2：主体与事件&#10;&#10;1. **十二阶段 Tick 管线**：`1-time → 2-environment → 3-faction → 4-perceive → 5-decide → 6-work → 7-voyage → 8-consumption → 9-market → 10-event → 11-chronicle → 12-report`（3/9 为显式占位，M3/M4 填充）。&#10;2. **统一主体决策**：船员/居民/使者同一类型三角色；饥饿/疲劳/士气驱动进食、休息、工作、**觅食迁徙**、拒绝指令。&#10;3. **确定性随机流**：`RngStreams`（L64X128MixRandom）按 weather/events/agents/market/factions 派生独立流；同种子两次历史逐字节一致。&#10;4. **事件分发**：tick 内有序 `EventQueue` → 阶段 11 唯一落库 → tick 后 `Flow` 广播（只读）。&#10;5. **新命令** `crew`：查看 14 个主体的角色/位置/需求/指派；`next` 附带回合报告行。&#10;6. 测试 24 个通过（M2 11 + M1 7 + fleet 6）。" />
-    <option name="LAST_COMMIT_MESSAGE" value="### v0.2.0 2026-11-21 阶段五 M2：主体与事件&#10;&#10;1. **十二阶段 Tick 管线**：`1-time → 2-environment → 3-faction → 4-perceive → 5-decide → 6-work → 7-voyage → 8-consumption → 9-market → 10-event → 11-chronicle → 12-report`（3/9 为显式占位，M3/M4 填充）。&#10;2. **统一主体决策**：船员/居民/使者同一类型三角色；饥饿/疲劳/士气驱动进食、休息、工作、**觅食迁徙**、拒绝指令。&#10;3. **确定性随机流**：`RngStreams`（L64X128MixRandom）按 weather/events/agents/market/factions 派生独立流；同种子两次历史逐字节一致。&#10;4. **事件分发**：tick 内有序 `EventQueue` → 阶段 11 唯一落库 → tick 后 `Flow` 广播（只读）。&#10;5. **新命令** `crew`：查看 14 个主体的角色/位置/需求/指派；`next` 附带回合报告行。&#10;6. 测试 24 个通过（M2 11 + M1 7 + fleet 6）。" />
+    <MESSAGE value="### v0.3.0 2026-11-21 阶段五 M3：经济与贸易&#10;&#10;1. **供需定价**：`PriceModel` 幂函数定价（库存低于目标即涨价，夹在 0.3×–5×），买价 ×1.05 / 卖价 ×0.95。&#10;2. **配方生产**：`ProductionSystemImpl` 按配方扣输入开工、完工发产出；fuel 作为能源，缺料即停产（冶炼/农业/精炼/给养 4 条配方）。&#10;3. **组织收支**：`MarketSystemImpl` 阶段 9 发工资，地点没钱则欠薪 → 士气下降。&#10;4. **玩家交易**：`market` / `trade buy|sell|quote`，支持**部分成交**；货物与信用点总量守恒。&#10;5. **SPI 解耦**：`fc-sim` 定义 `ProductionSystem`/`MarketSystem` 接口，`fc-economy` 实现，运行时注入（避免 sim 反向依赖 economy）。&#10;6. 测试 35 个通过（M3 11 + M2 11 + M1 7 + fleet 6）。" />
+    <MESSAGE value="## v1.0.0 2026-11-22 基础功能实现&#10;&#10;1. 基础功能完成，包括 CLI、TUI、世界模拟、舰队/殖民地/事件/科研/市场/目标等核心模块，支持单机运行与多窗口共享同一世界。&#10;2. 文档更新完毕，推送到远程。" />
+    <option name="LAST_COMMIT_MESSAGE" value="## v1.0.0 2026-11-22 基础功能实现&#10;&#10;1. 基础功能完成，包括 CLI、TUI、世界模拟、舰队/殖民地/事件/科研/市场/目标等核心模块，支持单机运行与多窗口共享同一世界。&#10;2. 文档更新完毕，推送到远程。" />
   </component>
 </project>

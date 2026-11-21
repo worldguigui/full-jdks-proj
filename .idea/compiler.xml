@@ -12,10 +12,13 @@
         <module name="fc-diplomacy" />
         <module name="fc-extensions" />
         <module name="fc-cli" />
+        <module name="fc-agent" />
         <module name="fc-runtime" />
         <module name="fc-world" />
         <module name="fc-history" />
+        <module name="fc-auth" />
         <module name="fc-economy" />
+        <module name="fc-tui" />
         <module name="fc-sim" />
         <module name="fc-testkit" />
         <module name="fc-audit" />

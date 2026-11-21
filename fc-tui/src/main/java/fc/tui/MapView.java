@@ -74,7 +74,7 @@ public final class MapView {
                     Style.PANEL_MUTED);
         }
         if (row < side.height()) {
-            Draw.line(buffer, side, row, "[J/K] 选择  [I] 详情  [M] 返回总览",
+            Draw.line(buffer, side, row, "select up/down 切换  inspect 详情  back 返回",
                     Style.PANEL_MUTED);
         }
     }

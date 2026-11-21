@@ -11,7 +11,7 @@
 
     <locations>
         <!-- 1 索尔星系（起点星域） -->
-        <location id="1" kind="StarSystem" name="Sol 索尔" credits="500" knowledge="CHARTED">
+        <location id="1" kind="StarSystem" name="一号星" credits="500" knowledge="CHARTED">
             <stock>
                 <item resource="food" amount="180"/>
                 <item resource="water" amount="160"/>
@@ -19,7 +19,7 @@
                 <item resource="equipment" amount="20"/>
             </stock>
         </location>
-        <location id="2" kind="Planet" name="Terra 泰拉" parent="1" credits="150"
+        <location id="2" kind="Planet" name="二号星" parent="1" credits="150"
                   knowledge="CHARTED" facilityKind="FARM" workers="2">
             <stock>
                 <item resource="food" amount="300"/>
@@ -29,7 +29,7 @@
             </stock>
             <production resource="food" perDay="2"/>
         </location>
-        <location id="3" kind="OrbitalStation" name="Luna 站" parent="1" credits="200"
+        <location id="3" kind="OrbitalStation" name="三号星" parent="1" credits="200"
                   knowledge="CHARTED" facilityKind="REFINERY" workers="2">
             <stock>
                 <item resource="fuel" amount="90"/>
@@ -42,13 +42,13 @@
         </location>
 
         <!-- 4 织女星系 -->
-        <location id="4" kind="StarSystem" name="Vega 织女" credits="200" knowledge="SURVEYED">
+        <location id="4" kind="StarSystem" name="四号星" credits="200" knowledge="SURVEYED">
             <stock>
                 <item resource="fuel" amount="60"/>
                 <item resource="ore" amount="30"/>
             </stock>
         </location>
-        <location id="5" kind="Planet" name="Vega Prime" parent="4" credits="120"
+        <location id="5" kind="Planet" name="五号星" parent="4" credits="120"
                   knowledge="SURVEYED" facilityKind="MINE" workers="2">
             <stock>
                 <item resource="ore" amount="140"/>
@@ -59,7 +59,7 @@
         </location>
 
         <!-- 6 猎户之门（异常点） -->
-        <location id="6" kind="Anomaly" name="Orion Gate 猎户之门" credits="80"
+        <location id="6" kind="Anomaly" name="六号星" credits="80"
                   knowledge="DETECTED">
             <stock>
                 <item resource="fuel" amount="20"/>
@@ -68,7 +68,7 @@
         </location>
 
         <!-- 7 参宿七星系 + 殖民地 + 设施 -->
-        <location id="7" kind="StarSystem" name="Rigel 参宿七" credits="200"
+        <location id="7" kind="StarSystem" name="七号星" credits="200"
                   knowledge="SURVEYED">
             <stock>
                 <item resource="fuel" amount="80"/>
@@ -76,7 +76,7 @@
                 <item resource="material" amount="10"/>
             </stock>
         </location>
-        <location id="8" kind="Colony" name="Rigel Forge 熔炉殖民地" parent="7"
+        <location id="8" kind="Colony" name="八号星" parent="7"
                   credits="300" level="2" owner="faction:3" population="40"
                   knowledge="SURVEYED" facilityKind="COLONY" workers="4">
             <stock>
@@ -91,7 +91,7 @@
                 <need resource="equipment" amount="10"/>
             </upgrade>
         </location>
-        <location id="9" kind="Facility" name="Forge Workshop 锻造工坊" parent="8"
+        <location id="9" kind="Facility" name="九号星" parent="8"
                   credits="200" knowledge="SURVEYED" facilityKind="WORKSHOP" workers="2">
             <stock>
                 <item resource="ore" amount="30"/>
@@ -103,7 +103,7 @@
         </location>
 
         <!-- 10 天狼星系 + 船坞 -->
-        <location id="10" kind="StarSystem" name="Sirius 天狼" credits="250" knowledge="SURVEYED">
+        <location id="10" kind="StarSystem" name="十号星" credits="250" knowledge="SURVEYED">
             <stock>
                 <item resource="fuel" amount="150"/>
                 <item resource="metal" amount="50"/>
@@ -111,7 +111,7 @@
             </stock>
             <production resource="energy" perDay="3"/>
         </location>
-        <location id="11" kind="OrbitalStation" name="Sirius Dock 天狼船坞" parent="10"
+        <location id="11" kind="OrbitalStation" name="十一号星" parent="10"
                   credits="400" knowledge="DETECTED" facilityKind="SHIPYARD" workers="4">
             <stock>
                 <item resource="fuel" amount="200"/>
@@ -124,7 +124,7 @@
         </location>
 
         <!-- 12 开普勒带（异常点） -->
-        <location id="12" kind="Anomaly" name="Kepler Belt 开普勒研究站" credits="60"
+        <location id="12" kind="Anomaly" name="十二号星" credits="60"
                   knowledge="UNKNOWN" facilityKind="LAB" workers="2">
             <stock>
                 <item resource="ore" amount="60"/>
@@ -133,13 +133,13 @@
         </location>
 
         <!-- 13 天津四星系 + 殖民地 + 农场 + 玩家前哨 -->
-        <location id="13" kind="StarSystem" name="Deneb 天津四" credits="200" knowledge="SURVEYED">
+        <location id="13" kind="StarSystem" name="十三号星" credits="200" knowledge="SURVEYED">
             <stock>
                 <item resource="food" amount="90"/>
                 <item resource="fuel" amount="70"/>
             </stock>
         </location>
-        <location id="14" kind="Colony" name="Deneb Colony 天津四殖民地" parent="13"
+        <location id="14" kind="Colony" name="十四号星" parent="13"
                   credits="300" level="2" owner="faction:2" population="35"
                   knowledge="SURVEYED" facilityKind="COLONY" workers="4">
             <stock>
@@ -152,7 +152,7 @@
                 <need resource="medicine" amount="10"/>
             </upgrade>
         </location>
-        <location id="15" kind="Facility" name="Deneb Farm 农业站" parent="14"
+        <location id="15" kind="Facility" name="十五号星" parent="14"
                   credits="150" knowledge="SURVEYED" facilityKind="FARM" workers="3">
             <stock>
                 <item resource="food" amount="40"/>
@@ -161,7 +161,7 @@
             </stock>
             <production resource="food" perDay="3"/>
         </location>
-        <location id="16" kind="Colony" name="Frontier Outpost 边境前哨" parent="13"
+        <location id="16" kind="Colony" name="十六号星" parent="13"
                   credits="120" level="0" owner="player" population="6"
                   knowledge="SURVEYED" facilityKind="COLONY" workers="3">
             <stock>
@@ -188,7 +188,7 @@
         </location>
 
         <!-- 17–24 外缘星区：未知区域、研究站与独立殖民地 -->
-        <location id="17" kind="StarSystem" name="Altair 牵牛星" credits="180"
+        <location id="17" kind="StarSystem" name="十七号星" credits="180"
                   knowledge="SURVEYED">
             <stock>
                 <item resource="fuel" amount="70"/>
@@ -196,7 +196,7 @@
                 <item resource="research" amount="4"/>
             </stock>
         </location>
-        <location id="18" kind="Planet" name="Altair IV 牵牛四" parent="17" credits="100"
+        <location id="18" kind="Planet" name="十八号星" parent="17" credits="100"
                   knowledge="DETECTED" facilityKind="MINE" workers="2">
             <stock>
                 <item resource="ore" amount="160"/>
@@ -205,7 +205,7 @@
             </stock>
             <production resource="ore" perDay="2"/>
         </location>
-        <location id="19" kind="OrbitalStation" name="Altair Relay 牵牛中继站" parent="17"
+        <location id="19" kind="OrbitalStation" name="十九号星" parent="17"
                   credits="250" knowledge="DETECTED" facilityKind="REFINERY" workers="2">
             <stock>
                 <item resource="fuel" amount="60"/>
@@ -214,7 +214,7 @@
             </stock>
         </location>
 
-        <location id="20" kind="StarSystem" name="Procyon 南河三" credits="220"
+        <location id="20" kind="StarSystem" name="二十号星" credits="220"
                   knowledge="SURVEYED">
             <stock>
                 <item resource="food" amount="120"/>
@@ -222,7 +222,7 @@
                 <item resource="medicine" amount="8"/>
             </stock>
         </location>
-        <location id="21" kind="Planet" name="Procyon Haven 南河避风港" parent="20"
+        <location id="21" kind="Planet" name="二十一号星" parent="20"
                   credits="140" knowledge="DETECTED" facilityKind="FARM" workers="2">
             <stock>
                 <item resource="food" amount="200"/>
@@ -231,14 +231,14 @@
             </stock>
             <production resource="food" perDay="2"/>
         </location>
-        <location id="22" kind="Anomaly" name="Echo Rift 回声裂隙" credits="90"
+        <location id="22" kind="Anomaly" name="二十二号星" credits="90"
                   knowledge="DETECTED">
             <stock>
                 <item resource="research" amount="10"/>
                 <item resource="luxury" amount="12"/>
             </stock>
         </location>
-        <location id="23" kind="Colony" name="Procyon Colony 南河殖民地" parent="20"
+        <location id="23" kind="Colony" name="二十三号星" parent="20"
                   credits="280" level="1" owner="faction:4" population="30"
                   knowledge="SURVEYED" facilityKind="COLONY" workers="3">
             <stock>
@@ -255,7 +255,7 @@
                 <need resource="medicine" amount="10"/>
             </upgrade>
         </location>
-        <location id="24" kind="Facility" name="Echo Lab 回声实验室" parent="23"
+        <location id="24" kind="Facility" name="二十四号星" parent="23"
                   credits="180" knowledge="DETECTED" facilityKind="LAB" workers="2">
             <stock>
                 <item resource="research" amount="6"/>
@@ -350,7 +350,7 @@
                pilot="5" engineering="5" research="2" medical="3" trade="5" exploration="4"/>
         <agent id="5" name="苏禾" role="CREW" at="ship:3" trait="DILIGENT"
                pilot="6" engineering="4" research="2" medical="3" trade="3" exploration="6"/>
-        <agent id="6" name="卡岚" role="CREW" at="7" trait="STOIC"
+        <agent id="6" name="秦川" role="CREW" at="7" trait="STOIC"
                pilot="7" engineering="3" research="2" medical="2" trade="2" exploration="5"/>
         <agent id="7" name="陆遥" role="CREW" at="ship:1" trait="DILIGENT"
                pilot="8" engineering="4" research="3" medical="3" trade="3" exploration="7"/>
@@ -374,29 +374,29 @@
                pilot="2" engineering="4" research="3" medical="2" trade="2" exploration="2"/>
         <agent id="18" name="林岚" role="RESIDENT" at="2" trait="STOIC"
                pilot="1" engineering="3" research="4" medical="3" trade="2" exploration="3"/>
-        <agent id="19" name="塔娅" role="RESIDENT" at="3" trait="LAZY"
+        <agent id="19" name="陶玉" role="RESIDENT" at="3" trait="LAZY"
                pilot="2" engineering="5" research="5" medical="2" trade="2" exploration="2"/>
-        <agent id="20" name="乔伊" role="RESIDENT" at="3" trait="DILIGENT"
+        <agent id="20" name="乔一" role="RESIDENT" at="3" trait="DILIGENT"
                pilot="3" engineering="6" research="3" medical="2" trade="3" exploration="3"/>
         <agent id="21" name="柯岩" role="RESIDENT" at="5" trait="STOIC"
                pilot="2" engineering="5" research="2" medical="2" trade="2" exploration="4"/>
-        <agent id="22" name="温妮" role="RESIDENT" at="5" trait="ANXIOUS"
+        <agent id="22" name="温宁" role="RESIDENT" at="5" trait="ANXIOUS"
                pilot="2" engineering="3" research="3" medical="3" trade="2" exploration="5"/>
-        <agent id="23" name="巴萨" role="RESIDENT" at="8" trait="LAZY"
+        <agent id="23" name="巴山" role="RESIDENT" at="8" trait="LAZY"
                pilot="1" engineering="3" research="1" medical="2" trade="2" exploration="1"/>
-        <agent id="24" name="索拉" role="RESIDENT" at="9" trait="DILIGENT"
+        <agent id="24" name="苏兰" role="RESIDENT" at="9" trait="DILIGENT"
                pilot="2" engineering="6" research="2" medical="2" trade="3" exploration="2"/>
         <agent id="25" name="石川" role="RESIDENT" at="11" trait="STOIC"
                pilot="2" engineering="6" research="3" medical="3" trade="4" exploration="2"/>
-        <agent id="26" name="安娜" role="RESIDENT" at="11" trait="DILIGENT"
+        <agent id="26" name="安楠" role="RESIDENT" at="11" trait="DILIGENT"
                pilot="2" engineering="5" research="4" medical="2" trade="5" exploration="3"/>
-        <agent id="27" name="乔治" role="RESIDENT" at="11" trait="LAZY"
+        <agent id="27" name="乔志" role="RESIDENT" at="11" trait="LAZY"
                pilot="2" engineering="4" research="2" medical="2" trade="6" exploration="2"/>
         <agent id="28" name="叶青" role="RESIDENT" at="14" trait="STOIC"
                pilot="2" engineering="3" research="2" medical="5" trade="4" exploration="2"/>
-        <agent id="29" name="海伦" role="RESIDENT" at="14" trait="DILIGENT"
+        <agent id="29" name="海兰" role="RESIDENT" at="14" trait="DILIGENT"
                pilot="2" engineering="4" research="3" medical="6" trade="3" exploration="2"/>
-        <agent id="30" name="雷恩" role="RESIDENT" at="15" trait="ANXIOUS"
+        <agent id="30" name="雷安" role="RESIDENT" at="15" trait="ANXIOUS"
                pilot="2" engineering="3" research="2" medical="4" trade="3" exploration="3"/>
         <agent id="31" name="小满" role="RESIDENT" at="16" trait="DILIGENT"
                pilot="3" engineering="4" research="3" medical="3" trade="2" exploration="4"/>
@@ -408,9 +408,9 @@
                pilot="2" engineering="2" research="7" medical="3" trade="2" exploration="5"/>
 
         <!-- 使者 4 名：贸易技能用于赠礼/条约，探索用于远航 -->
-        <agent id="41" name="伊萨" role="ENVOY" at="4" trait="ANXIOUS"
+        <agent id="41" name="伊山" role="ENVOY" at="4" trait="ANXIOUS"
                pilot="4" engineering="3" research="4" medical="3" trade="7" exploration="5"/>
-        <agent id="42" name="檀札" role="ENVOY" at="13" trait="STOIC"
+        <agent id="42" name="檀州" role="ENVOY" at="13" trait="STOIC"
                pilot="3" engineering="3" research="5" medical="2" trade="8" exploration="4"/>
         <agent id="43" name="织羽" role="ENVOY" at="10" trait="DILIGENT"
                pilot="4" engineering="3" research="4" medical="3" trade="7" exploration="6"/>
