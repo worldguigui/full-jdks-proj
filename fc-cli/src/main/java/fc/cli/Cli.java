@@ -10,6 +10,7 @@ import fc.diplomacy.GoalService;
 import fc.economy.LoanService;
 import fc.economy.TradeService;
 import fc.extensions.MapAtlas;
+import fc.extensions.RemoteJmx;
 import fc.extensions.Soundtrack;
 import fc.fleet.CrewService;
 import fc.fleet.MaintenanceService;
@@ -147,6 +148,8 @@ public final class Cli {
                     "星图工坊：带图例/罗盘/缩略图的 PNG/JPEG 制图"),
             new Cmd("music", List.of("soundtrack"), "music [mid|wav] [路径]",
                     "按当前世界状态生成确定性 MIDI 配乐或 WAV"),
+            new Cmd("jmx", List.of(), "jmx [start [端口]|status|stop]",
+                    "回环 JMX 管理端点（jconsole 可连接，仅本机）"),
             new Cmd("vault", List.of("archive"), "vault [write|list|check|watch] [目录]",
                     "档案库：编年史快照镜像、索引校验与变更监视"),
             new Cmd("seal", List.of(), "seal <文件> [输出]",
@@ -170,6 +173,7 @@ public final class Cli {
     private final ShipyardService shipyards;
     private final GoalService goals;
     private final Supplier<TickContext> tickContexts;
+    private RemoteJmx.Server jmx;
 
     public Cli(GameLoop loop) {
         this(loop, null, null, null, null);
@@ -250,12 +254,16 @@ public final class Cli {
             case "atlas" -> doAtlas(tokens);
             case "music" -> doMusic(tokens);
             case "vault" -> doVault(tokens);
+            case "jmx" -> doJmx(tokens);
             case "seal" -> doSeal(tokens);
             case "unseal" -> doUnseal(tokens);
             case "sign" -> doSign(tokens);
             case "verify" -> doVerify(tokens);
             case "help" -> help();
-            case "quit" -> "bye";
+            case "quit" -> {
+                closeJmx();
+                yield "bye";
+            }
             default -> "未知命令: " + tokens.get(0) + "（输入 help 查看全部 " + COMMANDS.size() + " 条命令）";
         };
     }
@@ -492,6 +500,76 @@ public final class Cli {
         } catch (IOException | IllegalArgumentException
                  | javax.sound.midi.InvalidMidiDataException e) {
             return "配乐失败：" + e.getMessage();
+        }
+    }
+
+    /** 回环 JMX 端点：启动、查看与停止；不进入重放日志。 */
+    private String doJmx(List<String> tokens) {
+        String action = tokens.size() >= 2 ? tokens.get(1).toLowerCase(java.util.Locale.ROOT)
+                : "start";
+        Integer inlinePort = null;
+        if (!action.equals("start") && !action.equals("status") && !action.equals("stop")) {
+            try {
+                inlinePort = Integer.valueOf(tokens.get(1));
+                action = "start";
+            } catch (NumberFormatException e) {
+                return "用法：jmx [start [端口]|status|stop]";
+            }
+        }
+        try {
+            return switch (action) {
+                case "start" -> {
+                    if (jmx != null && jmx.isRunning()) {
+                        yield "JMX 端点已在运行 → " + jmx.url();
+                    }
+                    int port = inlinePort == null ? 0 : inlinePort;
+                    if (tokens.size() >= 3) {
+                        try {
+                            port = Integer.parseInt(tokens.get(2));
+                        } catch (NumberFormatException e) {
+                            yield "端口必须是整数：" + tokens.get(2);
+                        }
+                    }
+                    jmx = RemoteJmx.start(port);
+                    yield "JMX 端点已启动 → " + jmx.url()
+                            + "\n  仅绑定回环地址；可用 jconsole 连接，或 jmx status 查看。";
+                }
+                case "status" -> {
+                    if (jmx == null || !jmx.isRunning()) {
+                        yield "JMX 端点未启动（jmx [端口] 启动）";
+                    }
+                    try (var connector = RemoteJmx.connect(jmx.url())) {
+                        var connection = connector.getMBeanServerConnection();
+                        try {
+                            var snapshot = RemoteJmx.snapshot(connection);
+                            yield "JMX 运行中 → " + jmx.url() + "\n  日 "
+                                    + snapshot.get("Day") + "｜舰船 " + snapshot.get("Ships")
+                                    + "｜信用点 " + snapshot.get("Credits")
+                                    + "｜哈希 " + snapshot.get("StateHash");
+                        } catch (IOException noTelemetry) {
+                            yield "JMX 运行中 → " + jmx.url() + "｜MBean "
+                                    + connection.getMBeanCount() + " 个（未注册游戏遥测）";
+                        }
+                    }
+                }
+                case "stop" -> {
+                    if (jmx == null) {
+                        yield "JMX 端点未启动";
+                    }
+                    closeJmx();
+                    yield "JMX 端点已停止";
+                }
+                default -> "用法：jmx [start [端口]|status|stop]";
+            };
+        } catch (IOException | IllegalArgumentException e) {
+            return "JMX 操作失败：" + e.getMessage();
+        }
+    }
+
+    private void closeJmx() {
+        if (jmx != null) {
+            jmx.close();
+            jmx = null;
         }
     }
 

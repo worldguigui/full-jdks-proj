@@ -199,6 +199,24 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void jmxEndpointStartsReportsAndStops() {
+        RuntimeSession session = boot();
+        try {
+            String started = session.execute("jmx 0");
+            assert started.contains("JMX 端点已启动") : started;
+            assert started.contains("service:jmx:rmi") : started;
+            String status = session.execute("jmx status");
+            assert status.contains("JMX 运行中") : status;
+            assert session.execute("jmx stop").contains("已停止") : "应停止端点";
+            assert session.execute("jmx status").contains("未启动") : "停止后应报告未启动";
+        } finally {
+            session.execute("jmx stop");
+        }
+        assert session.commandHistory().stream().noneMatch(c -> c.startsWith("jmx"))
+                : "JMX 命令不应进入重放日志";
+    }
+
+    @FcTest
     public void sealAndUnsealEvidenceRoundTrip() throws Exception {
         RuntimeSession session = boot();
         Path dir = Files.createTempDirectory("fc-runtime-seal-");

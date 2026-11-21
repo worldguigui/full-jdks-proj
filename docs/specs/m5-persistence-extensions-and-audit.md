@@ -28,7 +28,7 @@ M5 不改变 M4 已确定的 Tick、RNG 与账本不变量；所有新增能力�
 事件实现细节固化进磁盘格式；世界规则变化时由格式版本显式拒绝，而不是静默读出半个世界。
 
 以下命令不进入重放日志：`save`、`load`、`saves`、`hash`、`help`、`quit`、`exit`；
-后续加入的 `query`、`export`、`atlas`（别名 `chart`）、`music`（别名 `soundtrack`）、`vault`（别名 `archive`）、`seal`、`unseal`、`sign`、`verify` 同样排除
+后续加入的 `query`、`export`、`atlas`（别名 `chart`）、`music`（别名 `soundtrack`）、`vault`（别名 `archive`）、`seal`、`unseal`、`sign`、`verify`、`jmx` 同样排除
 （`export`/`atlas`/`music`/`vault`/`seal`/`unseal`/`sign` 会写文件，`watch` 还会阻塞，读档时不得重复执行）。
 其余纯查询命令仍会记录，这是格式的既定语义。
 其余命令按输入顺序原样记录；纯查询命令虽不改变状态，但保留在日志中不影响重放结果，
@@ -118,6 +118,7 @@ public interface FrontierMod {
 | 能力 | 实现 | 行为 |
 |---|---|---|
 | JMX | `GameTelemetry` / `GameTelemetryMBean` | 平台 MBeanServer 注册 `fc.telemetry:type=Game`，暴露星历、哈希、地点/舰船数、信用点、终局、命令数；每次命令后刷新 |
+| 回环 JMX | `RemoteJmx` | 本机 RMI 注册表 + 平台 MBeanServer，只监听回环；`start/status/stop` 生命周期可关闭、可重复关闭，只读属性写入按 JMX 语义返回空列表 |
 | HTTP | `StatusServer` | 仅绑定回环地址，`GET /status` 返回 UTF-8 JSON；`fetch` 用 `java.net.http` 读取并设超时 |
 | PNG | `StarMapRenderer` | 确定性的圆形布局、按 sealed 地点类型着色、航线、舰船与标签；`ImageIO` 写出，兼容 headless |
 | 音频 | `SoundBank` / `Soundtrack` | 提示音合成；按世界状态确定性生成 MIDI 并可离线渲染 WAV；无音频设备时优雅降级 |
@@ -189,6 +190,7 @@ java -cp fc-audit/target/classes fc.audit.AuditMain --out docs/audit
 | 套件 | 用例 | 覆盖 |
 |---|---:|---|
 | `fc-persist` `PersistUnitTest` | 6 | 负载往返、未来版本拒绝、口令与篡改、英文/中文资源包、偏好持久化与删除、档案名校验 |
+| `fc-extensions` `RemoteJmxTest` | 5 | 回环连接与遥测读取、多客户端、只读属性、停止后拒绝连接、端口校验与缺失遥测 |
 | `fc-extensions` `ExtensionsTest` | 9 | 内存编译、目录 Mod 装载、未签名拒绝、宏展开/保存/执行、确定性 PNG、JMX 注册与更新、HTTP 端点与 JSON、音频能力探测、描述符校验 |
 | `fc-runtime` `PersistenceTest` | 6 | 明文重放同哈希、加密口令、校验和损坏拒绝、槽位列表、查询不入日志、缺失槽位 |
 | `fc-audit` `AuditTest` | 5 | CSV 引号、基准分母与 Preview、常量池类型提取、覆盖率与证据、Preview class 标记 |

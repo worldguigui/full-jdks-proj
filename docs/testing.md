@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 19 个测试套件、187 个用例。
+当前共 20 个测试套件、193 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -42,13 +42,14 @@ mvn -B package
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
 | `fc-history` | `ChronicleVaultTest` | 6 | 快照与索引、幂等写入、篡改/缺失检测、排他锁、WatchService、坏索引拒绝 |
 | `fc-history` | `EvidenceSealTest` | 6 | PKCS#12 往返、AES-GCM 封存/解封、错钥/篡改拒绝、输入过滤器、错误口令、参数校验 |
-| `fc-runtime` | `RuntimeSmokeTest` | 13 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、封存、签章、非法启动参数 |
+| `fc-runtime` | `RuntimeSmokeTest` | 14 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、封存、签章、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
 | `fc-extensions` | `ExtensionsTest` | 9 | 内存编译、Mod 装载与签名要求、宏、PNG、JMX、HTTP、音频、描述符 |
 | `fc-extensions` | `MapAtlasTest` | 6 | PNG/JPEG 元数据、逐像素确定性、滤镜、缩略图、区域读取、参数校验 |
 | `fc-extensions` | `SoundtrackTest` | 5 | 同种子同曲、SMF 往返、WAV 解码、音色/元数据/控制器、参数校验与设备探测 |
+| `fc-extensions` | `RemoteJmxTest` | 5 | 回环 RMI 连接、多客户端、只读属性、停止后拒绝连接、端口与缺失遥测 |
 | `fc-audit` | `AuditTest` | 5 | CSV、基准分母与 Preview、classfile 类型提取、报告证据、预览标记 |
 
 `fc-science`、`fc-diplomacy`、`fc-colony` 等领域模块的玩法链由 `fc-runtime.M4GameplayTest`
@@ -89,7 +90,7 @@ mvn -B package
 - 同种子、同命令序列保存后读档，`StateHasher` 必须一致；明文与加密路径分别验证。
 - 错误口令、篡改密文、损坏的校验和、未来格式版本必须被拒绝，且不替换当前会话。
 - 槽位名校验必须阻止路径穿越；`saves` 按字母序返回。
-- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`vault`、`seal`、`unseal`、`sign`、`verify` 不进入重放日志。
+- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`vault`、`seal`、`unseal`、`sign`、`verify`、`jmx` 不进入重放日志。
 
 ### 编年史查询与导出
 
@@ -120,6 +121,15 @@ mvn -B package
 - 索引读取必须拒绝坏行、坏 CRC 与非法 UTF-8；`verify` 必须发现字节数变化、摘要变化与文件缺失。
 - 锁被占用时必须拒绝写入；释放后可继续写入。
 - `watch` 必须观察到新快照（过滤索引、锁与临时文件），超时返回空列表而不是抛异常。
+
+### 回环 JMX 管理端点
+
+- 端点 URL 必须形如 `service:jmx:rmi:///jndi/rmi://127.0.0.1:<端口>/jmxrmi`，端口 0 自动分配，
+  且只能从回环地址连接；同一端口重复启动必须失败。
+- `GameTelemetry` 注册后，远程快照读取的八个属性必须与会话状态一致；未注册时必须明确失败。
+- 只读 MBean 的属性写入按 JMX 语义返回空列表，原值不变；不得使用异常或忽略错误来伪装成功。
+- `stop` 必须停止连接器并注销注册表，之后连接被拒绝；重复 `close()` 幂等。
+- 端口越界在启动前拒绝；`jmx` 命令不进入重放日志。
 
 ### 配乐工坊
 

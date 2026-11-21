@@ -5,6 +5,27 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.5.7 2026-11-21 阶段五 M12：回环 JMX 远程管理
+
+1. **RMI 注册表**：`fc.extensions.RemoteJmx` 把平台 `MBeanServer` 暴露到本机 RMI 注册表，
+   端点 URL 为 `service:jmx:rmi:///jndi/rmi://127.0.0.1:<端口>/jmxrmi`，可被 `jconsole`
+   或 `JMXConnectorFactory` 直接连接。
+2. **只绑定回环**：注册表与连接器都使用自建的 `RMIServerSocketFactory` /
+   `RMIClientSocketFactory`，服务端只监听 `InetAddress.getLoopbackAddress()`，客户端也只连回环；
+   不依赖 `java.rmi.server.hostname`，不做跨机暴露，认证边界由操作系统本地账户承担。
+3. **生命周期**：`RemoteJmx.Server` 实现 `AutoCloseable`；`close()` 停止连接器并
+   `unexportObject` 注销注册表，可重复调用；启动失败时清理半初始化资源；端口越界在启动前拒绝，
+   端口 0 自动选择空闲回环端口。
+4. **读写语义**：`snapshot` 读取 `fc.telemetry:type=Game` 的八个属性，MBean 未注册时明确失败；
+   `setAttributes` 按 JMX 语义返回真正写入的属性，只读属性被跳过而不是抛异常。
+5. **CLI**：新增 `jmx [start [端口]|status|stop]`（`jmx <端口>` 等价于启动）；`status`
+   自连接读取遥测，未注册遥测时回退显示 MBean 数量；命令与端点生命周期退出时一并清理，
+   且不进入重放日志。
+6. **测试**：新增 `fc-extensions.RemoteJmxTest` 5 个用例与运行时 1 个集成用例；当前共
+   20 个套件、193 个用例通过；既有测试未删除、未跳过、未放宽。
+7. **审计基线**：类型 464/3836（12.1%）、包 69/176（39.2%）、模块 11/20、312 个 class、
+   Preview 违规 0。
+
 ## v0.5.6 2026-11-21 阶段五 M11：证据封存与 PKCS#12 密钥库
 
 1. **密钥库**：`fc.history.seal.EvidenceSeal` 用 PKCS#12 保存单个 AES-256 `SecretKeyEntry`
