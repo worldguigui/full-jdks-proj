@@ -1,6 +1,8 @@
 package fc.runtime;
 
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 
@@ -21,7 +23,9 @@ final class ConsoleLauncher {
                 os.contains("win") ? "java.exe" : "java").toString();
         String classpath = System.getProperty("java.class.path");
         String[] clientArgs = {
-                java, "-Dfile.encoding=UTF-8", "-cp", classpath,
+                java, "-Dfile.encoding=UTF-8",
+                "-Dstdin.encoding=UTF-8", "-Dstdout.encoding=UTF-8",
+                "-cp", classpath,
                 "fc.runtime.ConsoleClient",
                 "--host", "127.0.0.1",
                 "--port", Integer.toString(port),
@@ -30,13 +34,21 @@ final class ConsoleLauncher {
         boolean noWindow = "1".equals(System.getenv("FC_CONSOLE_NO_WINDOW"));
         if (os.contains("win") && !noWindow) {
             try {
-                String[] command = new String[clientArgs.length + 4];
-                command[0] = "cmd.exe";
-                command[1] = "/c";
-                command[2] = "start";
-                command[3] = "Frontier Chronicle CLI";
-                System.arraycopy(clientArgs, 0, command, 4, clientArgs.length);
-                new ProcessBuilder(command).start();
+                // 新控制台默认可能是 936；先 chcp 65001，否则 UTF-8 输出会乱码。
+                StringBuilder bat = new StringBuilder();
+                bat.append("@echo off\r\n");
+                bat.append("chcp 65001 >nul\r\n");
+                bat.append("title Frontier Chronicle CLI\r\n");
+                for (String arg : clientArgs) {
+                    bat.append(quote(arg)).append(' ');
+                }
+                bat.append("\r\necho.\r\npause\r\n");
+                Path script = Files.createTempFile("fc-console-", ".bat");
+                Files.writeString(script, bat.toString(),
+                        StandardCharsets.US_ASCII);
+                script.toFile().deleteOnExit();
+                new ProcessBuilder("cmd.exe", "/c", "start",
+                        "Frontier Chronicle CLI", script.toString()).start();
             } catch (Exception e) {
                 info.println("无法自动打开 CLI 窗口：" + e.getMessage());
             }
@@ -49,6 +61,9 @@ final class ConsoleLauncher {
             manual.append(quote(arg));
         }
         info.println("CLI 客户端命令（若独立窗口未出现，可在另一终端运行）：");
+        if (os.contains("win")) {
+            info.println("  chcp 65001");
+        }
         info.println("  " + manual);
     }
 

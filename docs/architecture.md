@@ -315,8 +315,9 @@ TUI 画布。
 - **权威宿主**：`fc-runtime.ConsoleHost` 持有 `RuntimeSession`，在同步锁内执行命令、
   存档/读档/PNG 与遥测刷新；TUI 构建快照时使用同一把锁，避免读到半个世界。
   CLI 窗口通过 `SplitConsoleServer`（回环地址 + 随机令牌 + Base64 帧）提交命令；
-  `ConsoleClient` 打印完整输出。Windows 用 `cmd /c start` 新开控制台，其他平台
-  打印可直接运行的手工命令；`FC_CONSOLE_NO_WINDOW=1` 用于测试/手动排障。
+  `ConsoleClient` 打印完整输出。Windows 用 `cmd /c start` 打开新控制台，并先用
+  生成的批处理执行 `chcp 65001`、以 UTF-8 读写，避免本地代码页导致中文乱码；
+  其他平台打印可直接运行的手工命令；`FC_CONSOLE_NO_WINDOW=1` 用于测试/排障。
 - **TUI 页面命令**：`map`/`ships`/`colonies`/`research`/`market`/`log`/`status`/
   `decisions`/`help` 直接复用 CLI 命令名；CLI 窗口执行后，宿主通知 TUI
   刷新快照并切换到对应可视化页面。

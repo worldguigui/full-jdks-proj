@@ -22,6 +22,7 @@ public final class ConsoleClient {
     }
 
     public static void main(String[] args) {
+        ensureUtf8Console();
         String host = "127.0.0.1";
         int port = -1;
         String token = "";
@@ -108,6 +109,21 @@ public final class ConsoleClient {
         } catch (IOException e) {
             out.println("无法连接指挥终端：" + e.getMessage());
             System.exit(1);
+        }
+    }
+
+    /** Windows 控制台可能仍是 936；尝试切到 UTF-8，失败时保持原状。 */
+    private static void ensureUtf8Console() {
+        if (!System.getProperty("os.name", "").toLowerCase().contains("win")) {
+            return;
+        }
+        try {
+            Process process = new ProcessBuilder("cmd.exe", "/c", "chcp 65001 >nul")
+                    .inheritIO()
+                    .start();
+            process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+            // 无控制台或受限环境：继续使用显式 UTF-8 流。
         }
     }
 

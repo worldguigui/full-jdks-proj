@@ -22,9 +22,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class SplitConsoleTest {
 
     public static void main(String[] args) {
-        if (!TestRunner.report(TestRunner.run(SplitConsoleTest.class))) {
-            System.exit(1);
-        }
+        boolean passed = TestRunner.report(TestRunner.run(SplitConsoleTest.class));
+        // 测试涉及回环服务器/子进程；显式退出，避免非守护线程阻止测试 JVM 结束。
+        System.exit(passed ? 0 : 1);
     }
 
     private record Fixture(SplitConsoleServer server, ConsoleHost host, Path dir,

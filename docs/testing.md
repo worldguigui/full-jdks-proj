@@ -192,6 +192,8 @@ mvn -B package
   回环地址 + 随机令牌连接；`help`/`log all` 等完整输出在 CLI 窗口显示，不得截断。
   CLI 的页面命令（map/ships/colonies/research/market/log/status/decisions/help）
   必须让 TUI 刷新并切换页面；`quit` 必须同时结束 CLI 与 TUI。
+- Windows 新窗口必须在启动前切到 UTF-8（`chcp 65001`）并以 UTF-8 读写，
+  中文帮助/事件/提示不得出现乱码。
 - 渲染只消费 `Snapshot`：重复渲染不得执行命令或推进 Tick；只有 CLI 的
   `next <天数>` 才改变世界。快照构建与命令执行必须串行化。
 - 待决事项出现时 `next` 必须停止推进：TUI 状态行与情报页必须说明“规则阻塞”，

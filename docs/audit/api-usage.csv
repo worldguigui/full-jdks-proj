@@ -461,7 +461,7 @@ java.base,java.io,java.io.DataOutput,IN_DENOMINATOR,UNUSED,0,
 java.base,java.io,java.io.DataOutputStream,IN_DENOMINATOR,USED,1,fc.persist.SaveRepository
 java.base,java.io,java.io.EOFException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.io,java.io.Externalizable,IN_DENOMINATOR,UNUSED,0,
-java.base,java.io,java.io.File,IN_DENOMINATOR,USED,7,fc.extensions.MapAtlas;fc.extensions.ModLoader;fc.extensions.Soundtrack;fc.extensions.StarMapRenderer;fc.history.query.ChronicleExport;fc.history.sign.EvidenceSignature;fc.persist.SaveRepository
+java.base,java.io,java.io.File,IN_DENOMINATOR,USED,8,fc.extensions.MapAtlas;fc.extensions.ModLoader;fc.extensions.Soundtrack;fc.extensions.StarMapRenderer;fc.history.query.ChronicleExport;fc.history.sign.EvidenceSignature;fc.persist.SaveRepository;fc.runtime.ConsoleLauncher
 java.base,java.io,java.io.FileDescriptor,IN_DENOMINATOR,USED,2,fc.runtime.Main;fc.tui.SystemTerminal
 java.base,java.io,java.io.FileFilter,IN_DENOMINATOR,UNUSED,0,
 java.base,java.io,java.io.FileInputStream,IN_DENOMINATOR,UNUSED,0,
@@ -540,7 +540,7 @@ java.base,java.lang,java.lang.AutoCloseable,IN_DENOMINATOR,USED,16,fc.extensions
 java.base,java.lang,java.lang.Boolean,IN_DENOMINATOR,USED,10,fc.diplomacy.GoalService;fc.extensions.ModCompiler;fc.extensions.ModDescriptor;fc.history.jdbc.ChronicleSql$Parser;fc.history.jdbc.JdbcProxies$ConnectionHandler;fc.history.jdbc.JdbcProxies$DbMetaHandler;fc.history.jdbc.JdbcProxies$MetaHandler;fc.history.jdbc.JdbcProxies$ResultSetHandler;fc.history.jdbc.JdbcProxies$StatementHandler;fc.persist.SaveRepository
 java.base,java.lang,java.lang.BootstrapMethodError,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.Byte,IN_DENOMINATOR,USED,1,fc.history.jdbc.JdbcProxies$ResultSetHandler
-java.base,java.lang,java.lang.CharSequence,IN_DENOMINATOR,USED,36,fc.audit.AuditReport;fc.audit.ClassScanner;fc.audit.Csv;fc.cli.Cli;fc.cli.StarMapRenderer;fc.colony.ProjectService;fc.colony.ShipyardService;fc.extensions.FcNaming$Names;fc.extensions.FcScriptEngine;fc.extensions.FcScriptEngineFactory;fc.extensions.FrontierCatalog;fc.extensions.Macro;fc.extensions.ManifestTransfer;fc.extensions.ModCompiler$1;fc.extensions.ModDescriptor;fc.extensions.RemoteJmx
+java.base,java.lang,java.lang.CharSequence,IN_DENOMINATOR,USED,37,fc.audit.AuditReport;fc.audit.ClassScanner;fc.audit.Csv;fc.cli.Cli;fc.cli.StarMapRenderer;fc.colony.ProjectService;fc.colony.ShipyardService;fc.extensions.FcNaming$Names;fc.extensions.FcScriptEngine;fc.extensions.FcScriptEngineFactory;fc.extensions.FrontierCatalog;fc.extensions.Macro;fc.extensions.ManifestTransfer;fc.extensions.ModCompiler$1;fc.extensions.ModDescriptor;fc.extensions.RemoteJmx
 java.base,java.lang,java.lang.Character,IN_DENOMINATOR,USED,8,fc.cli.Cli;fc.cli.TokenScanner;fc.extensions.ChatRelay;fc.history.jdbc.ChronicleSql;fc.sim.StateHasher;fc.tui.Draw;fc.tui.ScreenBuffer;fc.tui.TextWidth
 java.base,java.lang,java.lang.Character$Subset,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.Character$UnicodeBlock,IN_DENOMINATOR,UNUSED,0,
@@ -561,7 +561,7 @@ java.base,java.lang,java.lang.Enum,IN_DENOMINATOR,USED,20,fc.diplomacy.Diplomacy
 java.base,java.lang,java.lang.Enum$EnumDesc,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.EnumConstantNotPresentException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.Error,IN_DENOMINATOR,UNUSED,0,
-java.base,java.lang,java.lang.Exception,IN_DENOMINATOR,USED,27,fc.cli.Cli;fc.config.PropertiesConfig;fc.config.world.XmlWorldLoader;fc.extensions.ChatRelay;fc.extensions.FcNaming$Names;fc.extensions.FcScriptEngine;fc.extensions.FcScriptEngine$Host;fc.extensions.FileXaResource;fc.extensions.FrontierCatalog;fc.extensions.FrontierMod;fc.extensions.ModException;fc.extensions.ModLoader;fc.extensions.RemoteJmx;fc.extensions.RemoteJmx$Server;fc.extensions.SoundBank;fc.extensions.Soundtrack
+java.base,java.lang,java.lang.Exception,IN_DENOMINATOR,USED,28,fc.cli.Cli;fc.config.PropertiesConfig;fc.config.world.XmlWorldLoader;fc.extensions.ChatRelay;fc.extensions.FcNaming$Names;fc.extensions.FcScriptEngine;fc.extensions.FcScriptEngine$Host;fc.extensions.FileXaResource;fc.extensions.FrontierCatalog;fc.extensions.FrontierMod;fc.extensions.ModException;fc.extensions.ModLoader;fc.extensions.RemoteJmx;fc.extensions.RemoteJmx$Server;fc.extensions.SoundBank;fc.extensions.Soundtrack
 java.base,java.lang,java.lang.ExceptionInInitializerError,IN_DENOMINATOR,USED,3,fc.extensions.CargoManifest;fc.extensions.FrontierCatalog;fc.history.jdbc.ChronicleDriver
 java.base,java.lang,java.lang.Float,IN_DENOMINATOR,USED,2,fc.extensions.MapAtlas;fc.history.jdbc.JdbcProxies$ResultSetHandler
 java.base,java.lang,java.lang.FunctionalInterface,IN_DENOMINATOR,USED,2,fc.config.PropertiesConfig$Parser;fc.extensions.FcScriptEngine$Host
@@ -602,8 +602,8 @@ java.base,java.lang,java.lang.Object,IN_DENOMINATOR,USED,384,fc.audit.ApiType;fc
 java.base,java.lang,java.lang.OutOfMemoryError,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.Override,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.Package,IN_DENOMINATOR,UNUSED,0,
-java.base,java.lang,java.lang.Process,IN_DENOMINATOR,USED,2,fc.runtime.ConsoleLauncher;fc.tui.TerminalSize
-java.base,java.lang,java.lang.ProcessBuilder,IN_DENOMINATOR,USED,2,fc.runtime.ConsoleLauncher;fc.tui.TerminalSize
+java.base,java.lang,java.lang.Process,IN_DENOMINATOR,USED,3,fc.runtime.ConsoleClient;fc.runtime.ConsoleLauncher;fc.tui.TerminalSize
+java.base,java.lang,java.lang.ProcessBuilder,IN_DENOMINATOR,USED,3,fc.runtime.ConsoleClient;fc.runtime.ConsoleLauncher;fc.tui.TerminalSize
 java.base,java.lang,java.lang.ProcessBuilder$Redirect,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.ProcessBuilder$Redirect$Type,IN_DENOMINATOR,UNUSED,0,
 java.base,java.lang,java.lang.ProcessHandle,IN_DENOMINATOR,UNUSED,0,
@@ -996,7 +996,7 @@ java.base,java.nio.channels.spi,java.nio.channels.spi.AbstractSelector,IN_DENOMI
 java.base,java.nio.channels.spi,java.nio.channels.spi.AsynchronousChannelProvider,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.channels.spi,java.nio.channels.spi.SelectorProvider,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.charset,java.nio.charset.CharacterCodingException,IN_DENOMINATOR,USED,1,fc.history.vault.ChronicleVault
-java.base,java.nio.charset,java.nio.charset.Charset,IN_DENOMINATOR,USED,25,fc.audit.AuditReport;fc.audit.Baseline;fc.cli.Cli;fc.extensions.ChatRelay$Client;fc.extensions.ChatRelay$Session;fc.extensions.Macro;fc.extensions.ModCompiler;fc.extensions.ModLoader;fc.extensions.Soundtrack;fc.extensions.StatusServer;fc.extensions.TrustAuthority;fc.extensions.TrustAuthority$Der;fc.history.query.ChronicleExport;fc.history.query.ChronicleExport$WriterBundle;fc.history.seal.EvidenceSeal;fc.history.sign.EvidenceSignature$Verification
+java.base,java.nio.charset,java.nio.charset.Charset,IN_DENOMINATOR,USED,26,fc.audit.AuditReport;fc.audit.Baseline;fc.cli.Cli;fc.extensions.ChatRelay$Client;fc.extensions.ChatRelay$Session;fc.extensions.Macro;fc.extensions.ModCompiler;fc.extensions.ModLoader;fc.extensions.Soundtrack;fc.extensions.StatusServer;fc.extensions.TrustAuthority;fc.extensions.TrustAuthority$Der;fc.history.query.ChronicleExport;fc.history.query.ChronicleExport$WriterBundle;fc.history.seal.EvidenceSeal;fc.history.sign.EvidenceSignature$Verification
 java.base,java.nio.charset,java.nio.charset.CharsetDecoder,IN_DENOMINATOR,USED,1,fc.history.vault.ChronicleVault
 java.base,java.nio.charset,java.nio.charset.CharsetEncoder,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.charset,java.nio.charset.CoderMalfunctionError,IN_DENOMINATOR,UNUSED,0,
@@ -1004,7 +1004,7 @@ java.base,java.nio.charset,java.nio.charset.CoderResult,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.charset,java.nio.charset.CodingErrorAction,IN_DENOMINATOR,USED,1,fc.history.vault.ChronicleVault
 java.base,java.nio.charset,java.nio.charset.IllegalCharsetNameException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.charset,java.nio.charset.MalformedInputException,IN_DENOMINATOR,UNUSED,0,
-java.base,java.nio.charset,java.nio.charset.StandardCharsets,IN_DENOMINATOR,USED,24,fc.audit.AuditReport;fc.audit.Baseline;fc.cli.Cli;fc.extensions.ChatRelay$Client;fc.extensions.ChatRelay$Session;fc.extensions.Macro;fc.extensions.ModCompiler;fc.extensions.ModLoader;fc.extensions.Soundtrack;fc.extensions.StatusServer;fc.extensions.TrustAuthority;fc.extensions.TrustAuthority$Der;fc.history.query.ChronicleExport;fc.history.query.ChronicleExport$WriterBundle;fc.history.seal.EvidenceSeal;fc.history.sign.EvidenceSignature$Verification
+java.base,java.nio.charset,java.nio.charset.StandardCharsets,IN_DENOMINATOR,USED,25,fc.audit.AuditReport;fc.audit.Baseline;fc.cli.Cli;fc.extensions.ChatRelay$Client;fc.extensions.ChatRelay$Session;fc.extensions.Macro;fc.extensions.ModCompiler;fc.extensions.ModLoader;fc.extensions.Soundtrack;fc.extensions.StatusServer;fc.extensions.TrustAuthority;fc.extensions.TrustAuthority$Der;fc.history.query.ChronicleExport;fc.history.query.ChronicleExport$WriterBundle;fc.history.seal.EvidenceSeal;fc.history.sign.EvidenceSignature$Verification
 java.base,java.nio.charset,java.nio.charset.UnmappableCharacterException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.charset,java.nio.charset.UnsupportedCharsetException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.charset.spi,java.nio.charset.spi.CharsetProvider,IN_DENOMINATOR,UNUSED,0,
@@ -1030,14 +1030,14 @@ java.base,java.nio.file,java.nio.file.FileSystems,IN_DENOMINATOR,USED,1,fc.histo
 java.base,java.nio.file,java.nio.file.FileVisitOption,IN_DENOMINATOR,USED,3,fc.audit.ClassScanner;fc.cli.Cli;fc.history.query.ChronicleExport
 java.base,java.nio.file,java.nio.file.FileVisitResult,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.file,java.nio.file.FileVisitor,IN_DENOMINATOR,UNUSED,0,
-java.base,java.nio.file,java.nio.file.Files,IN_DENOMINATOR,USED,23,fc.audit.AuditMain;fc.audit.AuditReport;fc.audit.Baseline;fc.audit.ClassScanner;fc.cli.Cli;fc.config.PropertiesConfig;fc.config.world.XmlWorldLoader;fc.extensions.FileXaResource;fc.extensions.Macro;fc.extensions.MapAtlas;fc.extensions.ModCompiler;fc.extensions.ModLoader;fc.extensions.SecureChannel;fc.extensions.Soundtrack;fc.extensions.StarMapRenderer;fc.extensions.TwoPhaseFiles
+java.base,java.nio.file,java.nio.file.Files,IN_DENOMINATOR,USED,24,fc.audit.AuditMain;fc.audit.AuditReport;fc.audit.Baseline;fc.audit.ClassScanner;fc.cli.Cli;fc.config.PropertiesConfig;fc.config.world.XmlWorldLoader;fc.extensions.FileXaResource;fc.extensions.Macro;fc.extensions.MapAtlas;fc.extensions.ModCompiler;fc.extensions.ModLoader;fc.extensions.SecureChannel;fc.extensions.Soundtrack;fc.extensions.StarMapRenderer;fc.extensions.TwoPhaseFiles
 java.base,java.nio.file,java.nio.file.InvalidPathException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.file,java.nio.file.LinkOption,IN_DENOMINATOR,USED,13,fc.audit.AuditMain;fc.audit.ClassScanner;fc.cli.Cli;fc.config.PropertiesConfig;fc.config.world.XmlWorldLoader;fc.extensions.FileXaResource;fc.extensions.ModLoader;fc.extensions.TwoPhaseFiles;fc.history.seal.EvidenceSeal;fc.history.sign.EvidenceSignature;fc.history.vault.ChronicleVault;fc.persist.SaveRepository;fc.runtime.Main
 java.base,java.nio.file,java.nio.file.LinkPermission,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.file,java.nio.file.NoSuchFileException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.file,java.nio.file.NotDirectoryException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.file,java.nio.file.NotLinkException,IN_DENOMINATOR,UNUSED,0,
-java.base,java.nio.file,java.nio.file.OpenOption,IN_DENOMINATOR,USED,15,fc.audit.AuditReport;fc.audit.ClassScanner;fc.cli.Cli;fc.config.PropertiesConfig;fc.config.world.XmlWorldLoader;fc.extensions.FileXaResource;fc.extensions.Macro;fc.extensions.ModLoader;fc.extensions.SecureChannel;fc.history.query.ChronicleExport;fc.history.query.ChronicleExport$WriterBundle;fc.history.seal.EvidenceSeal;fc.history.sign.EvidenceSignature;fc.history.vault.ChronicleVault;fc.persist.SaveRepository
+java.base,java.nio.file,java.nio.file.OpenOption,IN_DENOMINATOR,USED,16,fc.audit.AuditReport;fc.audit.ClassScanner;fc.cli.Cli;fc.config.PropertiesConfig;fc.config.world.XmlWorldLoader;fc.extensions.FileXaResource;fc.extensions.Macro;fc.extensions.ModLoader;fc.extensions.SecureChannel;fc.history.query.ChronicleExport;fc.history.query.ChronicleExport$WriterBundle;fc.history.seal.EvidenceSeal;fc.history.sign.EvidenceSignature;fc.history.vault.ChronicleVault;fc.persist.SaveRepository;fc.runtime.ConsoleLauncher
 java.base,java.nio.file,java.nio.file.Path,IN_DENOMINATOR,USED,32,fc.audit.AuditMain;fc.audit.AuditReport;fc.audit.Baseline;fc.audit.ClassScanner;fc.cli.Cli;fc.config.PropertiesConfig;fc.config.world.XmlWorldLoader;fc.extensions.FileXaResource;fc.extensions.FileXaResource$Journal;fc.extensions.Macro;fc.extensions.MapAtlas;fc.extensions.ModCompiler;fc.extensions.ModContext;fc.extensions.ModLoader;fc.extensions.ModLoader$LoadedMod;fc.extensions.SecureChannel
 java.base,java.nio.file,java.nio.file.PathMatcher,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.file,java.nio.file.Paths,IN_DENOMINATOR,UNUSED,0,
@@ -1066,7 +1066,7 @@ java.base,java.nio.file.attribute,java.nio.file.attribute.BasicFileAttributeView
 java.base,java.nio.file.attribute,java.nio.file.attribute.BasicFileAttributes,IN_DENOMINATOR,USED,1,fc.history.vault.ChronicleVault
 java.base,java.nio.file.attribute,java.nio.file.attribute.DosFileAttributeView,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.file.attribute,java.nio.file.attribute.DosFileAttributes,IN_DENOMINATOR,UNUSED,0,
-java.base,java.nio.file.attribute,java.nio.file.attribute.FileAttribute,IN_DENOMINATOR,USED,15,fc.audit.AuditMain;fc.audit.AuditReport;fc.cli.Cli;fc.extensions.FileXaResource;fc.extensions.Macro;fc.extensions.MapAtlas;fc.extensions.ModCompiler;fc.extensions.SecureChannel;fc.extensions.Soundtrack;fc.extensions.StarMapRenderer;fc.history.query.ChronicleExport;fc.history.seal.EvidenceSeal;fc.history.sign.EvidenceSignature;fc.history.vault.ChronicleVault;fc.persist.SaveRepository
+java.base,java.nio.file.attribute,java.nio.file.attribute.FileAttribute,IN_DENOMINATOR,USED,16,fc.audit.AuditMain;fc.audit.AuditReport;fc.cli.Cli;fc.extensions.FileXaResource;fc.extensions.Macro;fc.extensions.MapAtlas;fc.extensions.ModCompiler;fc.extensions.SecureChannel;fc.extensions.Soundtrack;fc.extensions.StarMapRenderer;fc.history.query.ChronicleExport;fc.history.seal.EvidenceSeal;fc.history.sign.EvidenceSignature;fc.history.vault.ChronicleVault;fc.persist.SaveRepository;fc.runtime.ConsoleLauncher
 java.base,java.nio.file.attribute,java.nio.file.attribute.FileAttributeView,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.file.attribute,java.nio.file.attribute.FileOwnerAttributeView,IN_DENOMINATOR,UNUSED,0,
 java.base,java.nio.file.attribute,java.nio.file.attribute.FileStoreAttributeView,IN_DENOMINATOR,UNUSED,0,
@@ -1708,7 +1708,7 @@ java.base,java.util.concurrent,java.util.concurrent.ThreadPoolExecutor$AbortPoli
 java.base,java.util.concurrent,java.util.concurrent.ThreadPoolExecutor$CallerRunsPolicy,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.ThreadPoolExecutor$DiscardOldestPolicy,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.ThreadPoolExecutor$DiscardPolicy,IN_DENOMINATOR,UNUSED,0,
-java.base,java.util.concurrent,java.util.concurrent.TimeUnit,IN_DENOMINATOR,USED,2,fc.history.vault.ChronicleVault;fc.tui.TerminalSize
+java.base,java.util.concurrent,java.util.concurrent.TimeUnit,IN_DENOMINATOR,USED,3,fc.history.vault.ChronicleVault;fc.runtime.ConsoleClient;fc.tui.TerminalSize
 java.base,java.util.concurrent,java.util.concurrent.TimeoutException,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent,java.util.concurrent.TransferQueue,IN_DENOMINATOR,UNUSED,0,
 java.base,java.util.concurrent.atomic,java.util.concurrent.atomic.AtomicBoolean,IN_DENOMINATOR,UNUSED,0,
