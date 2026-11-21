@@ -461,6 +461,8 @@ public final class TuiEngineTest {
         String help = text(app.frame());
         assert help.contains("页面命令") : help;
         assert help.contains("select") : help;
+        assert help.contains("滚动") && help.contains("output")
+                : "帮助页必须说明滚动与 output：" + help;
         assert !help.contains("先驱号") : "帮助页不得残留总览内容";
         assert !help.contains("战略星图") : "帮助页不得残留星图内容";
 

@@ -57,7 +57,7 @@ mvn -B package
 | `fc-extensions` | `TelemetryMBeansTest` | 5 | 属性变化/命令通知与过滤、动态 MBean 快照、GaugeMonitor 阈值通知、Timer 心跳、QueryExp 目录筛选 |
 | `fc-extensions` | `TwoPhaseFilesTest` | 5 | XA 双写提交、prepare 失败全回滚、重启恢复日志、协议错误与同 RM、单阶段提交与参数校验 |
 | `fc-extensions` | `ManifestTransferTest` | 4 | 货单 flavor 与文本回退、剪贴板往返/所有权/FlavorEvent、FlavorMap 原生名与 MIME 校验、空剪贴板与不支持类型 |
-| `fc-tui` | `TuiEngineTest` | 19 | 总览渲染、CLI 页面命令/选择/详情、命令桥接与不自动推进、差量刷新、ANSI 回放重建、页面无残留、回显清除、宽度/ASCII、尺寸变化、失败恢复、待办阻塞提示、tui off 返回 CLI、目标页、阻塞输入与双窗口队列停止、帮助滚动、列表自动滚入视口、详情滚动、output 页、尺寸监视回调 |
+| `fc-tui` | `TuiEngineTest` | 19 | 总览渲染、CLI 页面命令/选择/详情、命令桥接与不自动推进、差量刷新、ANSI 回放重建、页面无残留、回显清除、宽度/ASCII、尺寸变化、失败恢复、待办阻塞提示、tui off 返回 CLI、目标页、阻塞输入与双窗口队列停止、帮助滚动与 TUI 命令说明、列表自动滚入视口、详情滚动、output 页、尺寸监视回调 |
 | `fc-extensions` | `ChatRelayTest` | 6 | 加入与广播、成员表与历史、RMI 控制面、非法输入、离开广播、关闭与端口校验 |
 | `fc-extensions` | `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` | `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |

@@ -107,6 +107,8 @@ public final class SplitConsoleTest {
                 awaitReady(in);
                 String help = send(out, in, "help");
                 assert help.contains("map") && help.contains("quit") : help;
+                assert help.contains("scroll up|down") && help.contains("output")
+                        : "help 必须说明 TUI 新增命令：" + help;
                 assert help.lines().count() > 15 : "help 输出不得被截断：" + help;
 
                 String next = send(out, in, "next 3");

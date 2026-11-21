@@ -10,10 +10,13 @@ import java.util.List;
 public final class HelpView {
 
     private static final List<String> HEADERS = List.of(
-            "页面命令（直接输入）：map ships colonies research market log status decisions goals help output",
-            "列表：select <N|up|down>  inspect  back    推进：next <天数>",
-            "滚动：scroll up/down [N]  scroll top/bottom  page up/down",
-            "tui off 返回 CLI（从 CLI 内 tui on 启动时）；空行/refresh 同步其他窗口。");
+            "页面命令：map/ships/colonies/research/market/log/status/decisions/goals/help 切换页面；"
+                    + "output 查看完整命令输出",
+            "列表：select <N|up|down> 移动选中项（自动滚入视口）；"
+                    + "inspect 打开详情；back 关闭详情或返回舰桥",
+            "滚动：scroll up|down [N] 逐行；scroll top|bottom 跳到顶部/底部；"
+                    + "page up|down 按整屏滚动",
+            "输出：help/goals/报告/详情均可滚动；tui off 返回 CLI；空行/refresh 同步其他窗口。");
 
     private HelpView() {
     }

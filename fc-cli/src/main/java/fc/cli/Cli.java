@@ -2495,6 +2495,16 @@ public final class Cli {
                   png [路径]                 导出星图 PNG（默认 starmap.png）
                   window                    另开一个共享同一世界的 CLI 窗口（可重复）
                   tui on|off                在主窗口进入/离开可视化 TUI
+
+                TUI 内命令（先执行 tui on；CLI 窗口不直接执行）:
+                  map/ships/.../help        切换可视化页面
+                  select <N|up|down>        移动列表选中项，视口自动跟随
+                  inspect / back            打开详情 / 关闭详情或返回舰桥
+                  scroll up|down [N]        逐行滚动当前页或详情
+                  scroll top|bottom         跳到当前内容顶部/底部
+                  page up|down              按整屏滚动
+                  output                    查看本轮完整命令输出（可滚动）
+                  tui off / quit            退出 TUI 返回 CLI / 结束游戏
                 启动参数：--world <文件>、--serve[=<端口>]（只读状态端点）、--tui/--split
                 JMX：fc.telemetry:type=Game""");
         return sb.toString();
