@@ -22,7 +22,7 @@ public record TerminalSize(int columns, int rows) {
     public static final int MIN_COLUMNS = 80;
     public static final int MIN_ROWS = 24;
     public static final TerminalSize MINIMUM = new TerminalSize(MIN_COLUMNS, MIN_ROWS);
-    public static final TerminalSize DEFAULT = new TerminalSize(120, 34);
+    public static final TerminalSize DEFAULT = new TerminalSize(100, 30);
 
     private static final Pattern WINDOWS_COLUMNS = Pattern.compile(
             "(?i)(columns|列数|欄數)\\s*[:：]?\\s*(\\d+)");
@@ -73,6 +73,12 @@ public record TerminalSize(int columns, int rows) {
     }
 
     private static TerminalSize detectWindows() throws IOException {
+        // 先问 PowerShell 的 WindowSize（窗口可见尺寸）；mode con 的 Lines
+        // 在经典控制台里可能是缓冲区高度（例如 900），不能直接当可见行数。
+        TerminalSize window = detectWindowsPowerShell();
+        if (window != null) {
+            return window;
+        }
         String output = run(1_500, "cmd.exe", "/c", "mode con");
         if (output == null) {
             return null;
@@ -80,6 +86,26 @@ public record TerminalSize(int columns, int rows) {
         int cols = match(WINDOWS_COLUMNS, output);
         int rows = match(WINDOWS_ROWS, output);
         return cols > 0 && rows > 0 ? new TerminalSize(cols, rows) : null;
+    }
+
+    private static TerminalSize detectWindowsPowerShell() {
+        try {
+            String output = run(2_500, "powershell.exe", "-NoProfile", "-NonInteractive",
+                    "-Command", "$s=$Host.UI.RawUI.WindowSize; "
+                            + "Write-Output ($s.Width.ToString() + ' ' + $s.Height.ToString())");
+            if (output == null) {
+                return null;
+            }
+            Matcher matcher = Pattern.compile("(\\d+)\\D+(\\d+)").matcher(output);
+            if (!matcher.find()) {
+                return null;
+            }
+            int cols = Integer.parseInt(matcher.group(1));
+            int rows = Integer.parseInt(matcher.group(2));
+            return cols > 0 && rows > 0 ? new TerminalSize(cols, rows) : null;
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
     }
 
     private static TerminalSize detectUnix() throws IOException {
@@ -120,7 +146,8 @@ public record TerminalSize(int columns, int rows) {
                         break;
                     }
                 }
-                return out.toString();
+                // PowerShell 重定向输出可能是 UTF-16；去掉 NUL 后再解析数字。
+                return out.toString().replace("\u0000", "");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

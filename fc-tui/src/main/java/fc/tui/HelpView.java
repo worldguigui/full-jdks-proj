@@ -1,60 +1,76 @@
 package fc.tui;
 
-/** 帮助页：快捷键、页面说明与常用命令。 */
+/** 帮助页：页面命令、列表操作与常用游戏命令。 */
 public final class HelpView {
 
-    private static final String[][] KEYS = {
-            {"M", "星图导航"}, {"F", "舰队管理"}, {"C", "殖民地"},
-            {"R", "科研中心"}, {"T", "贸易中心"}, {"E", "情报中心"},
-            {"B / ?", "返回总览/帮助"}, {"J K", "上下选择"},
-            {"I", "详情弹窗"}, {"N", "推进 1 天（n5 = 推进 5 天）"},
-            {"空格 + 回车", "推进 1 天（行输入模式）"}, {"Q", "退出"}
+    private static final String[][] PAGES = {
+            {"screen bridge", "舰桥总览"}, {"screen map", "星域导航"},
+            {"screen fleet", "舰队管理"}, {"screen colony", "殖民地"},
+            {"screen research", "科研中心"}, {"screen trade", "贸易中心"},
+            {"screen intel", "情报中心"}, {"screen help", "本页"}
+    };
+
+    private static final String[] UI = {
+            "screen <页面>       切换页面（见左栏）",
+            "select <编号>       选中列表第 N 项（1 起）",
+            "select up/down      上/下移动选择",
+            "inspect             打开选中项详情",
+            "back                关闭详情；再退到舰桥总览",
+            "next <天数>         推进世界（不做隐式推进）",
+            "quit / exit         退出指挥终端"
     };
 
     private static final String[] COMMANDS = {
-            "next 10                推进 10 天",
-            "status                 世界概况",
-            "market                 市场报价",
             "sail <船> <地点>        启航",
             "survey <地点> <船>      勘察",
             "research start <科技> <实验室>",
-            "colony upgrade <地点>",
-            "trade buy fuel 20      买入货物",
-            "save <槽位> [口令]      存档",
-            "help                   完整命令列表"
+            "colonies upgrade <地点>",
+            "market / trade ...      市场与交易",
+            "save <槽位> [口令]      存档（由运行时适配器处理）",
+            "help                    完整 CLI 命令列表"
     };
 
     private HelpView() {
     }
 
     public static void render(ScreenBuffer buffer, Rect body, CharSet chars) {
-        int leftWidth = Math.max(34, body.width() * 45 / 100);
+        int leftWidth = Math.max(36, body.width() * 46 / 100);
         Rect[] columns = body.splitColumns(leftWidth);
-        Rect keys = Draw.panel(buffer, columns[0], "快捷键 / KEY BINDINGS", chars);
-        Rect commands = Draw.panel(buffer, columns[1], "常用命令 / APPLICATIONS", chars);
+        Rect pages = Draw.panel(buffer, columns[0], "页面命令 / SCREENS", chars);
+        Rect right = columns[1];
+        Rect[] halves = right.splitRows(Math.max(10, right.height() * 52 / 100));
+        Rect ui = Draw.panel(buffer, halves[0], "列表与终端操作", chars);
+        Rect commands = Draw.panel(buffer, halves[1], "常用游戏命令", chars);
 
         int row = 0;
-        for (String[] key : KEYS) {
-            if (row >= keys.height()) {
+        for (String[] page : PAGES) {
+            if (row >= pages.height() - 2) {
                 break;
             }
-            Draw.line(buffer, keys, row++, TextWidth.padRight(key[0], 12) + key[1],
+            Draw.line(buffer, pages, row++, TextWidth.padRight(page[0], 12) + page[1],
                     Style.PANEL_MUTED);
+        }
+        if (pages.height() > 3) {
+            Draw.line(buffer, pages, pages.height() - 2,
+                    "输入完整命令；行模式需要回车提交。", Style.PANEL_MUTED);
+            Draw.line(buffer, pages, pages.height() - 1,
+                    "不使用单字母缩写，行为与 CLI 命令名一致。", Style.PANEL_WARN);
         }
 
-        int commandRow = 0;
-        for (String command : COMMANDS) {
-            if (commandRow >= commands.height()) {
+        row = 0;
+        for (String line : UI) {
+            if (row >= ui.height()) {
                 break;
             }
-            Draw.line(buffer, commands, commandRow++, command, Style.PANEL);
+            Draw.line(buffer, ui, row++, line, Style.PANEL);
         }
-        if (commands.height() > COMMANDS.length + 1) {
-            Draw.line(buffer, commands, commands.height() - 2,
-                    "TUI 与 CLI 共用同一套命令；界面不会自动推进世界。",
-                    Style.PANEL_MUTED);
-            Draw.line(buffer, commands, commands.height() - 1,
-                    "图形终端可用；行输入模式需要按回车提交。", Style.PANEL_MUTED);
+
+        row = 0;
+        for (String line : COMMANDS) {
+            if (row >= commands.height()) {
+                break;
+            }
+            Draw.line(buffer, commands, row++, line, Style.PANEL);
         }
     }
 }

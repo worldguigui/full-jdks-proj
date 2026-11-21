@@ -309,15 +309,18 @@ Mod 或导出器）用标准 flavor 协议交换货单，而不是互相引用�
 
 - **应用边界**：`TuiGame` 暴露 `state()`、`execute(command)` 与市场/科研报告；
   `SnapshotBuilder` 在命令后构建只读 `Snapshot`。页面不直接改世界，渲染也不会
-  推进 Tick——只有 `n`/`n5`/空格行/`next` 命令才推进游戏时间。
+  推进 Tick——只有显式 `next <天数>` 命令才推进游戏时间。
 - **渲染内核**：`TextWidth` 处理 CJK/emoji/组合字符宽度；`ScreenBuffer` 是字符 +
   样式双缓冲（宽字符占两列、控制字符清洗）；`DiffRenderer` 只输出变化单元格，
   首帧/尺寸变化时清屏，绘制期间关闭自动换行；`CharSet` 提供 Unicode/ASCII 降级，
   `Style` 固定深空蓝黑 + 冷青 + 琥珀调色板。
 - **终端适配**：`Terminal` 抽象输出侧；`SystemTerminal` 使用备用屏幕、UTF-8、
-  真彩 SGR，并探测行列（`FC_TUI_COLS/ROWS` 覆盖、Windows `mode con`、
-  Unix `stty size`）。Java SE 21 无跨平台 Raw Mode，本版输入为行模式：
-  单字符行是快捷键，整行是 CLI 命令，空格行推进 1 天；不支持时自动 ASCII 降级。
+  真彩 SGR，并探测行列（`FC_TUI_COLS/ROWS` 覆盖；Windows 优先 PowerShell
+  `WindowSize`，其次 `mode con`；Unix 用 `stty size`；默认 100×30）。
+  Java SE 21 无跨平台 Raw Mode，本版输入为行模式：页面切换用显式
+  `screen <bridge|map|fleet|colony|research|trade|intel|help>`，列表用
+  `select`/`inspect`/`back`，其余整行保持 CLI 语义；不引入单字母缩写。
+  每次提交后强制全量重绘，清除终端行回显并避免旧页面残留。
 - **页面**：舰桥总览（星图/舰队/情报/组织条）、星域导航、舰队、殖民地、科研、
   贸易、情报、帮助，以及统一的详情弹窗与命令反馈行。所有页面共享同一视觉规范与
   选择/返回语义；地图是二维字符投影，只显示已知地点，渲染不做寻路。

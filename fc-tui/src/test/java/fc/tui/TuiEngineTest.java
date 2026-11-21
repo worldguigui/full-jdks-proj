@@ -188,6 +188,11 @@ public final class TuiEngineTest {
             }
         }
 
+        void moveTo(int newRow, int newColumn) {
+            row = newRow;
+            column = newColumn;
+        }
+
         void apply(String output) {
             for (int i = 0; i < output.length(); ) {
                 char ch = output.charAt(i);
@@ -254,8 +259,8 @@ public final class TuiEngineTest {
             assert screen.row(y).equals(first.row(y)) : "首帧第 " + y + " 行不一致";
         }
 
-        app.handle("m");
-        app.handle("j");
+        app.handle("screen map");
+        app.handle("select down");
         screen.apply(app.renderFrame());
         ScreenBuffer second = app.frame();
         for (int y = 0; y < 30; y++) {
@@ -283,19 +288,19 @@ public final class TuiEngineTest {
         FakeGame game = new FakeGame();
         TuiApp app = new TuiApp(game, new FakeTerminal(new TerminalSize(120, 34), true));
 
-        assert app.handle("m") : "m 应保持运行";
+        assert app.handle("screen map") : "map 应保持运行";
         assert app.page() == TuiApp.Page.MAP : "应切换到星图";
-        assert app.handle("j") : "j 应保持运行";
+        assert app.handle("select down") : "select down 应保持运行";
         assert app.selection() == 1 : "选择应移动：" + app.selection();
-        assert app.handle("i") : "i 应保持运行";
-        assert app.detailOpen() : "i 应打开详情";
+        assert app.handle("inspect") : "inspect 应保持运行";
+        assert app.detailOpen() : "inspect 应打开详情";
         assert text(app.frame()).contains("DETAIL / 详情") : "详情弹窗标题缺失";
-        assert app.handle("b") : "b 应保持运行";
-        assert !app.detailOpen() : "b 应关闭详情";
-        assert app.handle("b") : "b 应保持运行";
-        assert app.page() == TuiApp.Page.BRIDGE : "b 应返回总览";
-        app.handle("q");
-        assert !app.running() : "q 应退出";
+        assert app.handle("back") : "back 应保持运行";
+        assert !app.detailOpen() : "back 应关闭详情";
+        assert app.handle("back") : "back 应保持运行";
+        assert app.page() == TuiApp.Page.BRIDGE : "back 应返回总览";
+        app.handle("quit");
+        assert !app.running() : "quit 应退出";
     }
 
     @FcTest
@@ -303,20 +308,17 @@ public final class TuiEngineTest {
         FakeGame game = new FakeGame();
         TuiApp app = new TuiApp(game, new FakeTerminal(new TerminalSize(110, 32), true));
 
-        app.handle("status");
-        assert game.commands.equals(List.of("status")) : game.commands;
+        app.handle("next 3");
+        assert game.commands.equals(List.of("next 3")) : game.commands;
         for (int i = 0; i < 5; i++) {
             app.frame();
         }
         assert game.commands.size() == 1 : "渲染不得执行命令：" + game.commands;
 
-        app.handle("n3");
-        assert game.commands.get(game.commands.size() - 1).equals("next 3")
-                : game.commands;
-        app.handle(" ");
+        app.handle("next 1");
         assert game.commands.get(game.commands.size() - 1).equals("next 1")
                 : game.commands;
-        assert game.commands.size() == 3 : game.commands;
+        assert game.commands.size() == 2 : game.commands;
     }
 
     @FcTest
@@ -383,6 +385,44 @@ public final class TuiEngineTest {
         assert large.width() == 120 && large.height() == 34;
         assert text(large).contains("先驱号");
         assertRowsHaveWidth(large);
+    }
+
+    @FcTest
+    public void pageSwitchDoesNotLeakPreviousContent() {
+        FakeGame game = new FakeGame();
+        TuiApp app = new TuiApp(game, new FakeTerminal(new TerminalSize(110, 32), true));
+        String bridge = text(app.frame());
+        assert bridge.contains("先驱号") : bridge;
+
+        assert app.handle("screen help");
+        String help = text(app.frame());
+        assert help.contains("页面命令") : help;
+        assert help.contains("select") : help;
+        assert !help.contains("先驱号") : "帮助页不得残留总览内容";
+        assert !help.contains("战略星图") : "帮助页不得残留星图内容";
+
+        assert app.handle("screen map");
+        String map = text(app.frame());
+        assert map.contains("战略星图") : map;
+        assert !map.contains("页面命令") : "星图页不得残留帮助内容";
+    }
+
+    @FcTest
+    public void submittedLineEchoIsClearedByFullRedraw() {
+        FakeGame game = new FakeGame();
+        TuiApp app = new TuiApp(game, new FakeTerminal(new TerminalSize(100, 30), true));
+        AnsiScreen screen = new AnsiScreen(100, 30);
+        screen.apply(app.renderFrame());
+        // 模拟行输入回显：光标在 COMMAND > 之后，终端把 "help" 直接写到屏幕上。
+        screen.moveTo(28, 11);
+        screen.apply("screen help");
+        app.handle("screen help");
+        screen.apply(app.renderFrame());
+        ScreenBuffer expected = app.frame();
+        for (int y = 0; y < 30; y++) {
+            assert screen.row(y).equals(expected.row(y))
+                    : "第 " + y + " 行残留输入回显或旧内容";
+        }
     }
 
     @FcTest

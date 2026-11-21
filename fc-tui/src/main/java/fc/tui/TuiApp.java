@@ -94,46 +94,68 @@ public final class TuiApp implements AutoCloseable {
         }
     }
 
-    /** 处理一行输入；返回是否仍在运行。测试可直接调用。 */
+    /**
+     * 处理一行输入；返回是否仍在运行。
+     *
+     * <p>行输入模式不引入单字母缩写，也不占用 CLI 已有命令名：页面切换使用
+     * {@code screen <页面>}（bridge/map/fleet/colony/research/trade/intel/help），
+     * 列表操作使用 select/inspect/back，退出使用 quit/exit。其余整行原样交给
+     * 游戏命令，因此 {@code help}、{@code map}、{@code market} 等仍保持 CLI 语义。</p>
+     */
     public boolean handle(String rawLine) {
         if (rawLine == null) {
             running = false;
             return false;
-        }
-        if (" ".equals(rawLine)) {
-            advance(1);
-            return running;
         }
         String line = rawLine.strip();
         if (line.isEmpty()) {
             return running;
         }
         String lower = line.toLowerCase(Locale.ROOT);
-        if (lower.equals("n")) {
-            advance(1);
-            return running;
+        if (lower.startsWith("screen")) {
+            screen(line);
+        } else {
+            switch (lower) {
+                case "quit", "exit" -> {
+                    running = false;
+                    return false;
+                }
+                case "back" -> back();
+                case "inspect" -> openDetail();
+                default -> {
+                    if (lower.startsWith("select")) {
+                        select(line);
+                    } else {
+                        executeCommand(line);
+                    }
+                }
+            }
         }
-        if (lower.matches("n\\d{1,4}")) {
-            advance(Integer.parseInt(lower.substring(1)));
-            return running;
-        }
-        switch (lower) {
-            case "q" -> running = false;
-            case "m" -> switchPage(Page.MAP);
-            case "f" -> switchPage(Page.FLEET);
-            case "c" -> switchPage(Page.COLONY);
-            case "r" -> switchPage(Page.RESEARCH);
-            case "t" -> switchPage(Page.TRADE);
-            case "e" -> switchPage(Page.INTEL);
-            case "h", "?" -> switchPage(Page.HELP);
-            case "b" -> back();
-            case "j", "+" -> moveSelection(1);
-            case "k", "-" -> moveSelection(-1);
-            case "i", "enter" -> openDetail();
-            case "space" -> advance(1);
-            default -> executeCommand(line);
-        }
+        // 行输入回显发生在终端里，差量渲染器看不到；每次提交后强制全量重绘，
+        // 同时消除终端换行/尺寸差异导致的旧页面残留。
+        renderer.reset();
         return running;
+    }
+
+    /** screen &lt;页面&gt;：明确的 TUI 导航命名空间，不改变任何 CLI 命令语义。 */
+    private void screen(String line) {
+        String[] parts = line.strip().split("\\s+");
+        if (parts.length != 2) {
+            status = "用法：screen <bridge|map|fleet|colony|research|trade|intel|help>";
+            return;
+        }
+        switch (parts[1].toLowerCase(Locale.ROOT)) {
+            case "bridge" -> switchPage(Page.BRIDGE);
+            case "map" -> switchPage(Page.MAP);
+            case "fleet" -> switchPage(Page.FLEET);
+            case "colony" -> switchPage(Page.COLONY);
+            case "research" -> switchPage(Page.RESEARCH);
+            case "trade" -> switchPage(Page.TRADE);
+            case "intel" -> switchPage(Page.INTEL);
+            case "help" -> switchPage(Page.HELP);
+            default -> status = "未知页面：" + parts[1]
+                    + "（bridge/map/fleet/colony/research/trade/intel/help）";
+        }
     }
 
     /** 生成当前帧画布（测试与渲染器共用）。 */
@@ -210,25 +232,41 @@ public final class TuiApp implements AutoCloseable {
         }
     }
 
-    private void moveSelection(int delta) {
+    /** select <编号|up|down>：完整单词的列表操作，避免与 CLI 命令冲突。 */
+    private void select(String line) {
         int count = selectableCount();
         if (count <= 0) {
+            status = "当前页面没有可选项目";
             return;
         }
-        selection = Math.max(0, Math.min(count - 1, selection + delta));
+        String[] parts = line.strip().split("\\s+");
+        if (parts.length != 2) {
+            status = "用法：select <编号|up|down>";
+            return;
+        }
+        String argument = parts[1].toLowerCase(Locale.ROOT);
+        if ("up".equals(argument)) {
+            selection = Math.max(0, selection - 1);
+        } else if ("down".equals(argument)) {
+            selection = Math.min(count - 1, selection + 1);
+        } else {
+            try {
+                selection = Math.max(0, Math.min(count - 1,
+                        Integer.parseInt(argument) - 1));
+            } catch (NumberFormatException e) {
+                status = "select 需要编号或 up/down：" + parts[1];
+                return;
+            }
+        }
         status = "选中 " + (selection + 1) + "/" + count;
     }
 
     private void openDetail() {
         if (selectableCount() > 0) {
             detail = true;
+        } else {
+            status = "当前页面没有可查看的详情";
         }
-    }
-
-    private void advance(int days) {
-        int amount = Math.max(1, Math.min(1_000, days));
-        executeCommand("next " + amount);
-        appendLog("世界推进 " + amount + " 天 → D" + snapshot.day());
     }
 
     private void executeCommand(String command) {
@@ -314,7 +352,7 @@ public final class TuiApp implements AutoCloseable {
         drawOrganization(buffer, width, height - 5);
         drawLog(buffer, width, height - 4);
         drawKeys(buffer, width, height - 3);
-        drawPrompt(buffer, width, height - 2, height - 1);
+        drawPrompt(buffer, width, height - 2);
     }
 
     private void drawHeader(ScreenBuffer buffer, int width) {
@@ -374,20 +412,23 @@ public final class TuiApp implements AutoCloseable {
         if (y < 0 || y >= buffer.height()) {
             return;
         }
-        String keys = "[M]星图 [F]舰队 [C]殖民地 [R]科研 [T]贸易 [E]情报 "
-                + "[J/K]选择 [I]详情 [B]返回 [N]推进 [Q]退出";
+        String keys = "screen bridge/map/fleet/colony/research/trade/intel/help | "
+                + "select N/up/down  inspect  back | next N | quit";
         buffer.putClipped(1, y, TextWidth.truncate(keys, Math.max(0, width - 2)),
                 Style.MUTED, Math.max(0, width - 2));
     }
 
-    private void drawPrompt(ScreenBuffer buffer, int width, int y, int cursorRow) {
+    private void drawPrompt(ScreenBuffer buffer, int width, int y) {
         if (y < 0 || y >= buffer.height() || width < PROMPT.length()) {
             return;
         }
-        buffer.fill(new Rect(0, y, width, 2), Style.PANEL);
+        buffer.fill(new Rect(0, y, width, 1), Style.PANEL);
         buffer.putClipped(1, y, PROMPT, Style.ACCENT, width - 1);
-        buffer.putClipped(1, y + 1, "单字符快捷键；其余整行作为命令；空格行推进 1 天。",
-                Style.MUTED, Math.max(0, width - 2));
+        int bottom = buffer.height() - 1;
+        buffer.put(0, bottom, chars.doubleBottomLeft(), Style.ACCENT);
+        buffer.horizontal(bottom, 1, Math.max(0, width - 2),
+                chars.doubleHorizontal(), Style.MUTED);
+        buffer.put(width - 1, bottom, chars.doubleBottomRight(), Style.ACCENT);
     }
 
     private void drawDetail(ScreenBuffer buffer, Rect body) {

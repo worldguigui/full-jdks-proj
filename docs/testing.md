@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 29 个测试套件、250 个用例。
+当前共 29 个测试套件、252 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -53,7 +53,7 @@ mvn -B package
 | `fc-extensions` | `TelemetryMBeansTest` | 5 | 属性变化/命令通知与过滤、动态 MBean 快照、GaugeMonitor 阈值通知、Timer 心跳、QueryExp 目录筛选 |
 | `fc-extensions` | `TwoPhaseFilesTest` | 5 | XA 双写提交、prepare 失败全回滚、重启恢复日志、协议错误与同 RM、单阶段提交与参数校验 |
 | `fc-extensions` | `ManifestTransferTest` | 4 | 货单 flavor 与文本回退、剪贴板往返/所有权/FlavorEvent、FlavorMap 原生名与 MIME 校验、空剪贴板与不支持类型 |
-| `fc-tui` | `TuiEngineTest` | 8 | 总览渲染、页面选择/详情、命令桥接与不自动推进、差分刷新、ANSI 输出重建、宽度/ASCII 降级、尺寸变化、命令失败恢复 |
+| `fc-tui` | `TuiEngineTest` | 10 | 总览渲染、显式页面切换/选择/详情、命令桥接与不自动推进、差分刷新、ANSI 回放重建、页面无残留、输入回显清除、宽度/ASCII、尺寸变化、失败恢复 |
 | `fc-extensions` | `ChatRelayTest` | 6 | 加入与广播、成员表与历史、RMI 控制面、非法输入、离开广播、关闭与端口校验 |
 | `fc-extensions` | `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` | `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |
@@ -187,10 +187,13 @@ mvn -B package
 
 - `--tui` 启动后进入备用屏幕；帧尺寸与终端一致；`FC_TUI_ASCII=1` 时不出现
   Unicode 线框/符号；`FC_TUI_COLS/ROWS` 可覆盖行列。
-- 渲染只消费 `Snapshot`：重复渲染不得执行命令或推进 Tick；只有 `n`/`nN`/
-  空格行/`next` 命令才改变世界。界面刷新频率与游戏时间严格分离。
-- 单字符行是页面/选择快捷键；其余整行作为 CLI 命令经 `TuiGame` 提交；
-  `q` 或 EOF 必须恢复终端状态。
+- 渲染只消费 `Snapshot`：重复渲染不得执行命令或推进 Tick；只有显式
+  `next <天数>` 命令才改变世界。界面刷新频率与游戏时间严格分离。
+- 页面切换使用显式 `screen <页面>`，不占用 `help`/`map` 等 CLI 命令名，
+  行输入模式不引入单字母缩写；列表操作为 `select <N|up|down>`、`inspect`、`back`，
+  其余整行作为 CLI 命令经 `TuiGame` 提交；`quit`/`exit` 或 EOF 恢复终端状态。
+- 每次提交后必须全量重绘：行输入的终端回显不在画布中，差量比较无法感知，
+  否则命令字符会残留并与提示/旧页面混排；页面切换也不得残留上一页内容。
 - 地图只显示已知地点，渲染不做寻路；中文/emoji 按显示宽度计算，宽字符不得
   被截成半个，数据中的控制字符必须清洗，不能注入终端转义序列。
 - 差分输出必须可由 ANSI 回放重建出与目标画布逐行一致的屏幕；尺寸变化时必须
