@@ -537,6 +537,40 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void crewCrisisEndsTheGame() {
+        RuntimeSession session = boot();
+        session.state().agents().values().stream()
+                .filter(agent -> agent.role() == fc.world.Agent.AgentRole.CREW)
+                .limit(6)
+                .forEach(agent -> agent.perceive(100, 100, -100));
+        session.execute("next 1");
+        assert session.state().ending() != null
+                && session.state().ending().contains("船员危机")
+                : "船员异常应触发失败：" + session.state().ending();
+    }
+
+    @FcTest
+    public void excessiveDebtEndsTheGame() {
+        RuntimeSession session = boot();
+        session.state().money().borrow(session.state().now(),
+                fc.world.MoneyLedger.PLAYER, new BigDecimal("5000"), "测试借贷");
+        session.execute("next 1");
+        assert session.state().ending() != null
+                && session.state().ending().contains("债务")
+                : "债务违约应触发失败：" + session.state().ending();
+    }
+
+    @FcTest
+    public void reputationCollapseEndsTheGame() {
+        RuntimeSession session = boot();
+        session.state().adjustReputation(new fc.world.Ids.FactionId(1), -50);
+        session.execute("next 1");
+        assert session.state().ending() != null
+                && session.state().ending().contains("声望")
+                : "声望崩溃应触发失败：" + session.state().ending();
+    }
+
+    @FcTest
     public void missingWorldArgumentIsRejected() {
         try {
             RuntimeSession.create(new String[] {"--world"});

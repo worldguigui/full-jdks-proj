@@ -122,6 +122,9 @@ public final class M4GameplayTest {
         for (String route : List.of("商业霸权", "外交联盟", "星域测绘")) {
             assert goals.contains(route) : "胜利路线面板缺少 " + route;
         }
+        for (String failure : List.of("船员危机", "债务违约", "声望崩溃")) {
+            assert goals.contains(failure) : "失败条件面板缺少 " + failure;
+        }
         assert session.cli().execute("research").contains("测绘无人机");
         assert session.cli().execute("project").contains("星门");
         assert session.cli().execute("order ships").contains("科考船");
@@ -317,7 +320,7 @@ public final class M4GameplayTest {
         for (int i = 0; i < 30 && freighter.inVoyage(); i++) {
             step(session);
         }
-        assert !freighter.inVoyage() : "晨星号应在 30 天内抵达观测院";
+        assert !freighter.inVoyage() : "晨星号应在 30 天内抵达观测院，ending=" + st.ending();
         assert freighter.parent().equals(loc(6));
 
         BigDecimal creditsBefore = st.credits();
@@ -355,7 +358,7 @@ public final class M4GameplayTest {
         for (int i = 0; i < 16 && st.ending() == null; i++) {
             step(session);
         }
-        assert "星门启航".equals(st.ending()) : "星门应在 16 天内完工并进入结局";
+        assert "星门启航".equals(st.ending()) : "星门应在 16 天内完工并进入结局，ending=" + st.ending();
         assert st.projectCompleted(ProjectService.GATE);
         assert st.projectProgress(ProjectService.GATE) == ProjectService.GATE_DAYS;
 

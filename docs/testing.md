@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 33 个测试套件、278 个用例。
+当前共 33 个测试套件、281 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -42,7 +42,7 @@ mvn -B package
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
 | `fc-history` | `ChronicleVaultTest` | 6 | 快照与索引、幂等写入、篡改/缺失检测、排他锁、WatchService、坏索引拒绝 |
 | `fc-history` | `EvidenceSealTest` | 6 | PKCS#12 往返、AES-GCM 封存/解封、错钥/篡改拒绝、输入过滤器、错误口令、参数校验 |
-| `fc-runtime` | `RuntimeSmokeTest` | 23 | 默认世界启动（24 地点/27 航线）、命令响应、账本一致、同种子哈希、查询导出（含 XA 双份）、制图、配乐、档案库、封存、签章、JMX、货单、三种胜利路线 |
+| `fc-runtime` | `RuntimeSmokeTest` | 26 | 默认世界启动（24 地点/27 航线）、命令、账本、哈希、导出、配乐、档案、签章、JMX、货单、三种胜利路线与三类失败条件 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-agent` | `AgentProbe` | 4 | -javaagent 注册、能力与类列表、浅层大小、释放/未知目标 |
@@ -289,7 +289,11 @@ mvn -B package
   - 外交联盟：任一势力声望 ≥ 60；
   - 星域测绘：全部地点达到 CHARTED；
   - 工程终局：星门或信标工程完成（原有路线）。
-- `goals` 面板必须同时展示 D0–D4、V1–V3 进度与目标阈值；TUI `goals` 页渲染同一面板。
+- 失败条件必须优先于胜利判定，任一触发也必须设置 ending、写入 `EndingReached` 并冻结时间：
+  - 船员危机：≥ 6 名 CREW 处于饥饿/疲劳/士气低落；
+  - 债务违约：玩家债务 ≥ 5000；
+  - 声望崩溃：任一势力声望 ≤ -50。
+- `goals` 面板必须同时展示 D0–D4、V1–V3、F1–F3 进度与阈值；TUI `goals` 页渲染同一面板。
 - 多窗口/`tui on` 时，宿主通知 + TUI 轮询必须自动刷新快照；不得只靠手动重进。
 
 ### 审计

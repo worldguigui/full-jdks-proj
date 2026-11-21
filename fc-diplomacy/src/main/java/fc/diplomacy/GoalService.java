@@ -4,8 +4,10 @@ import fc.config.world.RecipeDef;
 import fc.config.world.WorldDefinition;
 import fc.sim.spi.GoalSystem;
 import fc.sim.tick.TickContext;
+import fc.world.Agent;
 import fc.world.ColonyState;
 import fc.world.GameEvent;
+import fc.world.MoneyLedger;
 import fc.world.Ids;
 import fc.world.KnowledgeState;
 import fc.world.ResourceKind;
@@ -50,6 +52,14 @@ public final class GoalService implements GoalSystem {
     /** 任一势力声望胜利门槛。 */
     public static final int VICTORY_REPUTATION = 60;
 
+    /** 失败条件：债务、声望与船员危机的阈值。 */
+    public static final BigDecimal FAILURE_DEBT = new BigDecimal("5000");
+    public static final int FAILURE_REPUTATION = -50;
+    public static final int FAILURE_CREW = 6;
+    public static final String F_DEBT = "F1";
+    public static final String F_REPUTATION = "F2";
+    public static final String F_CREW = "F3";
+
     private static final List<String> TIER2 = List.of("WARP_COIL", "AUTOMATION", "TRADE_PROTOCOL");
 
     private final Map<Ids.LocationId, Map<ResourceKind, BigDecimal>> recipeCapacity;
@@ -87,6 +97,22 @@ public final class GoalService implements GoalSystem {
         for (Map.Entry<String, Boolean> e : status.entrySet()) {
             if (e.getValue() && state.markGoalReached(e.getKey())) {
                 newly.add(e.getKey() + " " + name(e.getKey()));
+            }
+        }
+        if (state.ending() == null) {
+            Map<String, Boolean> failures = failureStatus(state);
+            for (Map.Entry<String, Boolean> e : failures.entrySet()) {
+                if (!e.getValue()) {
+                    continue;
+                }
+                String ending = failureEnding(e.getKey());
+                state.setEnding(ending);
+                state.markGoalReached(e.getKey());
+                Ids.LocationId where = endingLocation(state);
+                state.chronicle().record(new GameEvent.EndingReached(state.now(), where,
+                        ending, "失败条件 " + name(e.getKey()) + " 触发。"));
+                ctx.report("✖ 远征失败：" + ending + "（时间冻结，仍可查询世界）");
+                return newly;
             }
         }
         if (state.ending() == null) {
@@ -130,6 +156,39 @@ public final class GoalService implements GoalSystem {
             case V_EXPLORATION -> "星域测绘";
             default -> "胜利";
         };
+    }
+
+    /** 三条失败条件：船员危机、债务违约与声望崩溃。 */
+    public Map<String, Boolean> failureStatus(WorldState state) {
+        Map<String, Boolean> out = new LinkedHashMap<>();
+        long crisis = state.agents().values().stream()
+                .filter(agent -> agent.role() == Agent.AgentRole.CREW)
+                .filter(agent -> agent.needs().starving()
+                        || agent.needs().demoralized()
+                        || agent.needs().exhausted())
+                .count();
+        out.put(F_CREW, crisis >= FAILURE_CREW);
+        out.put(F_DEBT, state.money().debt(MoneyLedger.PLAYER)
+                .compareTo(FAILURE_DEBT) >= 0);
+        int lowest = state.reputations().values().stream()
+                .mapToInt(Integer::intValue).min().orElse(0);
+        out.put(F_REPUTATION, lowest <= FAILURE_REPUTATION);
+        return out;
+    }
+
+    private static String failureEnding(String condition) {
+        return switch (condition) {
+            case F_CREW -> "远征失败：船员危机";
+            case F_DEBT -> "远征失败：债务违约";
+            case F_REPUTATION -> "远征失败：声望崩溃";
+            default -> "远征失败";
+        };
+    }
+
+    private static Ids.LocationId endingLocation(WorldState state) {
+        return state.playerColonies().isEmpty()
+                ? state.locationIds().get(0)
+                : state.playerColonies().get(0).id();
     }
 
     /** 各目标当前是否达成（按 D0..D4 顺序）。 */
@@ -247,6 +306,31 @@ public final class GoalService implements GoalSystem {
                 .append("　已知地点 ").append(known).append('/')
                 .append(state.graph().placeCount()).append('\n');
         sb.append("  D4 工程终局：完成星门或边境信标").append('\n');
+        Map<String, Boolean> failures = failureStatus(state);
+        long crisis = state.agents().values().stream()
+                .filter(agent -> agent.role() == Agent.AgentRole.CREW)
+                .filter(agent -> agent.needs().starving()
+                        || agent.needs().demoralized()
+                        || agent.needs().exhausted())
+                .count();
+        int lowestReputation = state.reputations().values().stream()
+                .mapToInt(Integer::intValue).min().orElse(0);
+        sb.append("---- 失败条件（任一触发即失败）----").append('\n');
+        sb.append("  F1 船员危机：")
+                .append(Boolean.TRUE.equals(failures.get(F_CREW)) ? "已触发" : "安全")
+                .append("　异常船员 ").append(crisis).append('/').append(FAILURE_CREW)
+                .append('\n');
+        sb.append("  F2 债务违约：")
+                .append(Boolean.TRUE.equals(failures.get(F_DEBT)) ? "已触发" : "安全")
+                .append("　债务 ")
+                .append(state.money().debt(MoneyLedger.PLAYER)
+                        .stripTrailingZeros().toPlainString())
+                .append('/').append(FAILURE_DEBT.stripTrailingZeros().toPlainString())
+                .append('\n');
+        sb.append("  F3 声望崩溃：")
+                .append(Boolean.TRUE.equals(failures.get(F_REPUTATION)) ? "已触发" : "安全")
+                .append("　最低声望 ").append(lowestReputation).append('/')
+                .append(FAILURE_REPUTATION).append('\n');
         sb.append("  已知地点 ").append(known)
                 .append('/').append(state.graph().placeCount())
                 .append("｜舰队 ").append(state.graph().ships().size())
@@ -269,6 +353,9 @@ public final class GoalService implements GoalSystem {
             case V_CREDITS -> "商业霸权";
             case V_REPUTATION -> "外交联盟";
             case V_EXPLORATION -> "星域测绘";
+            case F_DEBT -> "债务违约";
+            case F_REPUTATION -> "声望崩溃";
+            case F_CREW -> "船员危机";
             default -> goal;
         };
     }
@@ -305,6 +392,18 @@ public final class GoalService implements GoalSystem {
             }
             case V_EXPLORATION -> state.locationsWithKnowledge(KnowledgeState.CHARTED).size()
                     + "/" + state.graph().placeCount();
+            case F_DEBT -> state.money().debt(MoneyLedger.PLAYER)
+                    .stripTrailingZeros().toPlainString()
+                    + "/" + FAILURE_DEBT.stripTrailingZeros().toPlainString();
+            case F_REPUTATION -> state.reputations().values().stream()
+                    .mapToInt(Integer::intValue).min().orElse(0)
+                    + "/" + FAILURE_REPUTATION;
+            case F_CREW -> state.agents().values().stream()
+                    .filter(agent -> agent.role() == Agent.AgentRole.CREW)
+                    .filter(agent -> agent.needs().starving()
+                            || agent.needs().demoralized()
+                            || agent.needs().exhausted())
+                    .count() + "/" + FAILURE_CREW;
             default -> "";
         };
     }
