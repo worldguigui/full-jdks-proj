@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 13 个测试套件、143 个用例。
+当前共 14 个测试套件、154 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -38,7 +38,8 @@ mvn -B package
 | `fc-fleet` | `VoyageTest` | 7 | 最短航路、双向、燃料扣减、启航拒绝条件、抵达 |
 | `fc-colony` | `ColonyTest` | 11 | 升级、人口与消费、运输在途、补给线间隔/跳过/取消 |
 | `fc-economy` | `EconomyTest` | 20 | 定价、交易守恒与部分成交、配方生产、工人独占、工资、利息、税率与精度 |
-| `fc-runtime` | `RuntimeSmokeTest` | 7 | 默认世界启动、命令响应、账本一致、同种子哈希、非法启动参数 |
+| `fc-history` | `HistoryQueryTest` | 10 | 查询过滤/分页、CSV/XML/XSD/XSLT/ZIP、XXE 拒绝、JDBC 驱动与 DataSource |
+| `fc-runtime` | `RuntimeSmokeTest` | 8 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
@@ -83,7 +84,16 @@ mvn -B package
 - 同种子、同命令序列保存后读档，`StateHasher` 必须一致；明文与加密路径分别验证。
 - 错误口令、篡改密文、损坏的校验和、未来格式版本必须被拒绝，且不替换当前会话。
 - 槽位名校验必须阻止路径穿越；`saves` 按字母序返回。
-- 查询命令与 `save`/`load`/`hash` 不进入重放日志。
+- 查询命令与 `save`/`load`/`hash`、`query`、`export` 不进入重放日志。
+
+### 编年史查询与导出
+
+- 查询条件、排序与分页必须稳定；同一编年史多次查询结果一致。
+- CSV/XML 必须包含表头与完整字段；XML 通过内置 XSD 校验，HTML 由内置 XSLT 生成，
+  ZIP 证据包固定包含 `chronicle.xml`、`chronicle.csv`、`chronicle.html`、`manifest.properties`。
+- XML 解析必须拒绝 DOCTYPE 与外部实体（XXE），样式表转换关闭外部访问。
+- 只读 JDBC 驱动必须支持 `DriverManager`、`DataSource`、`PreparedStatement`、`LIKE`、
+  `COUNT(*)` 与结果集元数据，并拒绝写入/DDL；未绑定会话返回 `SQLException`。
 
 ### 扩展与外围能力
 

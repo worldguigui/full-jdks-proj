@@ -12,6 +12,10 @@ import fc.economy.TradeService;
 import fc.fleet.CrewService;
 import fc.fleet.MaintenanceService;
 import fc.fleet.VoyageService;
+import fc.history.jdbc.ChronicleDriver;
+import fc.history.jdbc.ChronicleSessions;
+import fc.history.query.ChronicleExport;
+import fc.history.query.ChronicleQuery;
 import fc.science.ResearchService;
 import fc.science.SurveyService;
 import fc.sim.DecisionResolver;
@@ -34,7 +38,16 @@ import fc.world.Treaty;
 import fc.world.WorldState;
 import fc.world.time.Stardate;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -121,6 +134,10 @@ public final class Cli {
                     "追踪风暴因果链与重大事件"),
             new Cmd("log", List.of("chronicle"), "log [条数|all]",
                     "查看编年史（默认最近 8 条；all 看全部）"),
+            new Cmd("query", List.of(), "query <SQL>",
+                    "只读 SQL 查询编年史（SELECT ... FROM chronicle）"),
+            new Cmd("export", List.of(), "export <csv|xml|html|zip> [路径]",
+                    "导出编年史（默认 chronicle.<格式>）"),
             new Cmd("status", List.of(), "status",
                     "世界概况：时间、地点数、舰船数、事件数"),
             new Cmd("help", List.of(), "help",
@@ -209,6 +226,8 @@ public final class Cli {
             case "hash" -> StateHasher.hash(loop.state());
             case "trace" -> doTrace(tokens);
             case "log" -> doChronicle(tokens);
+            case "query" -> doQuery(tokens);
+            case "export" -> doExport(tokens);
             case "help" -> help();
             case "quit" -> "bye";
             default -> "未知命令: " + tokens.get(0) + "（输入 help 查看全部 " + COMMANDS.size() + " 条命令）";
@@ -248,6 +267,99 @@ public final class Cli {
             return Math.max(1, Integer.parseInt(tokens.get(1)));
         } catch (NumberFormatException e) {
             return dflt;
+        }
+    }
+
+    /** 只读 SQL：把编年史挂到匿名 JDBC 会话上执行，输出表格。 */
+    private String doQuery(List<String> tokens) {
+        if (tokens.size() < 2) {
+            return "用法：query <SQL>（例：query SELECT type, day FROM chronicle WHERE category = 'Fleet'）";
+        }
+        String sql = String.join(" ", tokens.subList(1, tokens.size()));
+        String session = ChronicleSessions.bindAnonymous(loop.state().chronicle());
+        try (Connection connection = ChronicleDriver.connectTo(session);
+             Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(sql)) {
+            ResultSetMetaData meta = rs.getMetaData();
+            int columns = meta.getColumnCount();
+            StringBuilder sb = new StringBuilder("---- query ----\n  ");
+            for (int i = 1; i <= columns; i++) {
+                if (i > 1) {
+                    sb.append(" | ");
+                }
+                sb.append(meta.getColumnLabel(i));
+            }
+            sb.append('\n');
+            int rows = 0;
+            boolean truncated = false;
+            while (rs.next()) {
+                if (rows >= 100) {
+                    truncated = true;
+                    break;
+                }
+                sb.append("  ");
+                for (int i = 1; i <= columns; i++) {
+                    if (i > 1) {
+                        sb.append(" | ");
+                    }
+                    String value = rs.getString(i);
+                    sb.append(value == null ? "NULL" : value);
+                }
+                sb.append('\n');
+                rows++;
+            }
+            sb.append("  共 ").append(rows).append(" 行");
+            if (truncated) {
+                sb.append("（仅显示前 100 行，请加 LIMIT）");
+            }
+            return sb.toString();
+        } catch (SQLException e) {
+            return "查询失败：" + e.getMessage();
+        } finally {
+            ChronicleSessions.unbind(session);
+        }
+    }
+
+    /** 导出编年史：csv/xml/html/zip；默认文件名 chronicle.<格式>。 */
+    private String doExport(List<String> tokens) {
+        if (tokens.size() < 2) {
+            return "用法：export <csv|xml|html|zip> [路径]";
+        }
+        String format = tokens.get(1).toLowerCase(java.util.Locale.ROOT);
+        if (!List.of("csv", "xml", "html", "zip").contains(format)) {
+            return "未知导出格式：" + tokens.get(1) + "（可用 csv/xml/html/zip）";
+        }
+        Path output = tokens.size() >= 3 ? Path.of(tokens.get(2)) : Path.of("chronicle." + format);
+        var chronicle = loop.state().chronicle();
+        try {
+            if (format.equals("html")) {
+                Path parent = output.toAbsolutePath().getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+                Path work = Files.createTempDirectory("fc-export-");
+                try {
+                    String html = ChronicleExport.toHtml(chronicle, work.resolve("chronicle.xml"));
+                    Files.writeString(output, html, StandardCharsets.UTF_8);
+                } finally {
+                    try (var walk = Files.walk(work)) {
+                        for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                            Files.deleteIfExists(p);
+                        }
+                    }
+                }
+                return "已导出 " + chronicle.all().size() + " 条事件 → " + output;
+            }
+            if (format.equals("csv")) {
+                ChronicleExport.toCsv(chronicle, output, ChronicleQuery.all());
+            } else if (format.equals("xml")) {
+                ChronicleExport.toXml(chronicle, output, ChronicleQuery.all());
+            } else {
+                ChronicleExport.toZip(chronicle, output, ChronicleQuery.all());
+            }
+            return "已导出 " + chronicle.all().size() + " 条事件 → " + output;
+        } catch (IOException e) {
+            return "导出失败：" + e.getMessage();
         }
     }
 

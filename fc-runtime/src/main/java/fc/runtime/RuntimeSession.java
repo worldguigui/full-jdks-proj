@@ -200,7 +200,8 @@ public final class RuntimeSession {
     private static boolean replayable(String command) {
         String name = command.split("\\s+", 2)[0].toLowerCase(java.util.Locale.ROOT);
         return switch (name) {
-            case "save", "load", "saves", "hash", "help", "quit", "exit" -> false;
+            case "save", "load", "saves", "hash", "help", "quit", "exit",
+                    "query", "export" -> false;
             default -> true;
         };
     }

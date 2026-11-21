@@ -5,6 +5,28 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.5.1 2026-11-21 阶段五 M6：编年史查询、导出与只读 SQL
+
+1. **事件投影**：`fc.history.query.EventView` 把 sealed `GameEvent` 投影为稳定字段
+   （日、日期、类型、类别、地点、主体、因果、结果、摘要），作为对象、文件、SQL 三种读取入口的
+   唯一数据形态。
+2. **查询模型**：`ChronicleQuery` 支持日区间、类别/类型、地点（`3` 与 `L3` 等价）、主体、
+   全文检索，按日稳定排序后分页；条件非法时在构造期拒绝。
+3. **文件导出**：CSV；确定性 StAX XML（内置 XSD 校验、XPath 计数）；内置 XSLT 生成 HTML
+   报表；ZIP 证据包固定包含 XML/CSV/HTML 与 `manifest.properties`。解析器拒绝 DOCTYPE 与
+   外部实体，样式表工厂关闭外部访问。
+4. **只读 JDBC 驱动**：`jdbc:fc:chronicle[:会话名]`，通过 `META-INF/services/java.sql.Driver`
+   自动注册，也可用 `ChronicleDataSource`。基于 `java.lang.reflect.Proxy` 实现
+   `Connection`/`Statement`/`PreparedStatement`/`ResultSet`/元数据；SQL 子集支持
+   `SELECT` 列清单或 `*`、`COUNT(*) AS n`、`AND` 条件、比较与 `LIKE`、单列排序、`LIMIT/OFFSET`。
+   写入与 DDL 一律抛 `SQLFeatureNotSupportedException`；未绑定会话抛 `SQLException`。
+5. **CLI**：新增 `query <SQL>` 与 `export <csv|xml|html|zip> [路径]`（默认 `chronicle.<格式>`）。
+   两者与存档命令一样不进入重放日志。
+6. **测试**：新增 `fc.history.HistoryQueryTest` 10 个用例与 `RuntimeSmokeTest` 1 个集成用例；
+   当前共 14 个套件、154 个用例通过；既有测试未删除、未跳过、未放宽。
+7. **审计基线**：类型 305/3836（8.0%）、包 53/176（30.1%）、模块 9/20、291 个 class、
+   Preview 违规 0。证据见 `docs/audit/`。
+
 ## v0.5.0 2026-11-21 阶段五 M5：持久化、扩展与审计
 
 1. **存档/读档**：`fc-persist.SaveRepository` 采用「世界来源 + 有序命令日志 + 状态哈希」重放路线；

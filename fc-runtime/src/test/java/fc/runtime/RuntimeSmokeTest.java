@@ -8,6 +8,9 @@ import fc.world.ResourceKind;
 import fc.world.WorldState;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 
 /**
  * 运行时集成测试：默认世界装配、CLI 主命令、同种子重放与守恒。
@@ -84,6 +87,40 @@ public final class RuntimeSmokeTest {
         assert a.state().now().day() == b.state().now().day();
         assert StateHasher.hash(a.state()).equals(StateHasher.hash(b.state()))
                 : "同种子同命令应得到相同状态哈希";
+    }
+
+    @FcTest
+    public void chronicleQueryAndExportStayOutOfReplayLog() throws Exception {
+        RuntimeSession session = boot();
+        session.execute("next 10");
+
+        String table = session.execute(
+                "query SELECT type, day FROM chronicle ORDER BY day DESC LIMIT 3");
+        assert table.contains("type") && table.contains("day") : table;
+        assert table.contains("共 3 行") : table;
+
+        Path dir = Files.createTempDirectory("fc-runtime-export-");
+        try {
+            assert session.execute("export csv " + dir.resolve("c.csv")).contains("已导出");
+            assert Files.exists(dir.resolve("c.csv"));
+            assert session.execute("export xml " + dir.resolve("c.xml")).contains("已导出");
+            assert Files.exists(dir.resolve("c.xml"));
+            assert session.execute("export html " + dir.resolve("c.html")).contains("已导出");
+            assert Files.exists(dir.resolve("c.html"));
+            assert session.execute("export zip " + dir.resolve("c.zip")).contains("已导出");
+            assert Files.exists(dir.resolve("c.zip"));
+        } finally {
+            try (var walk = Files.walk(dir)) {
+                for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
+        }
+
+        assert session.commandHistory().contains("next 10") : session.commandHistory();
+        assert session.commandHistory().stream()
+                .noneMatch(c -> c.startsWith("query") || c.startsWith("export"))
+                : "查询与导出不应进入重放日志";
     }
 
     @FcTest
