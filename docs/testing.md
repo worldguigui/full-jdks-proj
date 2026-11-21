@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 29 个测试套件、252 个用例。
+当前共 29 个测试套件、253 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -53,7 +53,7 @@ mvn -B package
 | `fc-extensions` | `TelemetryMBeansTest` | 5 | 属性变化/命令通知与过滤、动态 MBean 快照、GaugeMonitor 阈值通知、Timer 心跳、QueryExp 目录筛选 |
 | `fc-extensions` | `TwoPhaseFilesTest` | 5 | XA 双写提交、prepare 失败全回滚、重启恢复日志、协议错误与同 RM、单阶段提交与参数校验 |
 | `fc-extensions` | `ManifestTransferTest` | 4 | 货单 flavor 与文本回退、剪贴板往返/所有权/FlavorEvent、FlavorMap 原生名与 MIME 校验、空剪贴板与不支持类型 |
-| `fc-tui` | `TuiEngineTest` | 10 | 总览渲染、显式页面切换/选择/详情、命令桥接与不自动推进、差分刷新、ANSI 回放重建、页面无残留、输入回显清除、宽度/ASCII、尺寸变化、失败恢复 |
+| `fc-tui` | `TuiEngineTest` | 11 | 总览渲染、CLI 页面命令/选择/详情、命令桥接与不自动推进、差量刷新、ANSI 回放重建、页面无残留、回显清除、宽度/ASCII、尺寸变化、失败恢复、待办阻塞提示 |
 | `fc-extensions` | `ChatRelayTest` | 6 | 加入与广播、成员表与历史、RMI 控制面、非法输入、离开广播、关闭与端口校验 |
 | `fc-extensions` | `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` | `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |
@@ -187,19 +187,17 @@ mvn -B package
 
 - `--tui` 启动后进入备用屏幕；帧尺寸与终端一致；`FC_TUI_ASCII=1` 时不出现
   Unicode 线框/符号；`FC_TUI_COLS/ROWS` 可覆盖行列。
+- TUI 是 CLI 的可视化层，不新增 `screen` 语法：`map`/`ships`/`colonies`/`research`/
+  `market`/`log`/`status`/`decisions`/`help` 直接复用 CLI 命令，执行后完整输出进入
+  底部 CONSOLE，再切到对应可视化页面；其他命令保持 CLI 语义。
 - 渲染只消费 `Snapshot`：重复渲染不得执行命令或推进 Tick；只有显式
-  `next <天数>` 命令才改变世界。界面刷新频率与游戏时间严格分离。
-- 页面切换使用显式 `screen <页面>`，不占用 `help`/`map` 等 CLI 命令名，
-  行输入模式不引入单字母缩写；列表操作为 `select <N|up|down>`、`inspect`、`back`，
-  其余整行作为 CLI 命令经 `TuiGame` 提交；`quit`/`exit` 或 EOF 恢复终端状态。
-- 每次提交后必须全量重绘：行输入的终端回显不在画布中，差量比较无法感知，
+  `next <天数>` 才改变世界。界面刷新频率与游戏时间严格分离。
+- 每次提交后必须全量重绘：行输入回显不在画布中，差量比较无法感知，
   否则命令字符会残留并与提示/旧页面混排；页面切换也不得残留上一页内容。
-- 地图只显示已知地点，渲染不做寻路；中文/emoji 按显示宽度计算，宽字符不得
-  被截成半个，数据中的控制字符必须清洗，不能注入终端转义序列。
-- 差分输出必须可由 ANSI 回放重建出与目标画布逐行一致的屏幕；尺寸变化时必须
-  全量重绘；命令失败显示在状态行且客户端继续运行。
-- 当前输入为行模式（Java SE 21 无跨平台 Raw Mode），终端需支持 ANSI；
-  不支持时降级为 ASCII 线框。
+- 待决事项出现时 `next` 必须停止推进，并在 CONSOLE 明确说明「规则阻塞」、
+  决策 id、选项 id 与 `decisions`/`decide <id> <选项>` 处理方法；不得只表现为无反馈。
+- 列表操作为 `select <N|up|down>`、`inspect`、`back`；`quit`/`exit` 或 EOF 恢复终端。
+  地图只显示已知地点；中文/emoji 按显示宽度计算，数据中的控制字符必须清洗。
 
 ### fc:// 命名上下文
 

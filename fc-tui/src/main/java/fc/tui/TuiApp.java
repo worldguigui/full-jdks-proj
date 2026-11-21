@@ -9,24 +9,28 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * 星际远征指挥终端：全屏、分区、键盘驱动的终端客户端。
+ * 星际远征指挥终端：TUI 是 CLI 的可视化层，而不是另一套命令系统。
  *
  * <p>渲染走 {@link ScreenBuffer} + {@link DiffRenderer}；页面只读 {@link Snapshot}；
- * 所有不可逆/世界推进操作都通过 {@link TuiGame#execute(String)} 进入游戏应用层。
- * 界面刷新与游戏时间分离：渲染循环从不推进 Tick，只有明确的 {@code n}/{@code n5}
- * 或命令行 {@code next} 才推进世界。</p>
+ * 所有世界推进/操作都通过 {@link TuiGame#execute(String)} 进入游戏应用层。
+ * 页面命令直接复用 CLI 命令名（map/ships/colonies/research/market/log/status/
+ * decisions/help）：执行后完整输出进入底部 CONSOLE，再切到对应可视化页面。
+ * 界面刷新与游戏时间分离，渲染从不推进 Tick。</p>
  *
- * <p>输入采用标准输入逐行读取（Java SE 21 无跨平台 Raw Mode）。
- * 单字符行是快捷键；其余整行作为游戏命令交给 CLI。按空格行推进 1 天。</p>
+ * <p>输入采用标准输入逐行读取（Java SE 21 无跨平台 Raw Mode）。</p>
  */
 public final class TuiApp implements AutoCloseable {
 
     private static final Logger LOG = Logger.getLogger(TuiApp.class.getName());
     private static final String PROMPT = "COMMAND > ";
+    private static final Set<String> PAGE_COMMANDS = Set.of(
+            "map", "ships", "colonies", "research", "market", "log",
+            "status", "decisions", "help");
 
     /** 页面标识。 */
     public enum Page {
@@ -44,6 +48,7 @@ public final class TuiApp implements AutoCloseable {
     private boolean detail;
     private boolean running = true;
     private String status = "READY";
+    private List<String> helpLines = List.of();
 
     public TuiApp(TuiGame game, Terminal terminal) {
         if (game == null || terminal == null) {
@@ -97,10 +102,10 @@ public final class TuiApp implements AutoCloseable {
     /**
      * 处理一行输入；返回是否仍在运行。
      *
-     * <p>行输入模式不引入单字母缩写，也不占用 CLI 已有命令名：页面切换使用
-     * {@code screen <页面>}（bridge/map/fleet/colony/research/trade/intel/help），
-     * 列表操作使用 select/inspect/back，退出使用 quit/exit。其余整行原样交给
-     * 游戏命令，因此 {@code help}、{@code map}、{@code market} 等仍保持 CLI 语义。</p>
+     * <p>不引入单字母缩写，也不新增 screen 之类的导航语法。map/ships/colonies/
+     * research/market/log/status/decisions/help 直接复用 CLI 命令：先执行命令
+     * （输出进入 CONSOLE），再切换到对应可视化页面。select/inspect/back 是列表
+     * 操作，quit/exit 退出，其余整行原样交给游戏。</p>
      */
     public boolean handle(String rawLine) {
         if (rawLine == null) {
@@ -112,22 +117,20 @@ public final class TuiApp implements AutoCloseable {
             return running;
         }
         String lower = line.toLowerCase(Locale.ROOT);
-        if (lower.startsWith("screen")) {
-            screen(line);
-        } else {
-            switch (lower) {
-                case "quit", "exit" -> {
-                    running = false;
-                    return false;
-                }
-                case "back" -> back();
-                case "inspect" -> openDetail();
-                default -> {
-                    if (lower.startsWith("select")) {
-                        select(line);
-                    } else {
-                        executeCommand(line);
-                    }
+        switch (lower) {
+            case "quit", "exit" -> {
+                running = false;
+                return false;
+            }
+            case "back" -> back();
+            case "inspect" -> openDetail();
+            default -> {
+                if (PAGE_COMMANDS.contains(lower)) {
+                    navigate(lower);
+                } else if (lower.startsWith("select")) {
+                    select(line);
+                } else {
+                    executeCommand(line);
                 }
             }
         }
@@ -137,25 +140,27 @@ public final class TuiApp implements AutoCloseable {
         return running;
     }
 
-    /** screen &lt;页面&gt;：明确的 TUI 导航命名空间，不改变任何 CLI 命令语义。 */
-    private void screen(String line) {
-        String[] parts = line.strip().split("\\s+");
-        if (parts.length != 2) {
-            status = "用法：screen <bridge|map|fleet|colony|research|trade|intel|help>";
-            return;
+    /** 页面命令：执行 CLI 命令，完整输出进 CONSOLE，然后切换到可视化页面。 */
+    private void navigate(String command) {
+        String output = executeCommand(command);
+        switch (command) {
+            case "map" -> page = Page.MAP;
+            case "ships" -> page = Page.FLEET;
+            case "colonies" -> page = Page.COLONY;
+            case "research" -> page = Page.RESEARCH;
+            case "market" -> page = Page.TRADE;
+            case "log", "decisions" -> page = Page.INTEL;
+            case "help" -> {
+                page = Page.HELP;
+                helpLines = output == null ? List.of()
+                        : List.of(output.replace("\r\n", "\n").split("\n", -1));
+            }
+            case "status" -> page = Page.BRIDGE;
+            default -> {
+            }
         }
-        switch (parts[1].toLowerCase(Locale.ROOT)) {
-            case "bridge" -> switchPage(Page.BRIDGE);
-            case "map" -> switchPage(Page.MAP);
-            case "fleet" -> switchPage(Page.FLEET);
-            case "colony" -> switchPage(Page.COLONY);
-            case "research" -> switchPage(Page.RESEARCH);
-            case "trade" -> switchPage(Page.TRADE);
-            case "intel" -> switchPage(Page.INTEL);
-            case "help" -> switchPage(Page.HELP);
-            default -> status = "未知页面：" + parts[1]
-                    + "（bridge/map/fleet/colony/research/trade/intel/help）";
-        }
+        selection = 0;
+        detail = false;
     }
 
     /** 生成当前帧画布（测试与渲染器共用）。 */
@@ -269,9 +274,10 @@ public final class TuiApp implements AutoCloseable {
         }
     }
 
-    private void executeCommand(String command) {
+    private String executeCommand(String command) {
+        String output = "";
         try {
-            String output = game.execute(command);
+            output = game.execute(command);
             appendLog("> " + command);
             if (output != null && !output.isBlank()) {
                 appendOutput(output);
@@ -280,10 +286,36 @@ public final class TuiApp implements AutoCloseable {
                 running = false;
             }
             refresh();
+            if (head(command).equals("next") && !snapshot.decisions().isEmpty()) {
+                blockedNotice();
+            }
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, "命令执行失败: " + command, e);
-            appendLog("命令失败：" + e.getMessage());
             status = "命令失败：" + e.getMessage();
+            appendLog(status);
+        }
+        return output;
+    }
+
+    /** 时间被待决事项阻塞时，把原因与可执行路径直接写进 CONSOLE 并切到情报页。 */
+    private void blockedNotice() {
+        page = Page.INTEL;
+        selection = 0;
+        detail = false;
+        appendLog("! 时间推进被 " + snapshot.decisions().size()
+                + " 项待决事项阻塞（这是世界规则，不是故障）");
+        appendLog("  处理：decisions 查看完整方案；decide <决策id> <选项id> 结算后再 next");
+        int shown = 0;
+        for (Snapshot.DecisionView decision : snapshot.decisions()) {
+            if (shown++ >= 2) {
+                break;
+            }
+            List<String> options = new ArrayList<>();
+            for (Snapshot.OptionView option : decision.options()) {
+                options.add(option.id() + "(" + option.label() + ")");
+            }
+            appendLog("  [" + decision.id() + "] " + decision.title() + "："
+                    + String.join(" / ", options));
         }
     }
 
@@ -318,7 +350,7 @@ public final class TuiApp implements AutoCloseable {
             return;
         }
         log.addLast(trimmed);
-        while (log.size() > 200) {
+        while (log.size() > 500) {
             log.removeFirst();
         }
         status = trimmed;
@@ -330,10 +362,11 @@ public final class TuiApp implements AutoCloseable {
         buffer.clear(Style.DEFAULT);
         drawHeader(buffer, width);
 
-        int bodyTop = 3;
-        int bodyBottom = height - 6;
-        Rect body = new Rect(1, bodyTop, Math.max(0, width - 2),
-                Math.max(0, bodyBottom - bodyTop));
+        int orgRow = height - 4;
+        int consoleHeight = height >= 30 ? 7 : 5;
+        int consoleTop = Math.max(3, orgRow - consoleHeight);
+        Rect body = new Rect(1, 3, Math.max(0, width - 2),
+                Math.max(0, consoleTop - 3));
         if (body.height() > 0 && body.width() > 0) {
             switch (page) {
                 case BRIDGE -> BridgeView.render(buffer, body, snapshot, chars);
@@ -343,14 +376,15 @@ public final class TuiApp implements AutoCloseable {
                 case RESEARCH -> ResearchView.render(buffer, body, snapshot, chars);
                 case TRADE -> TradeView.render(buffer, body, snapshot, chars);
                 case INTEL -> IntelView.render(buffer, body, snapshot, selection, chars);
-                case HELP -> HelpView.render(buffer, body, chars);
+                case HELP -> HelpView.render(buffer, body, helpLines, chars);
             }
         }
         if (detail) {
             drawDetail(buffer, body);
         }
-        drawOrganization(buffer, width, height - 5);
-        drawLog(buffer, width, height - 4);
+        drawConsole(buffer, new Rect(1, consoleTop, Math.max(0, width - 2),
+                Math.max(0, orgRow - consoleTop)));
+        drawOrganization(buffer, width, orgRow);
         drawKeys(buffer, width, height - 3);
         drawPrompt(buffer, width, height - 2);
     }
@@ -398,22 +432,54 @@ public final class TuiApp implements AutoCloseable {
                 + (snapshot.ending().isBlank() ? "" : "   " + chars.bullet()
                         + " ENDING " + snapshot.ending());
         buffer.putClipped(1, y, text, Style.HEADER, Math.max(0, width - 2));
+        if (!snapshot.decisions().isEmpty()) {
+            int used = 1 + TextWidth.width(TextWidth.truncate(text, width - 2));
+            String alert = chars.warn() + " 待办 " + snapshot.decisions().size()
+                    + "：decisions / decide";
+            if (used < width - 2) {
+                buffer.putClipped(used, y, alert, Style.WARN, width - 1 - used);
+            }
+        }
     }
 
-    private void drawLog(ScreenBuffer buffer, int width, int y) {
-        if (y < 0 || y >= buffer.height()) {
+    private void drawConsole(ScreenBuffer buffer, Rect rect) {
+        if (rect.height() < 3 || rect.width() < 8) {
             return;
         }
-        buffer.putClipped(1, y, TextWidth.truncate(status, Math.max(0, width - 2)),
-                Style.MUTED, Math.max(0, width - 2));
+        Rect inner = Draw.panel(buffer, rect, "CONSOLE / 命令输出", chars);
+        List<String> lines = lastConsoleLines(inner.height());
+        if (lines.isEmpty()) {
+            Draw.line(buffer, inner, 0,
+                    "命令输出会显示在这里；map/ships/colonies/research/market/log/help 直接切页。",
+                    Style.PANEL_MUTED);
+            Draw.line(buffer, inner, 1,
+                    "待办出现时 next 会暂停：用 decisions 查看，decide <id> <选项> 处理。",
+                    Style.PANEL_MUTED);
+            return;
+        }
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            Style style = line.startsWith(">") ? Style.PANEL_ACCENT
+                    : line.startsWith("!") ? Style.PANEL_WARN : Style.PANEL;
+            Draw.line(buffer, inner, i, line, style);
+        }
+    }
+
+    private List<String> lastConsoleLines(int count) {
+        if (log.isEmpty() || count <= 0) {
+            return List.of();
+        }
+        List<String> lines = new ArrayList<>(log);
+        int from = Math.max(0, lines.size() - count);
+        return lines.subList(from, lines.size());
     }
 
     private void drawKeys(ScreenBuffer buffer, int width, int y) {
         if (y < 0 || y >= buffer.height()) {
             return;
         }
-        String keys = "screen bridge/map/fleet/colony/research/trade/intel/help | "
-                + "select N/up/down  inspect  back | next N | quit";
+        String keys = "页面 map ships colonies research market log status decisions help | "
+                + "列表 select N/up/down inspect back | next N | quit";
         buffer.putClipped(1, y, TextWidth.truncate(keys, Math.max(0, width - 2)),
                 Style.MUTED, Math.max(0, width - 2));
     }
@@ -487,5 +553,11 @@ public final class TuiApp implements AutoCloseable {
             }
         }
         return max;
+    }
+
+    private static String head(String command) {
+        String stripped = command.strip();
+        int space = stripped.indexOf(' ');
+        return (space < 0 ? stripped : stripped.substring(0, space)).toLowerCase(Locale.ROOT);
     }
 }

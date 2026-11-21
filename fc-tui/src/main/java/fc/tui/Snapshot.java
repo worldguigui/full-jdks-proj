@@ -23,7 +23,7 @@ public record Snapshot(
         List<EventRow> events,
         List<String> techs,
         List<ResearchJob> researchJobs,
-        List<String> decisions,
+        List<DecisionView> decisions,
         Map<ResourceKind, BigDecimal> playerResources,
         String marketReport,
         String researchReport,
@@ -73,5 +73,16 @@ public record Snapshot(
     }
 
     public record ResearchJob(String lab, String tech) {
+    }
+
+    /** 待决事项：带决策 id 与选项 id，界面直接给出可执行的 decide 命令。 */
+    public record DecisionView(String id, String title, String description,
+                               List<OptionView> options) {
+        public DecisionView {
+            options = List.copyOf(options);
+        }
+    }
+
+    public record OptionView(String id, String label) {
     }
 }

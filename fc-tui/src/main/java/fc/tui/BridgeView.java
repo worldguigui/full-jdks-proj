@@ -94,13 +94,17 @@ public final class BridgeView {
         row++;
         Draw.line(buffer, area, row++, "待办 " + snapshot.decisions().size() + " 项",
                 snapshot.decisions().isEmpty() ? Style.PANEL_OK : Style.PANEL_WARN);
-        for (String decision : snapshot.decisions()) {
+        for (Snapshot.DecisionView decision : snapshot.decisions()) {
             if (row >= area.height()) {
                 break;
             }
-            Draw.line(buffer, area, row++, chars.warn() + " "
-                    + TextWidth.truncate(decision, Math.max(0, area.width() - 2)),
+            Draw.line(buffer, area, row++, chars.warn() + " [" + decision.id() + "] "
+                    + TextWidth.truncate(decision.title(), Math.max(0, area.width() - 8)),
                     Style.PANEL_WARN);
+        }
+        if (!snapshot.decisions().isEmpty() && row < area.height()) {
+            Draw.line(buffer, area, row, "输入 decisions / decide 处理",
+                    Style.PANEL_MUTED);
         }
     }
 }

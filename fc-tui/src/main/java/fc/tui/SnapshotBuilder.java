@@ -126,12 +126,14 @@ public final class SnapshotBuilder {
                     entry.getValue()));
         }
 
-        List<String> decisions = new ArrayList<>();
+        List<Snapshot.DecisionView> decisions = new ArrayList<>();
         for (fc.world.PendingDecision decision : state.pendingDecisions()) {
-            decisions.add(decision.title());
-            if (decisions.size() >= 6) {
-                break;
+            List<Snapshot.OptionView> options = new ArrayList<>();
+            for (fc.world.PendingDecision.Option option : decision.options()) {
+                options.add(new Snapshot.OptionView(option.id(), option.label()));
             }
+            decisions.add(new Snapshot.DecisionView(decision.id().toString(),
+                    decision.title(), decision.description(), options));
         }
 
         Map<ResourceKind, BigDecimal> resources = new LinkedHashMap<>();

@@ -317,14 +317,18 @@ Mod 或导出器）用标准 flavor 协议交换货单，而不是互相引用�
 - **终端适配**：`Terminal` 抽象输出侧；`SystemTerminal` 使用备用屏幕、UTF-8、
   真彩 SGR，并探测行列（`FC_TUI_COLS/ROWS` 覆盖；Windows 优先 PowerShell
   `WindowSize`，其次 `mode con`；Unix 用 `stty size`；默认 100×30）。
-  Java SE 21 无跨平台 Raw Mode，本版输入为行模式：页面切换用显式
-  `screen <bridge|map|fleet|colony|research|trade|intel|help>`，列表用
-  `select`/`inspect`/`back`，其余整行保持 CLI 语义；不引入单字母缩写。
-  每次提交后强制全量重绘，清除终端行回显并避免旧页面残留。
-- **页面**：舰桥总览（星图/舰队/情报/组织条）、星域导航、舰队、殖民地、科研、
-  贸易、情报、帮助，以及统一的详情弹窗与命令反馈行。所有页面共享同一视觉规范与
-  选择/返回语义；地图是二维字符投影，只显示已知地点，渲染不做寻路。
-- **生命周期**：`TuiApp.run()` 进入备用屏幕，退出/Q/EOF 恢复终端；异常写入
+  Java SE 21 无跨平台 Raw Mode，本版输入为行模式。页面命令直接复用 CLI
+  已有命令名（`map`/`ships`/`colonies`/`research`/`market`/`log`/`status`/
+  `decisions`/`help`）：先执行命令并把完整输出写进底部 CONSOLE，再切换到
+  对应的可视化页面；列表用 `select`/`inspect`/`back`，其余整行保持 CLI 语义，
+  不引入单字母缩写或额外导航语法。每次提交后强制全量重绘，清除终端行回显
+  并避免旧页面残留。
+- **页面与反馈**：舰桥总览（星图/舰队/情报/组织条）、星域导航、舰队、殖民地、
+  科研、贸易、情报、帮助，统一的详情弹窗，以及持久 CONSOLE 输出面板。
+  待决事项出现时 `next` 按规则停止推进；TUI 自动切到情报页，在 CONSOLE 写明
+  阻塞原因、决策 id/选项 id 与 `decisions`/`decide <id> <选项>` 的解法，
+  组织条同时显示待办计数。地图只显示已知地点，渲染不做寻路。
+- **生命周期**：`TuiApp.run()` 进入备用屏幕，退出/quit/EOF 恢复终端；异常写入
   `java.util.logging` 并显示在状态行，不中断客户端。
 
 ## 4. 模块与依赖

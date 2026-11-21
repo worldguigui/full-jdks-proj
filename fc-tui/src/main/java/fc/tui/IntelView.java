@@ -55,12 +55,28 @@ public final class IntelView {
             Draw.line(buffer, decisions, 0, "没有待处理事项。", Style.PANEL_OK);
         } else {
             int decisionRow = 0;
-            for (String decision : snapshot.decisions()) {
+            for (Snapshot.DecisionView decision : snapshot.decisions()) {
                 if (decisionRow >= decisions.height()) {
                     break;
                 }
-                Draw.line(buffer, decisions, decisionRow++, chars.warn() + " " + decision,
+                Draw.line(buffer, decisions, decisionRow++, chars.warn() + " ["
+                                + decision.id() + "] " + decision.title(),
                         Style.PANEL_WARN);
+                List<String> optionIds = new ArrayList<>();
+                for (Snapshot.OptionView option : decision.options()) {
+                    optionIds.add(option.id() + "(" + option.label() + ")");
+                }
+                if (decisionRow < decisions.height()) {
+                    Draw.line(buffer, decisions, decisionRow++,
+                            "   decide " + decision.id() + " <选项>：" + String.join(" / ",
+                                    optionIds),
+                            Style.PANEL_MUTED);
+                }
+            }
+            if (decisionRow < decisions.height()) {
+                Draw.line(buffer, decisions, decisionRow,
+                        "输入 decisions 查看完整说明；decide <id> <选项> 结算。",
+                        Style.PANEL_MUTED);
             }
         }
         if (snapshot.ending() != null && !snapshot.ending().isBlank()) {

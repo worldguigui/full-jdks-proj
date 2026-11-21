@@ -9,6 +9,7 @@ import fc.world.KnowledgeState;
 import fc.world.Link;
 import fc.world.Location;
 import fc.world.LocationGraph;
+import fc.world.PendingDecision;
 import fc.world.ResourceKind;
 import fc.world.ResourceLedger;
 import fc.world.Stock;
@@ -65,10 +66,30 @@ public final class TuiEngineTest {
         return state;
     }
 
+    private static WorldState worldWithDecision() {
+        WorldState state = world();
+        state.raiseDecision("风暴抉择", "离子风暴要求你决定是否援助殖民地",
+                new Ids.LocationId(3), null, List.of(
+                        new PendingDecision.Option("aid", "援助", "支付信用点换取声望",
+                                PendingDecision.Effect.GRANT_AID,
+                                Map.of("credits", new BigDecimal("50"))),
+                        new PendingDecision.Option("decline", "拒绝", "拒绝援助",
+                                PendingDecision.Effect.DECLINE, Map.of())));
+        return state;
+    }
+
     private static final class FakeGame implements TuiGame {
-        final WorldState state = world();
+        final WorldState state;
         final List<String> commands = new ArrayList<>();
         boolean fail;
+
+        FakeGame() {
+            this(world());
+        }
+
+        FakeGame(WorldState state) {
+            this.state = state;
+        }
 
         @Override
         public WorldState state() {
@@ -259,7 +280,7 @@ public final class TuiEngineTest {
             assert screen.row(y).equals(first.row(y)) : "首帧第 " + y + " 行不一致";
         }
 
-        app.handle("screen map");
+        app.handle("map");
         app.handle("select down");
         screen.apply(app.renderFrame());
         ScreenBuffer second = app.frame();
@@ -288,7 +309,7 @@ public final class TuiEngineTest {
         FakeGame game = new FakeGame();
         TuiApp app = new TuiApp(game, new FakeTerminal(new TerminalSize(120, 34), true));
 
-        assert app.handle("screen map") : "map 应保持运行";
+        assert app.handle("map") : "map 应保持运行";
         assert app.page() == TuiApp.Page.MAP : "应切换到星图";
         assert app.handle("select down") : "select down 应保持运行";
         assert app.selection() == 1 : "选择应移动：" + app.selection();
@@ -394,14 +415,14 @@ public final class TuiEngineTest {
         String bridge = text(app.frame());
         assert bridge.contains("先驱号") : bridge;
 
-        assert app.handle("screen help");
+        assert app.handle("help");
         String help = text(app.frame());
         assert help.contains("页面命令") : help;
         assert help.contains("select") : help;
         assert !help.contains("先驱号") : "帮助页不得残留总览内容";
         assert !help.contains("战略星图") : "帮助页不得残留星图内容";
 
-        assert app.handle("screen map");
+        assert app.handle("map");
         String map = text(app.frame());
         assert map.contains("战略星图") : map;
         assert !map.contains("页面命令") : "星图页不得残留帮助内容";
@@ -415,14 +436,33 @@ public final class TuiEngineTest {
         screen.apply(app.renderFrame());
         // 模拟行输入回显：光标在 COMMAND > 之后，终端把 "help" 直接写到屏幕上。
         screen.moveTo(28, 11);
-        screen.apply("screen help");
-        app.handle("screen help");
+        screen.apply("help");
+        app.handle("help");
         screen.apply(app.renderFrame());
         ScreenBuffer expected = app.frame();
         for (int y = 0; y < 30; y++) {
             assert screen.row(y).equals(expected.row(y))
                     : "第 " + y + " 行残留输入回显或旧内容";
         }
+    }
+
+    @FcTest
+    public void blockedAdvanceExplainsPendingDecision() {
+        FakeGame game = new FakeGame(worldWithDecision());
+        TuiApp app = new TuiApp(game, new FakeTerminal(new TerminalSize(110, 32), true));
+        assert app.handle("next 1");
+        assert app.page() == TuiApp.Page.INTEL : "被阻塞时应切到情报页";
+        String text = text(app.frame());
+        assert text.contains("风暴抉择") : text;
+        assert text.contains("[D1]") : text;
+        assert text.contains("decide") : text;
+        assert text.contains("阻塞") : text;
+        assert game.commands.contains("next 1") : game.commands;
+
+        assert app.handle("decisions");
+        assert app.page() == TuiApp.Page.INTEL;
+        assert game.commands.contains("decisions") : game.commands;
+        assert text(app.frame()).contains("aid") : text(app.frame());
     }
 
     @FcTest
