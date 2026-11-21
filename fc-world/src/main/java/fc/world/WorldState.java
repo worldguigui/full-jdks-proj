@@ -33,6 +33,10 @@ public final class WorldState implements WorldView {
     public record RiskModifier(BigDecimal delta, Stardate until) {
     }
 
+    /** 玩家资产的食物/燃料日快照（D0 生存目标比较用）。 */
+    public record CargoSnapshot(Stardate when, BigDecimal food, BigDecimal fuel) {
+    }
+
     private final LocationGraph graph;
     private final Map<AgentId, Agent> agents;
     private final ResourceLedger ledger;
@@ -53,6 +57,30 @@ public final class WorldState implements WorldView {
     private final Map<LocationId, Stardate> productionDisruptions = new TreeMap<>();
     private final Map<ResourceKind, BigDecimal> priceShocks = new TreeMap<>();
     private final Map<ResourceKind, Stardate> priceShockUntil = new TreeMap<>();
+
+    // ---- M4：知识、科研、外交、委托、工程与结局 ----
+    private final Map<LocationId, FactionId> owners = new TreeMap<>();
+    private final Map<LocationId, KnowledgeState> knowledge = new TreeMap<>();
+    private final Map<LocationId, Integer> workerCapacity = new TreeMap<>();
+    private final Map<LocationId, String> facilityKinds = new TreeMap<>();
+    private final Map<LocationId, String> researchJobs = new TreeMap<>();
+    private final Map<LocationId, SurveyTask> surveys = new TreeMap<>();
+    private final java.util.Set<String> techs = new java.util.TreeSet<>();
+    private final Map<FactionId, java.util.Set<Treaty>> treaties = new TreeMap<>();
+    private final Map<String, Commission> commissions = new TreeMap<>();
+    private final List<ShipOrder> shipOrders = new ArrayList<>();
+    private final Map<String, Integer> projectProgress = new TreeMap<>();
+    private final java.util.Set<String> completedProjects = new java.util.TreeSet<>();
+    private final java.util.Set<String> startedProjects = new java.util.TreeSet<>();
+    private final Map<String, LocationId> projectLocations = new TreeMap<>();
+    private final Map<String, Integer> projectRequiredDays = new TreeMap<>();
+    private final java.util.Set<String> goalsReached = new java.util.TreeSet<>();
+    private final Map<Long, CargoSnapshot> cargoHistory = new TreeMap<>();
+    private String ending;
+    private int supplyDispatches;
+    private long nextCommissionSeq = 1;
+    private long nextOrderSeq = 1;
+    private long nextShipSeq = 100;
 
     private long nextTransferId = 1;
     private long nextDecisionSeq = 1;
@@ -82,6 +110,8 @@ public final class WorldState implements WorldView {
         this.parents = new TreeMap<>();
         this.parents.putAll(parents);
         this.now = now;
+        this.cargoHistory.put(now.day(), new CargoSnapshot(now,
+                playerStock(ResourceKind.FOOD), playerStock(ResourceKind.FUEL)));
     }
 
     // ---- 时间 ----
@@ -91,9 +121,67 @@ public final class WorldState implements WorldView {
         return now;
     }
 
-    /** 推进世界时间（仅 tick 管线调用）。 */
+    /** 推进世界时间（仅 tick 管线调用），并记录玩家资产的食物/燃料日快照。 */
     public void advanceTo(Stardate next) {
         this.now = next;
+        recordCargoSnapshot();
+    }
+
+    /** 记录当前日的玩家资产食物/燃料快照（装配完成后也应调用一次）。 */
+    public void recordCargoSnapshot() {
+        cargoHistory.put(now.day(), new CargoSnapshot(now,
+                playerStock(ResourceKind.FOOD), playerStock(ResourceKind.FUEL)));
+        while (cargoHistory.size() > 64) {
+            cargoHistory.remove(cargoHistory.keySet().iterator().next());
+        }
+    }
+
+    // ---- 玩家资产与生存快照 ----
+
+    /** 玩家控制的地点：玩家殖民地及其子设施。 */
+    public java.util.Set<LocationId> playerLocationIds() {
+        java.util.Set<LocationId> out = new java.util.TreeSet<>();
+        for (ColonyState c : colonies.values()) {
+            if (c.playerOwned()) {
+                out.add(c.id());
+                collectChildren(c.id(), out);
+            }
+        }
+        return out;
+    }
+
+    private void collectChildren(LocationId parent, java.util.Set<LocationId> out) {
+        for (Map.Entry<LocationId, LocationId> e : parents.entrySet()) {
+            if (e.getValue().equals(parent) && out.add(e.getKey())) {
+                collectChildren(e.getKey(), out);
+            }
+        }
+    }
+
+    /** 玩家资产中的某货物数量（玩家地点 + 舰船货舱 + 在途）。 */
+    public BigDecimal playerStock(ResourceKind kind) {
+        BigDecimal sum = BigDecimal.ZERO;
+        for (LocationId id : playerLocationIds()) {
+            sum = sum.add(goods(id, kind));
+        }
+        for (Location.Ship ship : graph.ships()) {
+            sum = sum.add(goods(ship.id(), kind));
+        }
+        for (Transfer t : activeTransfers()) {
+            if (t.resource() == kind) {
+                sum = sum.add(t.amount());
+            }
+        }
+        return sum;
+    }
+
+    /** 指定日期的玩家资产快照（无记录返回 null）。 */
+    public CargoSnapshot cargoSnapshot(long day) {
+        return cargoHistory.get(day);
+    }
+
+    public Map<Long, CargoSnapshot> cargoHistory() {
+        return Collections.unmodifiableMap(new TreeMap<>(cargoHistory));
     }
 
     // ---- 地点与货物 ----
@@ -233,6 +321,11 @@ public final class WorldState implements WorldView {
     /** 进行中的工作单元。 */
     public Map<String, WorkUnit> workUnits() {
         return Collections.unmodifiableMap(workUnits);
+    }
+
+    /** 移除工作单元（取消科研/维修时使用）。 */
+    public WorkUnit removeWorkUnit(String key) {
+        return workUnits.remove(key);
     }
 
     /** 更新某工作单元的进度。 */
@@ -530,6 +623,341 @@ public final class WorldState implements WorldView {
             out.put(kind, priceShock(kind));
         }
         return Collections.unmodifiableMap(out);
+    }
+
+    // ---- M4：地点归属与税率 ----
+
+    /** 设置地点归属势力（装配期或征服时调用）。 */
+    public void setLocationOwner(LocationId id, FactionId faction) {
+        if (faction == null) {
+            owners.remove(id);
+        } else {
+            owners.put(id, faction);
+        }
+    }
+
+    public FactionId locationOwner(LocationId id) {
+        return owners.get(id);
+    }
+
+    public Map<LocationId, FactionId> locationOwners() {
+        return Collections.unmodifiableMap(owners);
+    }
+
+    /**
+     * 某地点的交易税率：归属于势力且未签贸易协定时按势力税率；贸易协定减半。
+     * 玩家自营地点与无主地点为 0。
+     */
+    public BigDecimal taxRateAt(LocationId id) {
+        FactionId fid = owners.get(id);
+        if (fid == null) {
+            // 未记控制者的地点：若是某势力中心，同样视为该势力控制。
+            for (Faction f : factions.values()) {
+                if (f.seat().equals(id)) {
+                    fid = f.id();
+                    break;
+                }
+            }
+        }
+        if (fid == null) {
+            return BigDecimal.ZERO;
+        }
+        Faction f = factions.get(fid);
+        if (f == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal rate = f.taxRate();
+        if (hasTreaty(fid, Treaty.TRADE)) {
+            rate = rate.divide(BigDecimal.TWO, 6, java.math.RoundingMode.HALF_UP);
+        }
+        if (hasTech("TRADE_PROTOCOL")) {
+            rate = rate.divide(BigDecimal.TWO, 6, java.math.RoundingMode.HALF_UP);
+        }
+        return rate;
+    }
+
+    // ---- M4：星图知识 ----
+
+    public KnowledgeState knowledgeOf(LocationId id) {
+        return knowledge.getOrDefault(id, KnowledgeState.UNKNOWN);
+    }
+
+    /** 设置知识状态（只允许提升，避免事件把已知地点改回未知）。 */
+    public void setKnowledge(LocationId id, KnowledgeState next) {
+        KnowledgeState cur = knowledgeOf(id);
+        if (next != null && next.ordinal() > cur.ordinal()) {
+            knowledge.put(id, next);
+        } else if (!knowledge.containsKey(id)) {
+            knowledge.put(id, cur);
+        }
+    }
+
+    /** 已知/已勘察地点（至少达到给定档位，按 id 排序）。 */
+    public List<LocationId> locationsWithKnowledge(KnowledgeState min) {
+        List<LocationId> out = new ArrayList<>();
+        for (LocationId id : sortedLocationIds()) {
+            if (knowledgeOf(id).atLeast(min)) {
+                out.add(id);
+            }
+        }
+        return out;
+    }
+
+    public Map<LocationId, KnowledgeState> knowledge() {
+        return Collections.unmodifiableMap(new TreeMap<>(knowledge));
+    }
+
+    /** 初始知识：把已勘察地点的相邻未知地点标记为已探测。 */
+    public void seedDetectedNeighbours() {
+        List<LocationId> known = locationsWithKnowledge(KnowledgeState.SURVEYED);
+        for (LocationId id : known) {
+            for (Link link : graph.linksFrom(id)) {
+                LocationId other = link.from().equals(id) ? link.to() : link.from();
+                if (knowledgeOf(other) == KnowledgeState.UNKNOWN) {
+                    setKnowledge(other, KnowledgeState.DETECTED);
+                }
+            }
+        }
+    }
+
+    // ---- M4：设施工位 ----
+
+    /** 设置地点可容纳的工人数（0 或未设置表示不限制）。 */
+    public void setWorkerCapacity(LocationId id, int capacity) {
+        if (capacity > 0) {
+            workerCapacity.put(id, capacity);
+        } else {
+            workerCapacity.remove(id);
+        }
+    }
+
+    public int workerCapacity(LocationId id) {
+        return workerCapacity.getOrDefault(id, 0);
+    }
+
+    public Map<LocationId, Integer> workerCapacities() {
+        return Collections.unmodifiableMap(new TreeMap<>(workerCapacity));
+    }
+
+    /** 设施种类（LAB/WORKSHOP/SHIPYARD 等，来自配置）。 */
+    public void setFacilityKind(LocationId id, String kind) {
+        if (kind == null || kind.isBlank()) {
+            facilityKinds.remove(id);
+        } else {
+            facilityKinds.put(id, kind);
+        }
+    }
+
+    public String facilityKind(LocationId id) {
+        return facilityKinds.getOrDefault(id, "");
+    }
+
+    public Map<LocationId, String> facilityKinds() {
+        return Collections.unmodifiableMap(new TreeMap<>(facilityKinds));
+    }
+
+    // ---- M4：科研立项 ----
+
+    /** 在实验室立项（数据成本由调用方先扣除）。 */
+    public void startResearchJob(LocationId lab, String techId) {
+        if (techId == null || techId.isBlank()) {
+            throw new IllegalArgumentException("科技 id 不得为空");
+        }
+        researchJobs.put(lab, techId);
+    }
+
+    public String researchJobAt(LocationId lab) {
+        return researchJobs.get(lab);
+    }
+
+    public String cancelResearchJob(LocationId lab) {
+        return researchJobs.remove(lab);
+    }
+
+    public boolean isResearching(String techId) {
+        return researchJobs.containsValue(techId);
+    }
+
+    public Map<LocationId, String> researchJobs() {
+        return Collections.unmodifiableMap(new TreeMap<>(researchJobs));
+    }
+
+    // ---- M4：测绘任务 ----
+
+    public void startSurvey(LocationId target, Ids.ShipId ship, int days) {
+        if (surveys.containsKey(target)) {
+            throw new IllegalArgumentException("该地点已在测绘: " + target);
+        }
+        surveys.put(target, new SurveyTask(target, ship, days));
+    }
+
+    public SurveyTask surveyAt(LocationId target) {
+        return surveys.get(target);
+    }
+
+    public Map<LocationId, SurveyTask> surveys() {
+        return Collections.unmodifiableMap(new TreeMap<>(surveys));
+    }
+
+    public SurveyTask cancelSurvey(LocationId target) {
+        return surveys.remove(target);
+    }
+
+    public void removeSurvey(LocationId target) {
+        surveys.remove(target);
+    }
+
+    // ---- M4：科技 ----
+
+    public boolean hasTech(String techId) {
+        return techs.contains(techId);
+    }
+
+    public void unlockTech(String techId) {
+        techs.add(techId);
+    }
+
+    public java.util.Set<String> techs() {
+        return Collections.unmodifiableSet(new java.util.TreeSet<>(techs));
+    }
+
+    // ---- M4：条约 ----
+
+    public boolean hasTreaty(FactionId faction, Treaty treaty) {
+        return treaties.getOrDefault(faction, java.util.Set.of()).contains(treaty);
+    }
+
+    public void addTreaty(FactionId faction, Treaty treaty) {
+        treaties.computeIfAbsent(faction, k -> new java.util.TreeSet<>()).add(treaty);
+    }
+
+    public Map<FactionId, java.util.Set<Treaty>> treaties() {
+        Map<FactionId, java.util.Set<Treaty>> out = new TreeMap<>();
+        treaties.forEach((k, v) -> out.put(k, java.util.Set.copyOf(v)));
+        return Collections.unmodifiableMap(out);
+    }
+
+    // ---- M4：委托 ----
+
+    public String nextCommissionId() {
+        return "C" + (nextCommissionSeq++);
+    }
+
+    public void addCommission(Commission commission) {
+        commissions.put(commission.id(), commission);
+    }
+
+    public Commission commission(String id) {
+        return commissions.get(id);
+    }
+
+    public Map<String, Commission> commissions() {
+        return Collections.unmodifiableMap(new TreeMap<>(commissions));
+    }
+
+    // ---- M4：船坞订单 ----
+
+    public String nextOrderId() {
+        return "O" + (nextOrderSeq++);
+    }
+
+    public void addShipOrder(ShipOrder order) {
+        shipOrders.add(order);
+    }
+
+    public List<ShipOrder> shipOrders() {
+        return List.copyOf(shipOrders);
+    }
+
+    public Ids.ShipId nextShipId() {
+        return new Ids.ShipId(nextShipSeq++);
+    }
+
+    /** 将新舰船接入地点图与账本（船坞交付）。 */
+    public void addShip(Location.Ship ship) {
+        graph.add(ship);
+        ledger.open(ship.id(), ship.stock());
+        money.open(MoneyLedger.locationAccount(ship.id()), BigDecimal.ZERO);
+    }
+
+    // ---- M4：终局工程与结局 ----
+
+    public int projectProgress(String project) {
+        return projectProgress.getOrDefault(project, 0);
+    }
+
+    /** 推进工程，返回是否完成。 */
+    public boolean advanceProject(String project, int days, int requiredDays) {
+        int next = Math.min(requiredDays, projectProgress(project) + days);
+        projectProgress.put(project, next);
+        if (next >= requiredDays) {
+            completedProjects.add(project);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean projectCompleted(String project) {
+        return completedProjects.contains(project);
+    }
+
+    public java.util.Set<String> completedProjects() {
+        return Collections.unmodifiableSet(new java.util.TreeSet<>(completedProjects));
+    }
+
+    /** 启动终局工程（同一时间只允许一项；启动后锁定另一项）。 */
+    public boolean startProject(String project, LocationId at, int requiredDays) {
+        if (ending != null || startedProjects.contains(project)
+                || !startedProjects.isEmpty()) {
+            return false;
+        }
+        startedProjects.add(project);
+        projectLocations.put(project, at);
+        projectRequiredDays.put(project, Math.max(1, requiredDays));
+        projectProgress.putIfAbsent(project, 0);
+        return true;
+    }
+
+    public boolean projectStarted(String project) {
+        return startedProjects.contains(project);
+    }
+
+    public LocationId projectLocation(String project) {
+        return projectLocations.get(project);
+    }
+
+    public int projectRequiredDays(String project) {
+        return projectRequiredDays.getOrDefault(project, 0);
+    }
+
+    public java.util.Set<String> startedProjects() {
+        return Collections.unmodifiableSet(new java.util.TreeSet<>(startedProjects));
+    }
+
+    /** 记录阶段目标达成；返回是否为首次达成。 */
+    public boolean markGoalReached(String goal) {
+        return goalsReached.add(goal);
+    }
+
+    public java.util.Set<String> goalsReached() {
+        return Collections.unmodifiableSet(new java.util.TreeSet<>(goalsReached));
+    }
+
+    public String ending() {
+        return ending;
+    }
+
+    public void setEnding(String ending) {
+        this.ending = ending;
+    }
+
+    /** 记录一次补给线发车（D0 目标）。 */
+    public void recordSupplyDispatch() {
+        supplyDispatches++;
+    }
+
+    public int supplyDispatches() {
+        return supplyDispatches;
     }
 
     // ---- 编年史 ----

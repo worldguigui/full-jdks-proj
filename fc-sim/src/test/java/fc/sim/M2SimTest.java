@@ -288,8 +288,10 @@ public final class M2SimTest {
 
         new WorkStage().apply(st, ctx(1));
 
-        assert st.workUnits().get("a").progress() == 1 : "1 名工人推进 1";
-        assert st.workUnits().get("b").progress() == 2 : "2 名工人推进 2";
+        assert st.workUnits().get("a").progress().compareTo(BigDecimal.ONE) == 0
+                : "1 名工人推进 1";
+        assert st.workUnits().get("b").progress().compareTo(new BigDecimal("2")) == 0
+                : "2 名工人推进 2";
     }
 
     @FcTest
@@ -302,7 +304,7 @@ public final class M2SimTest {
 
         st.putWorkUnit("idle", new WorkUnit("r", 0, 10, List.of()));
         new WorkStage().apply(st, ctx(1));
-        assert st.workUnits().get("idle").progress() == 0 : "没有工人不能凭空推进";
+        assert st.workUnits().get("idle").progress().signum() == 0 : "没有工人不能凭空推进";
     }
 
     @FcTest

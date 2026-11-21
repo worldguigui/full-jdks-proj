@@ -81,21 +81,47 @@ public sealed interface Location
      * 其它代码应只读。M0 时三者均为 final，M1 起为支持航行改为受控可变。</p>
      */
     final class Ship implements Location {
+        /** 未配置船型时的默认货舱容量；旧测试世界因此不会被容量校验意外拒绝。 */
+        public static final BigDecimal DEFAULT_CARGO_CAPACITY = new BigDecimal("500");
+        public static final int DEFAULT_CREW_CAPACITY = 8;
+        public static final int DEFAULT_MAX_HULL = 100;
+
         private final LocationId id;
         private final String name;
         private final Ids.ShipId shipId;
+        private final String shipType;
+        private BigDecimal cargoCapacity;
+        private final int crewCapacity;
+        private final int maxHull;
+        private final double baseRiskFactor;
         private LocationId parent;
         private Stock cargo;
         private VoyageProgress voyage;
+        private int hull;
 
         public Ship(LocationId id, String name, Ids.ShipId shipId,
                     LocationId parent, Stock cargo, VoyageProgress voyage) {
+            this(id, name, shipId, "freighter", DEFAULT_CARGO_CAPACITY,
+                    DEFAULT_CREW_CAPACITY, DEFAULT_MAX_HULL, 0.0,
+                    parent, cargo, voyage, DEFAULT_MAX_HULL);
+        }
+
+        public Ship(LocationId id, String name, Ids.ShipId shipId,
+                    String shipType, BigDecimal cargoCapacity, int crewCapacity,
+                    int maxHull, double baseRiskFactor,
+                    LocationId parent, Stock cargo, VoyageProgress voyage, int hull) {
             this.id = id;
             this.name = name;
             this.shipId = shipId;
+            this.shipType = shipType;
+            this.cargoCapacity = cargoCapacity;
+            this.crewCapacity = crewCapacity;
+            this.maxHull = maxHull;
+            this.baseRiskFactor = baseRiskFactor;
             this.parent = parent;
             this.cargo = cargo;
             this.voyage = voyage;
+            this.hull = Math.max(0, Math.min(maxHull, hull));
         }
 
         @Override
@@ -116,6 +142,74 @@ public sealed interface Location
 
         public Ids.ShipId shipId() {
             return shipId;
+        }
+
+        /** 船型标识（scout/freighter/engineering/research/escort 等）。 */
+        public String shipType() {
+            return shipType;
+        }
+
+        public BigDecimal cargoCapacity() {
+            return cargoCapacity;
+        }
+
+        /** 科技货舱框架：永久扩充货舱（由科研解锁结算调用）。 */
+        public void expandCargo(BigDecimal extra) {
+            if (extra != null && extra.signum() > 0) {
+                cargoCapacity = cargoCapacity.add(extra);
+            }
+        }
+
+        public int crewCapacity() {
+            return crewCapacity;
+        }
+
+        public int hull() {
+            return hull;
+        }
+
+        public int maxHull() {
+            return maxHull;
+        }
+
+        public double baseRiskFactor() {
+            return baseRiskFactor;
+        }
+
+        /** 货舱已用空间（燃料也占货舱）。 */
+        public BigDecimal cargoUsed() {
+            BigDecimal sum = BigDecimal.ZERO;
+            for (ResourceKind kind : ResourceKind.GOODS) {
+                sum = sum.add(cargo.amount(kind));
+            }
+            return sum;
+        }
+
+        /** 剩余货舱空间。 */
+        public BigDecimal cargoFree() {
+            return cargoCapacity.subtract(cargoUsed()).max(BigDecimal.ZERO);
+        }
+
+        /** 是否可继续工作（耐久 > 0）。 */
+        public boolean operational() {
+            return hull > 0;
+        }
+
+        /** 受损（耐久降到 0 即瘫痪；不摧毁舰船，代价由后续维修承担）。 */
+        public void damage(int amount) {
+            if (amount > 0) {
+                hull = Math.max(0, hull - amount);
+            }
+        }
+
+        /** 维修，返回实际修复量。 */
+        public int repair(int amount) {
+            if (amount <= 0) {
+                return 0;
+            }
+            int before = hull;
+            hull = Math.min(maxHull, hull + amount);
+            return hull - before;
         }
 
         /** 当前所在（或出发）地点。在航时仍为出发地，抵达后更新为目标地。 */
@@ -154,7 +248,8 @@ public sealed interface Location
             }
             VoyageProgress next = new VoyageProgress(
                     voyage.from(), voyage.to(), voyage.elapsedTicks() + 1,
-                    voyage.totalTicks(), voyage.departed());
+                    voyage.totalTicks(), voyage.departed(),
+                    voyage.incidentChance(), voyage.incidentResolved());
             this.voyage = next;
             return next.arrived();
         }
@@ -176,7 +271,18 @@ public sealed interface Location
         public void delayVoyage(int extraTicks) {
             if (voyage != null && extraTicks > 0) {
                 this.voyage = new VoyageProgress(voyage.from(), voyage.to(),
-                        voyage.elapsedTicks(), voyage.totalTicks() + extraTicks, voyage.departed());
+                        voyage.elapsedTicks(), voyage.totalTicks() + extraTicks,
+                        voyage.departed(), voyage.incidentChance(),
+                        voyage.incidentResolved());
+            }
+        }
+
+        /** 标记航程风险已判定（避免同一次航行重复触发事故）。 */
+        public void markIncidentResolved() {
+            if (voyage != null) {
+                this.voyage = new VoyageProgress(voyage.from(), voyage.to(),
+                        voyage.elapsedTicks(), voyage.totalTicks(), voyage.departed(),
+                        voyage.incidentChance(), true);
             }
         }
 
@@ -189,9 +295,16 @@ public sealed interface Location
     /** mod 扩展口：允许外部模块新增 Location 子类型。 */
     non-sealed interface ExtensionLocation extends Location {}
 
-    /** 在途进度：舰船航行状态（M1 填充航行语义）。 */
+    /** 在途进度：舰船航行状态（M4 起携带风险判定结果）。 */
     record VoyageProgress(LocationId from, LocationId to, int elapsedTicks, int totalTicks,
-                          Stardate departed) {
+                          Stardate departed, double incidentChance, boolean incidentResolved) {
+
+        /** 兼容：无风险信息的航程。 */
+        public VoyageProgress(LocationId from, LocationId to, int elapsedTicks, int totalTicks,
+                              Stardate departed) {
+            this(from, to, elapsedTicks, totalTicks, departed, 0.0, true);
+        }
+
         /** 是否已抵达（或未在航）。 */
         public boolean arrived() {
             return elapsedTicks >= totalTicks;

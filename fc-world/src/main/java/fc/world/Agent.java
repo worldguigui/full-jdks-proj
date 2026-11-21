@@ -21,14 +21,21 @@ public final class Agent {
     private LocationId location;
     private Needs needs;
     private Assignment assignment;
-    private int skill;
+    private SkillSet skills;
+    private int workdays;
     private boolean starvingAlerted;
     private LocationId travelDestination;
     private int travelTicksRemaining;
     private long lastAteDay = Long.MIN_VALUE;
 
+    /** 兼容旧世界的单一技能：六维同值。 */
     public Agent(AgentId id, AgentRole role, Trait trait, String name,
                  LocationId location, Needs needs, Assignment assignment, int skill) {
+        this(id, role, trait, name, location, needs, assignment, SkillSet.of(skill));
+    }
+
+    public Agent(AgentId id, AgentRole role, Trait trait, String name,
+                 LocationId location, Needs needs, Assignment assignment, SkillSet skills) {
         this.id = id;
         this.role = role;
         this.trait = trait;
@@ -36,7 +43,7 @@ public final class Agent {
         this.location = location;
         this.needs = needs;
         this.assignment = assignment;
-        this.skill = skill;
+        this.skills = skills;
     }
 
     public AgentId id() {
@@ -67,9 +74,14 @@ public final class Agent {
         return assignment;
     }
 
-    /** 技能等级 0..10。 */
+    /** 六维技能组。 */
+    public SkillSet skills() {
+        return skills;
+    }
+
+    /** 最高技能等级 0..10（兼容旧 UI 与状态哈希）。 */
     public int skill() {
-        return skill;
+        return skills.highest();
     }
 
     // ---- 受控修改（仅 tick 阶段调用） ----
@@ -96,9 +108,27 @@ public final class Agent {
         this.needs = needs.withFatigue(-relief);
     }
 
-    /** 技能成长（长期工作）。 */
+    /** 技能成长（按具体维度）。 */
+    public void gainSkill(SkillSet.Skill skill, int delta) {
+        this.skills = skills.increase(skill, delta);
+    }
+
+    /** 兼容：默认提升工程技能（生产劳动）。 */
     public void gainSkill(int delta) {
-        this.skill = Math.min(10, skill + delta);
+        gainSkill(SkillSet.Skill.ENGINEERING, delta);
+    }
+
+    /**
+     * 记录一个相关工作日；达到 30 的倍数时返回 true，供决策阶段做技能成长判定。
+     * 计数器进入状态哈希，保证同种子重放一致。
+     */
+    public boolean recordWorkday() {
+        workdays++;
+        return workdays % 30 == 0;
+    }
+
+    public int workdays() {
+        return workdays;
     }
 
     /** 是否已就"饥饿告急"告警过（避免日志刷屏）。 */

@@ -11,6 +11,16 @@ import fc.world.WorldState;
  */
 public final class ReportStage implements TickStage {
 
+    private final fc.sim.spi.GoalSystem goals;
+
+    public ReportStage() {
+        this(null);
+    }
+
+    public ReportStage(fc.sim.spi.GoalSystem goals) {
+        this.goals = goals;
+    }
+
     @Override
     public String name() {
         return "12-report";
@@ -18,6 +28,12 @@ public final class ReportStage implements TickStage {
 
     @Override
     public void apply(WorldState state, TickContext ctx) {
+        // 目标判定在汇总前执行：新达成的目标会出现在本回合报告里。
+        if (goals != null) {
+            for (String goal : goals.evaluate(state, ctx)) {
+                ctx.report("阶段目标达成：" + goal);
+            }
+        }
         int working = 0;
         int resting = 0;
         int starving = 0;

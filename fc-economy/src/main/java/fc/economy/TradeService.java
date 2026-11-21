@@ -48,11 +48,48 @@ public final class TradeService {
         }
         BigDecimal stock = state.goods(at, kind);
         String mine = ship.cargo().amount(kind).stripTrailingZeros().toPlainString();
-        return String.format("%s @ %s｜库存 %s｜买入 %s｜卖出 %s｜货舱 %s｜信用点 %s",
+        BigDecimal tax = state.taxRateAt(at);
+        return String.format("%s @ %s｜库存 %s｜买入 %s｜卖出 %s｜税 %s｜货舱 %s｜信用点 %s",
                 kind.displayName(), loc.name(),
                 stock.stripTrailingZeros().toPlainString(),
-                buy.get().toPlainString(), sell.get().toPlainString(),
+                effectiveBuy(state, ship, at, buy.get()).toPlainString(),
+                effectiveSell(state, ship, at, sell.get()).toPlainString(),
+                tax.stripTrailingZeros().toPlainString(),
                 mine, state.credits().stripTrailingZeros().toPlainString());
+    }
+
+    /** 贸易技能带来买卖价改善：每点 0.5%，最多 5%。 */
+    private static BigDecimal skillFactor(WorldState state, Location.Ship ship, boolean buying) {
+        int skill = 0;
+        for (fc.world.Agent a : state.agentsAt(ship.id())) {
+            skill = Math.max(skill, a.skills().get(fc.world.SkillSet.Skill.TRADE));
+        }
+        BigDecimal shift = new BigDecimal("0.005").multiply(BigDecimal.valueOf(skill));
+        return buying ? BigDecimal.ONE.subtract(shift) : BigDecimal.ONE.add(shift);
+    }
+
+    /** 含技能改善与本地税的买入单价。 */
+    private static BigDecimal effectiveBuy(WorldState state, Location.Ship ship,
+                                           Ids.LocationId at, BigDecimal quoted) {
+        BigDecimal price = quoted.multiply(skillFactor(state, ship, true))
+                .setScale(2, RoundingMode.HALF_UP);
+        return price.multiply(BigDecimal.ONE.add(state.taxRateAt(at)))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** 含技能改善与本地税的卖出单价（税由买方支付、进入势力账户）。 */
+    private static BigDecimal effectiveSell(WorldState state, Location.Ship ship,
+                                            Ids.LocationId at, BigDecimal quoted) {
+        BigDecimal price = quoted.multiply(skillFactor(state, ship, false))
+                .setScale(2, RoundingMode.HALF_UP);
+        return price.multiply(BigDecimal.ONE.subtract(state.taxRateAt(at)))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** 税款接收账户：地点归属势力的账户，无主则进入国库。 */
+    private static String taxAccount(WorldState state, Ids.LocationId at) {
+        Ids.FactionId owner = state.locationOwner(at);
+        return owner == null ? MoneyLedger.TREASURY : MoneyLedger.factionAccount(owner);
     }
 
     /** 买入：玩家付钱，货进船。 */
@@ -69,16 +106,19 @@ public final class TradeService {
         if (priceOpt.isEmpty()) {
             return new Result(false, "该世界未配置资源 " + kind.id(), BigDecimal.ZERO, BigDecimal.ZERO);
         }
-        BigDecimal price = priceOpt.get();
+        BigDecimal price = effectiveBuy(state, ship, at, priceOpt.get());
 
         int byStock = state.goods(at, kind).intValue();
         int byCash = price.signum() > 0
                 ? state.credits().divide(price, 0, RoundingMode.DOWN).intValue()
                 : Integer.MAX_VALUE;
-        int fill = Math.min(qty, Math.min(byStock, byCash));
+        int byCargo = ship.cargoFree().intValue();
+        int fill = Math.min(qty, Math.min(byStock, Math.min(byCash, byCargo)));
         if (fill <= 0) {
-            String why = byStock <= 0 ? "本地库存为 0" : "信用点不足（现有 "
-                    + state.credits().stripTrailingZeros().toPlainString() + "）";
+            String why = byStock <= 0 ? "本地库存为 0"
+                    : byCargo <= 0 ? "货舱已满"
+                    : "信用点不足（现有 "
+                            + state.credits().stripTrailingZeros().toPlainString() + "）";
             return new Result(false, "买入失败：" + why, BigDecimal.ZERO, price);
         }
         String note = fill < qty ? "（请求 " + qty + "，按可用量成交 " + fill + "）" : "";
@@ -86,7 +126,13 @@ public final class TradeService {
         BigDecimal cost = price.multiply(BigDecimal.valueOf(qty));
 
         state.transferStock(at, ship.id(), kind, BigDecimal.valueOf(qty), "市场买入");
-        state.payFromPlayer(MoneyLedger.locationAccount(at), cost, "买入 " + kind.id());
+        BigDecimal tax = cost.multiply(state.taxRateAt(at))
+                .divide(BigDecimal.ONE.add(state.taxRateAt(at)), 2, RoundingMode.HALF_UP);
+        if (tax.signum() > 0) {
+            state.payFromPlayer(taxAccount(state, at), tax, "交易税 " + kind.id());
+        }
+        state.payFromPlayer(MoneyLedger.locationAccount(at), cost.subtract(tax),
+                "买入 " + kind.id());
 
         state.chronicle().record(new GameEvent.TradeSettled(
                 state.now(), at, kind, BigDecimal.valueOf(qty), price, "buy"));
@@ -109,13 +155,18 @@ public final class TradeService {
         if (priceOpt.isEmpty()) {
             return new Result(false, "该世界未配置资源 " + kind.id(), BigDecimal.ZERO, BigDecimal.ZERO);
         }
-        BigDecimal price = priceOpt.get();
+        BigDecimal quoted = priceOpt.get()
+                .multiply(skillFactor(state, ship, false))
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal rate = state.taxRateAt(at);
+        BigDecimal price = quoted.multiply(BigDecimal.ONE.subtract(rate))
+                .setScale(2, RoundingMode.HALF_UP);
 
         int byCargo = ship.cargo().amount(kind).intValue();
         String buyer = MoneyLedger.locationAccount(at);
         BigDecimal locCredits = state.money().balance(buyer);
-        int byBuyer = price.signum() > 0
-                ? locCredits.divide(price, 0, RoundingMode.DOWN).intValue()
+        int byBuyer = quoted.signum() > 0
+                ? locCredits.divide(quoted, 0, RoundingMode.DOWN).intValue()
                 : Integer.MAX_VALUE;
         int fill = Math.min(qty, Math.min(byCargo, byBuyer));
         if (fill <= 0) {
@@ -125,10 +176,16 @@ public final class TradeService {
         }
         String note = fill < qty ? "（请求 " + qty + "，按可用量成交 " + fill + "）" : "";
         qty = fill;
+        BigDecimal gross = quoted.multiply(BigDecimal.valueOf(qty));
         BigDecimal revenue = price.multiply(BigDecimal.valueOf(qty));
+        BigDecimal tax = gross.subtract(revenue);
 
         state.transferStock(ship.id(), at, kind, BigDecimal.valueOf(qty), "市场卖出");
         state.money().transfer(state.now(), buyer, MoneyLedger.PLAYER, revenue, "卖出 " + kind.id());
+        if (tax.signum() > 0) {
+            state.money().transfer(state.now(), buyer, taxAccount(state, at), tax,
+                    "交易税 " + kind.id());
+        }
 
         state.chronicle().record(new GameEvent.TradeSettled(
                 state.now(), at, kind, BigDecimal.valueOf(qty), price, "sell"));
@@ -146,6 +203,7 @@ public final class TradeService {
         }
         StringBuilder sb = new StringBuilder("---- ").append(loc.name())
                 .append(" 行情（信用点 ").append(state.credits().stripTrailingZeros().toPlainString())
+                .append("，税率 ").append(state.taxRateAt(at).stripTrailingZeros().toPlainString())
                 .append("）----\n");
         sb.append(String.format("  %-10s %8s %8s %8s%n", "资源", "库存", "买入", "卖出"));
         for (Map.Entry<ResourceKind, fc.config.world.ResourceDef> e : economy.resources().entrySet()) {
@@ -157,7 +215,8 @@ public final class TradeService {
             }
             sb.append(String.format("  %-10s %8s %8s %8s%n", kind.displayName(),
                     state.goods(at, kind).stripTrailingZeros().toPlainString(),
-                    buy.get().toPlainString(), sell.get().toPlainString()));
+                    effectiveBuy(state, ship, at, buy.get()).toPlainString(),
+                    effectiveSell(state, ship, at, sell.get()).toPlainString()));
         }
         return sb.toString();
     }

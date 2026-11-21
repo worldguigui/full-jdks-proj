@@ -1,6 +1,8 @@
 package fc.sim.tick;
 
+import fc.config.world.WorldDefinition;
 import fc.sim.rng.RngStreams;
+import fc.sim.spi.ConflictSystem;
 import fc.world.Agent;
 import fc.world.Faction;
 import fc.world.GameEvent;
@@ -9,9 +11,11 @@ import fc.world.Link;
 import fc.world.Location;
 import fc.world.PendingDecision;
 import fc.world.ResourceKind;
+import fc.world.SkillSet;
 import fc.world.WorldState;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,17 +29,35 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * 阶段 10：事件引擎（条件触发 + 传播链 + 待决决策）。
+ * 阶段 10：事件引擎（配置触发 + 传播链 + 固定反应顺序 + 待决决策）。
  *
- * <p>离子风暴从星域/异常点起源，沿航线逐跳传播（最多 8 个地点、3 跳）。
- * 每个受影响地点留下一条 {@link GameEvent.StormImpact}，因此整条因果链可追溯。
- * 影响包括：生产中断、航线风险上升、士气下降、燃料/能源/材料价格冲击、航程延误。
- * 强风暴可能产生待决决策，玩家必须选择后时间才能继续。</p>
+ * <p>事件参数由配置的 {@code <events>} 提供；未配置时使用内置默认值。
+ * 离子风暴从星域/异常点起源，沿航线逐跳传播并留下可追溯的
+ * {@link GameEvent.StormImpact} 因果链。海盗袭击针对在航舰船，造成货损、
+ * 耐久损伤与延误。</p>
+ *
+ * <p>固定反应顺序：直接后果（货损/停产/风险）→ 工程与舰船修理 →
+ * 势力响应 → 市场冲击 → 目标/结局检查。顺序固定保证同种子重放一致。</p>
  */
 public final class WorldEventStage implements TickStage {
 
-    private static final int MAX_IMPACTS = 8;
-    private static final int MAX_DEPTH = 3;
+    private static final int DEFAULT_MAX_IMPACTS = 8;
+    private static final int DEFAULT_MAX_DEPTH = 3;
+
+    private static final WorldDefinition.EventDef DEFAULT_STORM =
+            new WorldDefinition.EventDef("storm", "ION_STORM", 0.02, 0.05, 1, 4, 3, 8);
+    private static final WorldDefinition.EventDef DEFAULT_PIRACY =
+            new WorldDefinition.EventDef("piracy", "PIRACY", 0.01, 0.03, 1, 3, 0, 1);
+
+    private final ConflictSystem conflicts;
+
+    public WorldEventStage() {
+        this(null);
+    }
+
+    public WorldEventStage(ConflictSystem conflicts) {
+        this.conflicts = conflicts;
+    }
 
     @Override
     public String name() {
@@ -44,8 +66,30 @@ public final class WorldEventStage implements TickStage {
 
     @Override
     public void apply(WorldState state, TickContext ctx) {
-        var rng = ctx.rng().stream(RngStreams.EVENTS);
+        List<WorldDefinition.EventDef> rules = ctx.eventRules().isEmpty()
+                ? List.of(DEFAULT_STORM, DEFAULT_PIRACY) : ctx.eventRules();
+        for (WorldDefinition.EventDef rule : rules) {
+            handle(state, ctx, rule);
+        }
+    }
 
+    private void handle(WorldState state, TickContext ctx, WorldDefinition.EventDef rule) {
+        var rng = ctx.rng().stream(RngStreams.EVENTS);
+        double probability = rule.probability()
+                + (ctx.weather() / 100.0) * rule.weatherFactor();
+        if (!RngStreams.chance(rng, Math.min(1.0, probability))) {
+            return;
+        }
+        int severity = RngStreams.between(rng, rule.minSeverity(), rule.maxSeverity());
+        if ("ION_STORM".equals(rule.kind())) {
+            storm(state, ctx, rng, severity, rule.maxDepth(), rule.maxImpacts());
+        } else if ("PIRACY".equals(rule.kind())) {
+            piracy(state, ctx, rng, severity);
+        }
+    }
+
+    private void storm(WorldState state, TickContext ctx, java.util.random.RandomGenerator rng,
+                       int severity, int maxDepth, int maxImpacts) {
         List<Location> candidates = new ArrayList<>();
         for (Location l : state.graph().nodes().values()) {
             if (l instanceof Location.StarSystem || l instanceof Location.Anomaly) {
@@ -56,17 +100,12 @@ public final class WorldEventStage implements TickStage {
             return;
         }
         candidates.sort(Comparator.comparingLong(l -> l.id().id()));
-
-        double probability = 0.02 + (ctx.weather() / 100.0) * 0.05;
-        if (!RngStreams.chance(rng, probability)) {
-            return;
-        }
         Location origin = candidates.get(rng.nextInt(candidates.size()));
-        int severity = 1 + rng.nextInt(4);
-        propagate(state, ctx, origin, severity);
+        propagate(state, ctx, origin, severity, maxDepth, maxImpacts);
     }
 
-    private void propagate(WorldState state, TickContext ctx, Location origin, int severity) {
+    private void propagate(WorldState state, TickContext ctx, Location origin, int severity,
+                           int maxDepth, int maxImpacts) {
         // 因果顺序：先记录风暴本身，再记录其影响。
         ctx.events().enqueue(new GameEvent.IonStorm(state.now(), origin.id(), severity));
 
@@ -82,14 +121,14 @@ public final class WorldEventStage implements TickStage {
         visited.add(start);
 
         int impacts = 0;
-        while (!queue.isEmpty() && impacts < MAX_IMPACTS) {
+        while (!queue.isEmpty() && impacts < maxImpacts) {
             Ids.LocationId cur = queue.poll();
             int step = depth.get(cur);
             Ids.LocationId parent = upstream.get(cur);
             applyImpact(state, ctx, cur, parent, step, severity);
             impacts++;
 
-            if (step >= MAX_DEPTH) {
+            if (step >= maxDepth) {
                 continue;
             }
             for (Ids.LocationId next : adj.getOrDefault(cur, List.of())) {
@@ -99,7 +138,7 @@ public final class WorldEventStage implements TickStage {
                 depth.put(next, step + 1);
                 upstream.put(next, cur);
                 queue.add(next);
-                if (visited.size() > MAX_IMPACTS) {
+                if (visited.size() > maxImpacts) {
                     break;
                 }
             }
@@ -163,6 +202,124 @@ public final class WorldEventStage implements TickStage {
         }
     }
 
+    /** 海盗袭击：在航舰船的货损、耐久损伤与延误，随后按固定顺序结算反应。 */
+    private void piracy(WorldState state, TickContext ctx,
+                        java.util.random.RandomGenerator rng, int severity) {
+        List<Location.Ship> targets = new ArrayList<>();
+        for (Location.Ship ship : state.graph().ships()) {
+            if (ship.inVoyage() && ship.operational()) {
+                targets.add(ship);
+            }
+        }
+        if (targets.isEmpty()) {
+            return;
+        }
+        targets.sort(Comparator.comparingLong(s -> s.shipId().id()));
+        Location.Ship ship = targets.get(rng.nextInt(targets.size()));
+        Faction rival = factionFor(state, ship);
+
+        // 1) 直接后果：由共享冲突结算器（或内置回退）计算货损、耐久与延误
+        BigDecimal loss;
+        int hullDamage;
+        if (conflicts != null && rival != null) {
+            ConflictSystem.Outcome outcome = conflicts.resolve(
+                    state, ctx, "piracy", ship, rival.id(), severity * 4);
+            loss = outcome.cargoLoss();
+            hullDamage = outcome.hullDamage();
+            ctx.report("海盗冲突（" + rival.name() + "）：" + outcome.detail());
+        } else {
+            loss = directPiracyLoss(state, rng, ship);
+            hullDamage = severity * RngStreams.between(rng, 3, 8);
+            ship.damage(hullDamage);
+            ctx.report("海盗袭击 " + ship.name() + "：货损 "
+                    + loss.stripTrailingZeros().toPlainString() + "，耐久 -" + hullDamage);
+        }
+        int delay = 1;
+        ship.delayVoyage(delay);
+        ctx.events().enqueue(new GameEvent.VoyageIncident(
+                state.now(), ship.parent(), ship.shipId(), "海盗袭击", delay, loss, hullDamage));
+
+        // 2) 工程与舰船：船上工程师立即抢修
+        int repaired = 0;
+        for (Agent a : state.agentsAt(ship.id())) {
+            repaired += Math.max(0, a.skills().get(SkillSet.Skill.ENGINEERING) / 2);
+        }
+        if (repaired > 0) {
+            int actual = ship.repair(repaired);
+            if (actual > 0) {
+                ctx.events().enqueue(new GameEvent.ShipRepaired(
+                        state.now(), ship.parent(), ship.shipId(), actual, ship.hull()));
+            }
+        }
+
+        // 3) 势力响应：军事势力若存在则记录反应
+        for (Faction f : state.factions().values()) {
+            if (f.kind() == Faction.Kind.MILITARY) {
+                ctx.events().enqueue(new GameEvent.FactionAction(
+                        state.now(), f.seat(), f.id(), "清剿海盗",
+                        "在 " + ship.voyage().from().id() + " 至 "
+                                + ship.voyage().to().id() + " 航线巡逻"));
+                break;
+            }
+        }
+
+        // 4) 市场：装备与燃料价格短期上涨
+        BigDecimal multiplier = BigDecimal.ONE.add(
+                new BigDecimal("0.03").multiply(BigDecimal.valueOf(severity)));
+        for (ResourceKind kind : List.of(ResourceKind.EQUIPMENT, ResourceKind.FUEL)) {
+            state.applyPriceShock(kind, multiplier, 2);
+            ctx.events().enqueue(new GameEvent.MarketPriceShocked(
+                    state.now(), ship.parent(), kind, multiplier));
+        }
+
+        ctx.report("海盗袭击 " + ship.name() + "：货损 "
+                + loss.stripTrailingZeros().toPlainString() + "，耐久 -" + hullDamage);
+    }
+
+    /** 内置海盗回退：随机一种已装货物损失 10%–30%，并从账本扣除。 */
+    private BigDecimal directPiracyLoss(WorldState state,
+                                        java.util.random.RandomGenerator rng,
+                                        Location.Ship ship) {
+        List<ResourceKind> loaded = new ArrayList<>();
+        for (ResourceKind kind : ResourceKind.GOODS) {
+            if (ship.cargo().amount(kind).signum() > 0) {
+                loaded.add(kind);
+            }
+        }
+        if (loaded.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        ResourceKind kind = loaded.get(rng.nextInt(loaded.size()));
+        int percent = RngStreams.between(rng, 10, 30);
+        BigDecimal loss = ship.cargo().amount(kind)
+                .multiply(BigDecimal.valueOf(percent))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                .min(ship.cargo().amount(kind));
+        if (loss.signum() > 0) {
+            state.consume(ship.id(), kind, loss, "海盗劫掠");
+        }
+        return loss;
+    }
+
+    /** 海盗归属：航线端点控制势力 → 军事势力 → 首个势力。 */
+    private static Faction factionFor(WorldState state, Location.Ship ship) {
+        Ids.LocationId to = ship.voyage() == null ? ship.parent() : ship.voyage().to();
+        Ids.FactionId owner = state.locationOwner(to);
+        if (owner != null && state.faction(owner) != null) {
+            return state.faction(owner);
+        }
+        owner = state.locationOwner(ship.parent());
+        if (owner != null && state.faction(owner) != null) {
+            return state.faction(owner);
+        }
+        for (Faction f : state.factions().values()) {
+            if (f.kind() == Faction.Kind.MILITARY) {
+                return f;
+            }
+        }
+        return state.factions().isEmpty() ? null : state.factions().values().iterator().next();
+    }
+
     private void raiseAidDecision(WorldState state, TickContext ctx, Location origin,
                                   int severity) {
         BigDecimal cost = BigDecimal.valueOf(200L * severity);
@@ -174,10 +331,10 @@ public final class WorldEventStage implements TickStage {
                 break;
             }
         }
-        Map<String, BigDecimal> aid = new java.util.LinkedHashMap<>();
+        Map<String, BigDecimal> aid = new LinkedHashMap<>();
         aid.put("credits", cost);
         aid.put("morale", BigDecimal.ONE);
-        Map<String, BigDecimal> decline = new java.util.LinkedHashMap<>();
+        Map<String, BigDecimal> decline = new LinkedHashMap<>();
         decline.put("morale", new BigDecimal("-1"));
         String aidText = "支出 " + cost.stripTrailingZeros().toPlainString()
                 + " 信用点，提升当地士气。";

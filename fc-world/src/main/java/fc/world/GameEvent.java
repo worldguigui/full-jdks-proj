@@ -406,4 +406,301 @@ public sealed interface GameEvent
             return amount.stripTrailingZeros().toPlainString() + " 燃料";
         }
     }
+
+    /** 航行事故：风险判定命中后的延误、货损与船体损伤。 */
+    record VoyageIncident(Stardate when, LocationId where, Ids.ShipId ship,
+                          String kind, int delayDays, BigDecimal cargoLoss,
+                          int hullDamage) implements FleetEvent {
+        @Override
+        public String cause() {
+            return "航行事故：" + kind;
+        }
+
+        @Override
+        public String outcome() {
+            return "延误 " + delayDays + " 天，货损 "
+                    + cargoLoss.stripTrailingZeros().toPlainString()
+                    + "，耐久 -" + hullDamage;
+        }
+    }
+
+    /** 舰船维修。 */
+    record ShipRepaired(Stardate when, LocationId where, Ids.ShipId ship,
+                        int repaired, int hull) implements FleetEvent {
+        @Override
+        public String cause() {
+            return "舰船维修";
+        }
+
+        @Override
+        public String outcome() {
+            return "修复 " + repaired + " 点，当前耐久 " + hull;
+        }
+    }
+
+    /** 地点知识状态提升。 */
+    record KnowledgeGained(Stardate when, LocationId where, KnowledgeState state,
+                           String detail) implements DiscoveryEvent {
+        @Override
+        public String cause() {
+            return "星图知识";
+        }
+
+        @Override
+        public String outcome() {
+            return state.displayName() + "：" + detail;
+        }
+    }
+
+    /** 开始测绘。 */
+    record SurveyStarted(Stardate when, LocationId where, Ids.ShipId ship,
+                         int days) implements DiscoveryEvent {
+        @Override
+        public String cause() {
+            return "测绘开始";
+        }
+
+        @Override
+        public String outcome() {
+            return "预计 " + days + " 天";
+        }
+    }
+
+    /** 测绘完成。 */
+    record SurveyCompleted(Stardate when, LocationId where, Ids.ShipId ship,
+                           int researchYield, String discovery) implements DiscoveryEvent {
+        @Override
+        public String cause() {
+            return "测绘完成";
+        }
+
+        @Override
+        public String outcome() {
+            return "科研数据 +" + researchYield
+                    + (discovery == null || discovery.isBlank() ? "" : "；" + discovery);
+        }
+    }
+
+    /** 探索发现：额外资源或遗迹。 */
+    record DiscoveryMade(Stardate when, LocationId where, String detail,
+                         ResourceKind resource, BigDecimal amount) implements DiscoveryEvent {
+        @Override
+        public String cause() {
+            return "探索发现";
+        }
+
+        @Override
+        public String outcome() {
+            return detail;
+        }
+    }
+
+    /** 科研项目开始。 */
+    record ResearchStarted(Stardate when, LocationId where, String techId,
+                           String techName, int days, BigDecimal dataCost) implements DiscoveryEvent {
+        @Override
+        public String cause() {
+            return "科研立项 " + techId;
+        }
+
+        @Override
+        public String outcome() {
+            return techName + "，预计 " + days + " 天，投入科研数据 "
+                    + dataCost.stripTrailingZeros().toPlainString();
+        }
+    }
+
+    /** 科技解锁。 */
+    record TechUnlocked(Stardate when, LocationId where, String techId,
+                        String techName, String effect) implements DiscoveryEvent {
+        @Override
+        public String cause() {
+            return "科技解锁 " + techId;
+        }
+
+        @Override
+        public String outcome() {
+            return techName + "：" + effect;
+        }
+    }
+
+    /** 外交动作（赠礼、威胁、拒绝等）。 */
+    record DiplomacyAction(Stardate when, LocationId where, FactionId faction,
+                           String action, String detail) implements DiplomacyEvent {
+        @Override
+        public String cause() {
+            return "外交：" + action;
+        }
+
+        @Override
+        public String outcome() {
+            return detail;
+        }
+    }
+
+    /** 条约签署。 */
+    record TreatySigned(Stardate when, LocationId where, FactionId faction,
+                        Treaty treaty, BigDecimal cost) implements DiplomacyEvent {
+        @Override
+        public String cause() {
+            return "签署" + treaty.displayName();
+        }
+
+        @Override
+        public String outcome() {
+            return "花费 " + cost.stripTrailingZeros().toPlainString() + " 信用点";
+        }
+    }
+
+    /** 委托生成。 */
+    record CommissionOffered(Stardate when, LocationId where, String commission,
+                             FactionId faction, ResourceKind resource, BigDecimal amount,
+                             LocationId to, Stardate deadline, BigDecimal reward)
+            implements DiplomacyEvent {
+        @Override
+        public String cause() {
+            return "委托 " + commission;
+        }
+
+        @Override
+        public String outcome() {
+            return amount.stripTrailingZeros().toPlainString() + " " + resource.id()
+                    + " 送往 " + to.id() + "，截止 " + deadline + "，报酬 "
+                    + reward.stripTrailingZeros().toPlainString();
+        }
+    }
+
+    /** 委托接取。 */
+    record CommissionAccepted(Stardate when, LocationId where, String commission)
+            implements DiplomacyEvent {
+        @Override
+        public String cause() {
+            return "接取委托";
+        }
+
+        @Override
+        public String outcome() {
+            return commission;
+        }
+    }
+
+    /** 委托完成。 */
+    record CommissionCompleted(Stardate when, LocationId where, String commission,
+                               BigDecimal reward, int reputation) implements DiplomacyEvent {
+        @Override
+        public String cause() {
+            return "完成委托";
+        }
+
+        @Override
+        public String outcome() {
+            return commission + "，报酬 " + reward.stripTrailingZeros().toPlainString()
+                    + "，声望 +" + reputation;
+        }
+    }
+
+    /** 委托失败。 */
+    record CommissionFailed(Stardate when, LocationId where, String commission,
+                            int reputation) implements DiplomacyEvent {
+        @Override
+        public String cause() {
+            return "委托逾期";
+        }
+
+        @Override
+        public String outcome() {
+            return commission + "，声望 " + reputation;
+        }
+    }
+
+    /** 冲突结算。 */
+    record ConflictResolved(Stardate when, LocationId where, FactionId faction,
+                            String outcome, int fleetPower, int threatPower,
+                            int hullDamage, BigDecimal cargoLoss)
+            implements DiplomacyEvent {
+        @Override
+        public String cause() {
+            return "舰队冲突";
+        }
+
+        @Override
+        public String outcome() {
+            return outcome + "（我方 " + fleetPower + " / 对方 " + threatPower
+                    + "，耐久 -" + hullDamage + "，货损 "
+                    + cargoLoss.stripTrailingZeros().toPlainString() + "）";
+        }
+    }
+
+    /** 船坞下单。 */
+    record ShipOrdered(Stardate when, LocationId where, String order,
+                       String shipType, int days, BigDecimal cost) implements FleetEvent {
+        @Override
+        public String cause() {
+            return "船坞订单 " + order;
+        }
+
+        @Override
+        public String outcome() {
+            return shipType + "，" + days + " 天，花费 "
+                    + cost.stripTrailingZeros().toPlainString();
+        }
+    }
+
+    /** 新舰船交付。 */
+    record ShipDelivered(Stardate when, LocationId where, String order,
+                         Ids.ShipId ship, String shipName) implements FleetEvent {
+        @Override
+        public String cause() {
+            return "舰船交付 " + order;
+        }
+
+        @Override
+        public String outcome() {
+            return shipName + "（舰船#" + ship.id() + "）停靠";
+        }
+    }
+
+    /** 终局工程开工（星门/信标）。 */
+    record ProjectStarted(Stardate when, LocationId where, String project,
+                          int days, ResourceKind resource, BigDecimal amount)
+            implements WorldEvent {
+        @Override
+        public String cause() {
+            return "终局工程 " + project;
+        }
+
+        @Override
+        public String outcome() {
+            return "预计 " + days + " 天，投入 "
+                    + amount.stripTrailingZeros().toPlainString() + " " + resource.id();
+        }
+    }
+
+    /** 终局工程完成。 */
+    record ProjectCompleted(Stardate when, LocationId where, String project)
+            implements WorldEvent {
+        @Override
+        public String cause() {
+            return "终局工程完成";
+        }
+
+        @Override
+        public String outcome() {
+            return project;
+        }
+    }
+
+    /** 抵达终局：时间冻结，游戏完成。 */
+    record EndingReached(Stardate when, LocationId where, String ending,
+                         String detail) implements WorldEvent {
+        @Override
+        public String cause() {
+            return "结局：" + ending;
+        }
+
+        @Override
+        public String outcome() {
+            return detail;
+        }
+    }
 }

@@ -4,7 +4,9 @@ import fc.sim.WorldAssembler;
 import fc.sim.event.EventBus;
 import fc.sim.rng.RngStreams;
 import fc.sim.spi.ColonySystem;
+import fc.sim.spi.ConflictSystem;
 import fc.sim.spi.FactionSystem;
+import fc.sim.spi.GoalSystem;
 import fc.sim.spi.MarketSystem;
 import fc.sim.spi.ProductionSystem;
 import fc.world.Ids;
@@ -35,16 +37,19 @@ public final class TickPipeline {
     private final RngStreams rng;
     private final EventBus bus;
     private final BigDecimal loanDailyRate;
+    private final List<fc.config.world.WorldDefinition.EventDef> eventRules;
     private TickContext lastCtx;
 
     private TickPipeline(List<TickStage> stages,
                          Map<Ids.LocationId, WorldAssembler.Production> production,
-                         RngStreams rng, EventBus bus, BigDecimal loanDailyRate) {
+                         RngStreams rng, EventBus bus, BigDecimal loanDailyRate,
+                         List<fc.config.world.WorldDefinition.EventDef> eventRules) {
         this.stages = List.copyOf(stages);
         this.production = Map.copyOf(production);
         this.rng = rng;
         this.bus = bus;
         this.loanDailyRate = loanDailyRate;
+        this.eventRules = List.copyOf(eventRules);
     }
 
     /**
@@ -71,12 +76,63 @@ public final class TickPipeline {
                 new WorldEventStage(),
                 new ChronicleStage(),
                 new ReportStage()
-        ), production, rng, bus, loanDailyRate == null ? BigDecimal.ZERO : loanDailyRate);
+        ), production, rng, bus, loanDailyRate == null ? BigDecimal.ZERO : loanDailyRate,
+                List.of());
+    }
+
+    /**
+     * M4 管线：十二阶段不变，工作阶段由生产 + 科研共同消费，事件阶段读取配置规则。
+     *
+     * @param workSystems 生产与科研系统（按顺序执行开工，完工时依次通知）
+     */
+    public static TickPipeline m4(Map<Ids.LocationId, WorldAssembler.Production> production,
+                                  RngStreams rng, EventBus bus,
+                                  List<ProductionSystem> workSystems,
+                                  MarketSystem marketSystem,
+                                  FactionSystem factionSystem,
+                                  ColonySystem colonySystem,
+                                  BigDecimal loanDailyRate,
+                                  List<fc.config.world.WorldDefinition.EventDef> eventRules) {
+        return m4(production, rng, bus, workSystems, marketSystem, factionSystem,
+                colonySystem, loanDailyRate, eventRules, null, null);
+    }
+
+    /**
+     * M4 完整管线：额外注入冲突结算与阶段目标判定。
+     *
+     * @param conflicts 冲突结算器（null 时事件阶段使用内置回退）
+     * @param goals     目标判定器（null 时不自动判定 D0–D4）
+     */
+    public static TickPipeline m4(Map<Ids.LocationId, WorldAssembler.Production> production,
+                                  RngStreams rng, EventBus bus,
+                                  List<ProductionSystem> workSystems,
+                                  MarketSystem marketSystem,
+                                  FactionSystem factionSystem,
+                                  ColonySystem colonySystem,
+                                  BigDecimal loanDailyRate,
+                                  List<fc.config.world.WorldDefinition.EventDef> eventRules,
+                                  ConflictSystem conflicts,
+                                  GoalSystem goals) {
+        return new TickPipeline(List.of(
+                new TimeStage(),
+                new EnvironmentStage(colonySystem),
+                new FactionStage(factionSystem),
+                new PerceiveStage(),
+                new DecideStage(),
+                new WorkStage(workSystems),
+                new VoyageStage(),
+                new ConsumptionStage(),
+                new MarketStage(marketSystem),
+                new WorldEventStage(conflicts),
+                new ChronicleStage(),
+                new ReportStage(goals)
+        ), production, rng, bus, loanDailyRate == null ? BigDecimal.ZERO : loanDailyRate,
+                eventRules == null ? List.of() : eventRules);
     }
 
     /** 执行一个 tick。 */
     public void tick(WorldState state) {
-        TickContext ctx = new TickContext(production, rng, loanDailyRate);
+        TickContext ctx = new TickContext(production, rng, loanDailyRate, eventRules);
         for (TickStage s : stages) {
             s.apply(state, ctx);
         }

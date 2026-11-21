@@ -2,21 +2,35 @@ package fc.cli;
 
 import fc.colony.ColonyService;
 import fc.colony.LogisticsService;
+import fc.colony.ProjectService;
+import fc.colony.ShipyardService;
+import fc.diplomacy.CommissionService;
+import fc.diplomacy.DiplomacyService;
+import fc.diplomacy.GoalService;
+import fc.economy.LoanService;
 import fc.economy.TradeService;
+import fc.fleet.CrewService;
+import fc.fleet.MaintenanceService;
 import fc.fleet.VoyageService;
+import fc.science.ResearchService;
+import fc.science.SurveyService;
 import fc.sim.DecisionResolver;
 import fc.sim.GameLoop;
 import fc.sim.StateHasher;
+import fc.sim.tick.TickContext;
 import fc.world.Agent;
 import fc.world.ColonyState;
+import fc.world.Commission;
 import fc.world.Faction;
+import fc.world.GameEvent;
 import fc.world.Ids;
+import fc.world.KnowledgeState;
 import fc.world.Location;
 import fc.world.MoneyLedger;
 import fc.world.PendingDecision;
 import fc.world.ResourceKind;
 import fc.world.SupplyLine;
-import fc.world.Transfer;
+import fc.world.Treaty;
 import fc.world.WorldState;
 import fc.world.time.Stardate;
 
@@ -27,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 
 /**
  * CLI 命令壳。
@@ -69,9 +84,37 @@ public final class Cli {
             new Cmd("supply", List.of(), "supply list|add|cancel ...",
                     "补给线：list / add <id> <起点> <终点> <资源> <每批> <间隔> / cancel <id>"),
             new Cmd("goals", List.of(), "goals",
-                    "阶段目标进度（D0 生存期 / D1 立足期）"),
+                    "阶段目标进度（D0 生存 → D4 终局）"),
+            new Cmd("scan", List.of(), "scan [舰船]",
+                    "近距扫描：揭示相邻的未知星域信号"),
+            new Cmd("survey", List.of(), "survey list|start <舰船> <地点>|cancel <舰船>",
+                    "星图测绘：把已勘察地点测为已测绘并产出科研数据"),
+            new Cmd("research", List.of("techs"), "research [start <科技> [实验室]|cancel <实验室>]",
+                    "科技树、在研项目与立项（techs 只看科技树）"),
+            new Cmd("assign", List.of(), "assign <主体> <舰船|地点>",
+                    "在同一停泊点内调动船员/居民"),
+            new Cmd("repair", List.of(), "repair <舰船>",
+                    "在具备维修能力的停泊点修复船体"),
+            new Cmd("order", List.of(), "order [ships|list|ship <船型> [名称]]",
+                    "船坞：船型列表、订单状态与下单建造"),
+            new Cmd("project", List.of(), "project [gate|beacon]",
+                    "终局工程：进度面板，或启动星门/边境信标"),
+            new Cmd("diplomacy", List.of(), "diplomacy",
+                    "外交面板：声望、级差、税率与条约"),
+            new Cmd("gift", List.of(), "gift <势力> <信用点>",
+                    "向势力中心赠礼提升声望（需要舰船停泊）"),
+            new Cmd("treaty", List.of(), "treaty <势力> trade|nonaggression|alliance",
+                    "与势力签署贸易/互不侵犯/同盟条约"),
+            new Cmd("threaten", List.of(), "threaten <势力>",
+                    "威胁势力中心，立即进入冲突结算"),
+            new Cmd("commission", List.of(), "commission list|accept <id>|deliver <id> [舰船]",
+                    "势力委托：查看、接取与交付"),
             new Cmd("finance", List.of(), "finance",
                     "财务：账户余额、贷款与最近流水"),
+            new Cmd("borrow", List.of(), "borrow <金额>",
+                    "向银行借款（单笔与未偿总额不得超过银行余额）"),
+            new Cmd("repay", List.of(), "repay <金额>",
+                    "偿还银行贷款（不得超过债务或余额）"),
             new Cmd("hash", List.of(), "hash",
                     "当前世界状态哈希（确定性回放校验）"),
             new Cmd("trace", List.of(), "trace [条数]",
@@ -88,14 +131,29 @@ public final class Cli {
 
     private final GameLoop loop;
     private final TradeService trade;
+    private final ShipyardService shipyards;
+    private final GoalService goals;
+    private final Supplier<TickContext> tickContexts;
 
     public Cli(GameLoop loop) {
-        this(loop, null);
+        this(loop, null, null, null, null);
     }
 
     public Cli(GameLoop loop, TradeService trade) {
+        this(loop, trade, null, null, null);
+    }
+
+    public Cli(GameLoop loop, TradeService trade, ShipyardService shipyards, GoalService goals) {
+        this(loop, trade, shipyards, goals, null);
+    }
+
+    public Cli(GameLoop loop, TradeService trade, ShipyardService shipyards,
+               GoalService goals, Supplier<TickContext> tickContexts) {
         this.loop = loop;
         this.trade = trade;
+        this.shipyards = shipyards;
+        this.goals = goals;
+        this.tickContexts = tickContexts;
     }
 
     /** 把输入命令名/别名解析为规范名（未知则原样返回）。 */
@@ -133,7 +191,21 @@ public final class Cli {
             case "upgrade" -> doUpgrade(tokens);
             case "supply" -> doSupply(tokens);
             case "goals" -> goals();
+            case "scan" -> doScan(tokens);
+            case "survey" -> doSurvey(tokens);
+            case "research" -> doResearch(tokens);
+            case "assign" -> doAssign(tokens);
+            case "repair" -> doRepair(tokens);
+            case "order" -> doOrder(tokens);
+            case "project" -> doProject(tokens);
+            case "diplomacy" -> doDiplomacy();
+            case "gift" -> doGift(tokens);
+            case "treaty" -> doTreaty(tokens);
+            case "threaten" -> doThreaten(tokens);
+            case "commission" -> doCommission(tokens);
             case "finance" -> finance();
+            case "borrow" -> doBorrow(tokens);
+            case "repay" -> doRepay(tokens);
             case "hash" -> StateHasher.hash(loop.state());
             case "trace" -> doTrace(tokens);
             case "log" -> doChronicle(tokens);
@@ -243,6 +315,66 @@ public final class Cli {
             case fc.world.GameEvent.FuelConsumed f ->
                     head + "燃料消耗 舰船#" + f.ship().id() + " "
                             + f.amount().stripTrailingZeros().toPlainString() + " 于 " + nameOf(f.where());
+            case fc.world.GameEvent.VoyageIncident v ->
+                    head + "航行事故 舰船#" + v.ship().id() + " " + v.kind()
+                            + "（延误 " + v.delayDays() + " 天，货损 "
+                            + v.cargoLoss().stripTrailingZeros().toPlainString()
+                            + "，耐久 -" + v.hullDamage() + "）";
+            case fc.world.GameEvent.ShipRepaired r ->
+                    head + "维修 舰船#" + r.ship().id() + " +" + r.repaired()
+                            + "（耐久 " + r.hull() + "）于 " + nameOf(r.where());
+            case fc.world.GameEvent.KnowledgeGained k ->
+                    head + "星图 " + nameOf(k.where()) + " → " + k.state().displayName()
+                            + "：" + k.detail();
+            case fc.world.GameEvent.SurveyStarted s ->
+                    head + "测绘开始 " + nameOf(s.where()) + " 舰船#" + s.ship().id()
+                            + "（预计 " + s.days() + " 天）";
+            case fc.world.GameEvent.SurveyCompleted s ->
+                    head + "测绘完成 " + nameOf(s.where()) + "：科研数据 +" + s.researchYield()
+                            + (s.discovery() == null || s.discovery().isBlank()
+                                    ? "" : "；" + s.discovery());
+            case fc.world.GameEvent.DiscoveryMade d ->
+                    head + "探索发现 " + nameOf(d.where()) + "：" + d.detail();
+            case fc.world.GameEvent.ResearchStarted r ->
+                    head + "科研立项 " + r.techId() + "（" + r.techName() + "，"
+                            + r.days() + " 天）于 " + nameOf(r.where());
+            case fc.world.GameEvent.TechUnlocked t ->
+                    head + "科技解锁 " + t.techId() + " " + t.techName() + "：" + t.effect();
+            case fc.world.GameEvent.DiplomacyAction a ->
+                    head + "外交 " + nameOf(a.where()) + "：" + a.action() + "｜" + a.detail();
+            case fc.world.GameEvent.TreatySigned t ->
+                    head + "条约 " + nameOf(t.where()) + "：" + t.treaty().displayName()
+                            + "（花费 " + t.cost().stripTrailingZeros().toPlainString() + "）";
+            case fc.world.GameEvent.CommissionOffered c ->
+                    head + "委托 " + c.commission() + "："
+                            + c.amount().stripTrailingZeros().toPlainString() + " "
+                            + c.resource().id() + " → " + nameOf(c.to())
+                            + "，截止 " + c.deadline().toIsoDate() + "，报酬 "
+                            + c.reward().stripTrailingZeros().toPlainString();
+            case fc.world.GameEvent.CommissionAccepted c ->
+                    head + "接取委托 " + c.commission();
+            case fc.world.GameEvent.CommissionCompleted c ->
+                    head + "完成委托 " + c.commission() + "：报酬 "
+                            + c.reward().stripTrailingZeros().toPlainString()
+                            + "，声望 +" + c.reputation();
+            case fc.world.GameEvent.CommissionFailed c ->
+                    head + "委托逾期 " + c.commission() + "：声望 " + c.reputation();
+            case fc.world.GameEvent.ConflictResolved c ->
+                    head + "冲突 " + nameOf(c.where()) + "：" + c.outcome();
+            case fc.world.GameEvent.ShipOrdered o ->
+                    head + "船坞订单 " + o.order() + " " + o.shipType()
+                            + "（" + o.days() + " 天，" + o.cost()
+                                    .stripTrailingZeros().toPlainString() + "）于 " + nameOf(o.where());
+            case fc.world.GameEvent.ShipDelivered d ->
+                    head + "舰船交付 " + d.shipName() + "（舰船#" + d.ship().id() + "）于 "
+                            + nameOf(d.where());
+            case fc.world.GameEvent.ProjectStarted p ->
+                    head + "终局工程 " + p.project() + " 启动于 " + nameOf(p.where())
+                            + "（" + p.days() + " 天）";
+            case fc.world.GameEvent.ProjectCompleted p ->
+                    head + "终局工程完成 " + p.project() + " 于 " + nameOf(p.where());
+            case fc.world.GameEvent.EndingReached x ->
+                    head + "结局 " + x.ending() + "：" + x.detail();
             default -> head + e.cause() + " " + e.outcome();
         };
     }
@@ -411,7 +543,18 @@ public final class Cli {
                     .append("｜资金 ").append(st.money().balance(f.account())
                             .stripTrailingZeros().toPlainString())
                     .append("｜声望 ").append(st.reputation(f.id()))
-                    .append('\n');
+                    .append(' ').append(DiplomacyService.Tier.of(st.reputation(f.id()))
+                            .displayName())
+                    .append("｜税率 ").append(st.taxRateAt(f.seat())
+                            .stripTrailingZeros().toPlainString())
+                    .append("｜条约 ");
+            var treaties = st.treaties().get(f.id());
+            if (treaties == null || treaties.isEmpty()) {
+                sb.append("（无）");
+            } else {
+                treaties.stream().sorted().forEach(t -> sb.append(t.displayName()).append(' '));
+            }
+            sb.append('\n');
         }
         sb.append("  势力关系：");
         boolean any = false;
@@ -532,7 +675,295 @@ public final class Cli {
         return "用法: supply list | add <id> <起点> <终点> <资源> <每批> <间隔> | cancel <id>";
     }
 
+    private String doScan(List<String> tokens) {
+        WorldState st = loop.state();
+        Optional<Location.Ship> ship = tokens.size() > 1
+                ? findShip(st, tokens.get(1)) : defaultShip(st);
+        if (ship.isEmpty()) {
+            return "找不到舰船。";
+        }
+        return SurveyService.scan(st, ship.get()).message();
+    }
+
+    private String doSurvey(List<String> tokens) {
+        WorldState st = loop.state();
+        if (tokens.size() < 2 || "list".equals(tokens.get(1))) {
+            return SurveyService.list(st);
+        }
+        String action = tokens.get(1);
+        if ("cancel".equals(action)) {
+            if (tokens.size() < 3) {
+                return "用法: survey cancel <舰船>";
+            }
+            Optional<Location.Ship> ship = findShip(st, tokens.get(2));
+            if (ship.isEmpty()) {
+                return "找不到舰船: " + tokens.get(2);
+            }
+            return SurveyService.cancel(st, ship.get()).message();
+        }
+        if ("start".equals(action)) {
+            if (tokens.size() < 4) {
+                return "用法: survey start <舰船> <目标地点>";
+            }
+            Optional<Location.Ship> ship = findShip(st, tokens.get(2));
+            if (ship.isEmpty()) {
+                return "找不到舰船: " + tokens.get(2);
+            }
+            Optional<Long> target = findLocationId(st, tokens.get(3));
+            if (target.isEmpty()) {
+                return "找不到地点: " + tokens.get(3);
+            }
+            return SurveyService.start(st, ship.get(), new Ids.LocationId(target.get())).message();
+        }
+        return "用法: survey list | start <舰船> <地点> | cancel <舰船>";
+    }
+
+    private String doResearch(List<String> tokens) {
+        WorldState st = loop.state();
+        if (tokens.size() < 2) {
+            return ResearchService.technologies(st) + "\n" + ResearchService.status(st);
+        }
+        String action = tokens.get(1);
+        if ("start".equals(action)) {
+            if (tokens.size() < 3) {
+                return "用法: research start <科技id> [实验室]";
+            }
+            Ids.LocationId lab;
+            if (tokens.size() > 3) {
+                Optional<Long> id = findLocationId(st, tokens.get(3));
+                if (id.isEmpty()) {
+                    return "找不到实验室: " + tokens.get(3);
+                }
+                lab = new Ids.LocationId(id.get());
+            } else {
+                lab = null;
+                for (Ids.LocationId id : ResearchService.labs(st)) {
+                    if (!st.agentsAt(id).isEmpty()) {
+                        lab = id;
+                        break;
+                    }
+                }
+                if (lab == null) {
+                    List<Ids.LocationId> all = ResearchService.labs(st);
+                    lab = all.isEmpty() ? null : all.get(0);
+                }
+                if (lab == null) {
+                    return "世界中没有任何实验室（facilityKind=LAB）";
+                }
+            }
+            return ResearchService.start(st, tokens.get(2), lab).message();
+        }
+        if ("cancel".equals(action)) {
+            if (tokens.size() < 3) {
+                return "用法: research cancel <实验室>";
+            }
+            Optional<Long> id = findLocationId(st, tokens.get(2));
+            if (id.isEmpty()) {
+                return "找不到实验室: " + tokens.get(2);
+            }
+            return ResearchService.cancel(st, new Ids.LocationId(id.get())).message();
+        }
+        if ("status".equals(action)) {
+            return ResearchService.status(st);
+        }
+        return "用法: research [start <科技> [实验室] | cancel <实验室> | status]";
+    }
+
+    private String doAssign(List<String> tokens) {
+        if (tokens.size() < 3) {
+            return "用法: assign <主体id> <舰船或地点id/名字>";
+        }
+        WorldState st = loop.state();
+        long agentId;
+        try {
+            agentId = Long.parseLong(tokens.get(1));
+        } catch (NumberFormatException e) {
+            return "主体 id 非法: " + tokens.get(1) + "（crew 查看 id）";
+        }
+        Optional<Long> target = findAnyLocationId(st, tokens.get(2));
+        if (target.isEmpty()) {
+            return "找不到目标位置: " + tokens.get(2);
+        }
+        return CrewService.assign(st, new Ids.AgentId(agentId),
+                new Ids.LocationId(target.get())).message();
+    }
+
+    private String doRepair(List<String> tokens) {
+        WorldState st = loop.state();
+        Optional<Location.Ship> ship = tokens.size() > 1
+                ? findShip(st, tokens.get(1)) : defaultShip(st);
+        if (ship.isEmpty()) {
+            return "找不到舰船。";
+        }
+        return MaintenanceService.repair(st, ship.get()).message();
+    }
+
+    private String doOrder(List<String> tokens) {
+        WorldState st = loop.state();
+        if (shipyards == null) {
+            return "船坞系统未启用。";
+        }
+        if (tokens.size() < 2 || "ships".equals(tokens.get(1))) {
+            StringBuilder sb = new StringBuilder("---- 可造船型 ----\n");
+            for (fc.config.world.WorldDefinition.ShipTypeDef t : shipyards.types()) {
+                sb.append("  ").append(t.id()).append(' ').append(t.name())
+                        .append("｜货舱 ").append(t.cargoCapacity().stripTrailingZeros().toPlainString())
+                        .append("｜铺位 ").append(t.crewCapacity())
+                        .append("｜耐久 ").append(t.maxHull())
+                        .append("｜造价 ").append(ShipyardService.costOf(t)
+                                .stripTrailingZeros().toPlainString())
+                        .append("（材料 ").append(ShipyardService.materialOf(t)
+                                .stripTrailingZeros().toPlainString())
+                        .append("，设备 ").append(ShipyardService.equipmentOf(t)
+                                .stripTrailingZeros().toPlainString())
+                        .append("）\n");
+            }
+            sb.append("  用 order ship <船型> [名称] 下单；order list 查看订单。");
+            return sb.toString();
+        }
+        if ("list".equals(tokens.get(1))) {
+            return shipyards.panel(st);
+        }
+        if ("ship".equals(tokens.get(1))) {
+            if (tokens.size() < 3) {
+                return "用法: order ship <船型> [名称]";
+            }
+            String name = tokens.size() > 3
+                    ? String.join(" ", tokens.subList(3, tokens.size())) : null;
+            return shipyards.order(st, tokens.get(2), name).message();
+        }
+        return "用法: order [ships | list | ship <船型> [名称]]";
+    }
+
+    private String doProject(List<String> tokens) {
+        WorldState st = loop.state();
+        if (tokens.size() < 2) {
+            return ProjectService.panel(st);
+        }
+        String arg = tokens.get(1).toLowerCase();
+        if ("gate".equals(arg) || "星门".equals(arg)) {
+            return ProjectService.startGate(st).message();
+        }
+        if ("beacon".equals(arg) || "信标".equals(arg)) {
+            return ProjectService.startBeacon(st).message();
+        }
+        return "用法: project [gate|beacon]";
+    }
+
+    private String doDiplomacy() {
+        WorldState st = loop.state();
+        if (st.factions().isEmpty()) {
+            return "当前世界没有势力。";
+        }
+        return DiplomacyService.panel(st);
+    }
+
+    private String doGift(List<String> tokens) {
+        if (tokens.size() < 3) {
+            return "用法: gift <势力id或名字> <信用点>";
+        }
+        WorldState st = loop.state();
+        Optional<Ids.FactionId> fid = findFactionId(st, tokens.get(1));
+        if (fid.isEmpty()) {
+            return "找不到势力: " + tokens.get(1);
+        }
+        BigDecimal amount;
+        try {
+            amount = new BigDecimal(tokens.get(2));
+        } catch (NumberFormatException e) {
+            return "金额非法: " + tokens.get(2);
+        }
+        return DiplomacyService.gift(st, fid.get(), amount).message();
+    }
+
+    private String doTreaty(List<String> tokens) {
+        if (tokens.size() < 3) {
+            return "用法: treaty <势力> trade|nonaggression|alliance";
+        }
+        WorldState st = loop.state();
+        Optional<Ids.FactionId> fid = findFactionId(st, tokens.get(1));
+        if (fid.isEmpty()) {
+            return "找不到势力: " + tokens.get(1);
+        }
+        Treaty treaty = switch (tokens.get(2).toLowerCase()) {
+            case "trade", "贸易" -> Treaty.TRADE;
+            case "nonaggression", "nap", "互不侵犯" -> Treaty.NON_AGGRESSION;
+            case "alliance", "同盟" -> Treaty.ALLIANCE;
+            default -> null;
+        };
+        if (treaty == null) {
+            return "未知条约类型: " + tokens.get(2) + "（trade|nonaggression|alliance）";
+        }
+        return DiplomacyService.treaty(st, fid.get(), treaty).message();
+    }
+
+    private String doThreaten(List<String> tokens) {
+        if (tokens.size() < 2) {
+            return "用法: threaten <势力>";
+        }
+        WorldState st = loop.state();
+        Optional<Ids.FactionId> fid = findFactionId(st, tokens.get(1));
+        if (fid.isEmpty()) {
+            return "找不到势力: " + tokens.get(1);
+        }
+        TickContext ctx = tickContexts != null ? tickContexts.get()
+                : new TickContext(Map.of(), fc.sim.rng.RngStreams.of(st.now().day() + 7919L));
+        var result = DiplomacyService.threaten(st, ctx, fid.get());
+        for (GameEvent e : ctx.events().drain()) {
+            st.chronicle().record(e);
+        }
+        return result.message();
+    }
+
+    private String doCommission(List<String> tokens) {
+        WorldState st = loop.state();
+        if (tokens.size() < 2 || "list".equals(tokens.get(1))) {
+            return CommissionService.list(st);
+        }
+        String action = tokens.get(1);
+        if ("accept".equals(action)) {
+            if (tokens.size() < 3) {
+                return "用法: commission accept <id>";
+            }
+            return CommissionService.accept(st, tokens.get(2)).message();
+        }
+        if ("deliver".equals(action)) {
+            if (tokens.size() < 3) {
+                return "用法: commission deliver <id> [舰船]";
+            }
+            Optional<Location.Ship> ship = tokens.size() > 3
+                    ? findShip(st, tokens.get(3)) : Optional.empty();
+            return CommissionService.deliver(st, tokens.get(2), ship.orElse(null)).message();
+        }
+        return "用法: commission list | accept <id> | deliver <id> [舰船]";
+    }
+
+    private String doBorrow(List<String> tokens) {
+        if (tokens.size() < 2) {
+            return "用法: borrow <金额>";
+        }
+        try {
+            return LoanService.borrow(loop.state(), new BigDecimal(tokens.get(1))).message();
+        } catch (NumberFormatException e) {
+            return "金额非法: " + tokens.get(1);
+        }
+    }
+
+    private String doRepay(List<String> tokens) {
+        if (tokens.size() < 2) {
+            return "用法: repay <金额>";
+        }
+        try {
+            return LoanService.repay(loop.state(), new BigDecimal(tokens.get(1))).message();
+        } catch (NumberFormatException e) {
+            return "金额非法: " + tokens.get(1);
+        }
+    }
+
     private String goals() {
+        if (goals != null) {
+            return goals.panel(loop.state());
+        }
         WorldState st = loop.state();
         long day = st.now().day();
         List<SupplyLine> lines = new ArrayList<>(st.supplyLines().values());
@@ -620,6 +1051,63 @@ public final class Cli {
         return sb.toString();
     }
 
+    /** 按 id、精确名字或名字片段找势力。 */
+    private Optional<Ids.FactionId> findFactionId(WorldState state, String key) {
+        try {
+            Ids.FactionId id = new Ids.FactionId(Long.parseLong(key));
+            if (state.faction(id) != null) {
+                return Optional.of(id);
+            }
+        } catch (NumberFormatException ignored) {
+            // 按名字找
+        }
+        for (Faction f : state.factions().values()) {
+            if (f.name().equals(key)) {
+                return Optional.of(f.id());
+            }
+        }
+        for (Faction f : state.factions().values()) {
+            if (f.name().contains(key)) {
+                return Optional.of(f.id());
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** 在所有节点（含舰船）中按 id 或名字解析位置。 */
+    private Optional<Long> findAnyLocationId(WorldState state, String key) {
+        try {
+            long id = Long.parseLong(key);
+            if (state.graph().contains(new Ids.LocationId(id))) {
+                return Optional.of(id);
+            }
+            return Optional.empty();
+        } catch (NumberFormatException ignored) {
+            // 按名字找
+        }
+        for (Location l : state.graph().nodes().values()) {
+            if (!(l instanceof Location.Ship) && l.name().equals(key)) {
+                return Optional.of(l.id().id());
+            }
+        }
+        for (Location.Ship s : state.graph().ships()) {
+            if (s.name().equals(key)) {
+                return Optional.of(s.id().id());
+            }
+        }
+        for (Location l : state.graph().nodes().values()) {
+            if (!(l instanceof Location.Ship) && l.name().contains(key)) {
+                return Optional.of(l.id().id());
+            }
+        }
+        for (Location.Ship s : state.graph().ships()) {
+            if (s.name().contains(key)) {
+                return Optional.of(s.id().id());
+            }
+        }
+        return Optional.empty();
+    }
+
     private Optional<Location.Ship> findShip(WorldState state, String key) {
         try {
             Optional<Location.Ship> byId = VoyageService.findShip(state, Long.parseLong(key));
@@ -658,7 +1146,8 @@ public final class Cli {
     private String ships() {
         StringBuilder sb = new StringBuilder("---- 舰队 ----\n");
         for (Location.Ship s : loop.state().graph().ships()) {
-            sb.append("  #").append(s.shipId().id()).append(' ').append(s.name());
+            sb.append("  #").append(s.shipId().id()).append(' ').append(s.name())
+                    .append(" [").append(s.shipType()).append(']');
             if (s.inVoyage()) {
                 sb.append(" 在航 ").append(s.voyage().from().id()).append("->").append(s.voyage().to().id())
                         .append(" (").append(s.voyage().elapsedTicks()).append('/')
@@ -667,7 +1156,12 @@ public final class Cli {
                 Location at = loop.state().graph().get(s.parent());
                 sb.append(" 停泊于 ").append(at == null ? s.parent().id() : at.name());
             }
-            sb.append("  燃料=").append(s.cargo().amount(ResourceKind.FUEL)
+            sb.append("  耐久=").append(s.hull()).append('/').append(s.maxHull())
+                    .append("  货舱=").append(s.cargoUsed().stripTrailingZeros().toPlainString())
+                    .append('/').append(s.cargoCapacity().stripTrailingZeros().toPlainString())
+                    .append("  船员=").append(loop.state().agentsAt(s.id()).size())
+                    .append('/').append(s.crewCapacity())
+                    .append("  燃料=").append(s.cargo().amount(ResourceKind.FUEL)
                             .stripTrailingZeros().toPlainString())
                     .append('\n');
         }
@@ -695,7 +1189,7 @@ public final class Cli {
                     .append("  饥=").append(a.needs().hunger())
                     .append(" 疲=").append(a.needs().fatigue())
                     .append(" 气=").append(a.needs().morale())
-                    .append("  技能=").append(a.skill())
+                    .append("  技能=").append(a.skills().display())
                     .append("  ").append(a.isTraveling()
                             ? "前往 " + nameOf(a.travelDestination()) + "（余 "
                                     + a.travelTicksRemaining() + " 天）"
@@ -704,6 +1198,9 @@ public final class Cli {
                                 case RESTING -> "休息";
                                 case IDLE -> "空闲";
                                 case TRAVELING -> "在途";
+                                case RESEARCH -> "科研";
+                                case SURVEYING -> "测绘";
+                                case REPAIRING -> "维修";
                             })
                     .append("\n");
         }
@@ -720,7 +1217,11 @@ public final class Cli {
                 + "，势力 " + st.factions().size() + " 个"
                 + "，编年史 " + st.chronicle().size() + " 条"
                 + "，待决决策 " + st.pendingDecisions().size() + " 个"
-                + "，信用点 " + st.credits().stripTrailingZeros().toPlainString();
+                + "，已知地点 " + st.locationsWithKnowledge(KnowledgeState.DETECTED).size()
+                + "/" + st.graph().placeCount()
+                + "，科技 " + st.techs().size() + " 项"
+                + "，信用点 " + st.credits().stripTrailingZeros().toPlainString()
+                + (st.ending() == null ? "" : "，结局 " + st.ending());
     }
 
     private String help() {
@@ -741,10 +1242,22 @@ public final class Cli {
                   map / crew / ships          查看世界、主体与舰队
                   market / trade buy|sell     在舰船所在地点买卖
                   sail <舰船> <地点>           启航；next 推进到抵港
-                  supply add ...             建立定期补给线
-                  colonies / upgrade         查看并升级前哨站
-                  decisions / decide         处理重大事件提出的选择
-                  goals / finance / hash     进度、财务与确定性校验""");
+                  scan / survey               揭示信号、测绘星图
+                  research start <科技>       投入科研数据立项
+                  assign <主体> <舰船|地点>     在同一停泊点内调动船员
+                  repair <舰船> / order ship  维修与船坞建造
+                  commission / gift / treaty  委托与外交
+                  project gate|beacon         启动星门或边境信标
+                  borrow / repay              银行贷款
+                  goals / finance / hash     进度、财务与确定性校验
+
+                启动器命令（由 fc-runtime 提供）:
+                  save <槽位> [口令]          写入重放存档（默认 saves/ 目录）
+                  load <槽位> [口令]          读档并校验状态哈希
+                  saves                      列出存档槽位
+                  png [路径]                 导出星图 PNG（默认 starmap.png）
+                启动参数：--world <文件>、--serve[=<端口>]（只读状态端点）
+                JMX：fc.telemetry:type=Game""");
         return sb.toString();
     }
 

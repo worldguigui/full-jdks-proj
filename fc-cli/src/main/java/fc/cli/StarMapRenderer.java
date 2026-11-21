@@ -1,6 +1,7 @@
 package fc.cli;
 
 import fc.world.Ids;
+import fc.world.KnowledgeState;
 import fc.world.Link;
 import fc.world.Location;
 import fc.world.LocationGraph;
@@ -25,44 +26,47 @@ public final class StarMapRenderer {
     /** 渲染整张星图。 */
     public static String render(WorldState state) {
         LocationGraph graph = state.graph();
+        int known = state.locationsWithKnowledge(KnowledgeState.DETECTED).size();
         StringBuilder sb = new StringBuilder();
-        sb.append("================ 星图（").append(graph.placeCount()).append(" 个地点 / ")
+        sb.append("================ 星图（已知 ").append(known).append('/')
+                .append(graph.placeCount()).append(" 个地点 / ")
                 .append(graph.ships().size()).append(" 艘舰船）================\n");
 
         Map<Ids.LocationId, List<String>> shipsAt = shipsIndex(graph);
 
-        // 1. 星系树
+        // 1. 星系树：UNKNOWN 不显示；DETECTED 只显示未知信号
         for (Location loc : graph.nodes().values()) {
-            if (!(loc instanceof Location.StarSystem)) {
+            if (!(loc instanceof Location.StarSystem) || hidden(state, loc.id())) {
                 continue;
             }
-            appendNode(sb, loc, "", shipsAt);
+            appendNode(state, sb, loc, "", shipsAt);
             for (Ids.LocationId childId : state.childrenOf(loc.id())) {
                 Location child = graph.get(childId);
-                if (child == null) {
+                if (child == null || hidden(state, childId)) {
                     continue;
                 }
-                appendNode(sb, child, "  ├ ", shipsAt);
+                appendNode(state, sb, child, "  ├ ", shipsAt);
                 for (Ids.LocationId grandId : state.childrenOf(childId)) {
                     Location grand = graph.get(grandId);
-                    if (grand != null) {
-                        appendNode(sb, grand, "  │   └ ", shipsAt);
+                    if (grand != null && !hidden(state, grandId)) {
+                        appendNode(state, sb, grand, "  │   └ ", shipsAt);
                     }
                 }
             }
-            sb.append("      航线: ").append(linkSummary(graph, loc.id())).append('\n');
+            sb.append("      航线: ").append(linkSummary(state, graph, loc.id())).append('\n');
         }
 
         // 2. 独立异常点
         boolean any = false;
         for (Location loc : graph.nodes().values()) {
-            if (loc instanceof Location.Anomaly && state.parentOf(loc.id()) == null) {
+            if (loc instanceof Location.Anomaly && state.parentOf(loc.id()) == null
+                    && !hidden(state, loc.id())) {
                 if (!any) {
                     sb.append("\n---- 异常点 ----\n");
                     any = true;
                 }
-                appendNode(sb, loc, "", shipsAt);
-                sb.append("      航线: ").append(linkSummary(graph, loc.id())).append('\n');
+                appendNode(state, sb, loc, "", shipsAt);
+                sb.append("      航线: ").append(linkSummary(state, graph, loc.id())).append('\n');
             }
         }
 
@@ -94,12 +98,22 @@ public final class StarMapRenderer {
         return shipsAt;
     }
 
-    private static void appendNode(StringBuilder sb, Location loc, String indent,
+    private static boolean hidden(WorldState state, Ids.LocationId id) {
+        return state.knowledgeOf(id) == KnowledgeState.UNKNOWN;
+    }
+
+    private static void appendNode(WorldState state, StringBuilder sb, Location loc, String indent,
                                    Map<Ids.LocationId, List<String>> shipsAt) {
+        KnowledgeState knowledge = state.knowledgeOf(loc.id());
         sb.append(indent)
-                .append('[').append(loc.id().id()).append("] ")
-                .append(loc.name())
-                .append(' ').append(kindOf(loc));
+                .append('[').append(loc.id().id()).append("] ");
+        if (knowledge == KnowledgeState.DETECTED) {
+            sb.append("未知信号 ").append(knowledge.displayName()).append('\n');
+            return;
+        }
+        sb.append(loc.name())
+                .append(' ').append(kindOf(loc))
+                .append("　").append(knowledge.displayName());
         Map<ResourceKind, BigDecimal> amounts = new EnumMap<>(ResourceKind.class);
         for (ResourceKind kind : ResourceKind.GOODS) {
             BigDecimal v = loc.stock().amount(kind);
@@ -142,7 +156,10 @@ public final class StarMapRenderer {
         };
     }
 
-    private static String linkSummary(LocationGraph graph, Ids.LocationId from) {
+    private static String linkSummary(WorldState state, LocationGraph graph, Ids.LocationId from) {
+        if (state.knowledgeOf(from).ordinal() < KnowledgeState.SURVEYED.ordinal()) {
+            return "（信号微弱，无法解析航线）";
+        }
         List<String> parts = new ArrayList<>();
         for (Link l : graph.links()) {
             Ids.LocationId other;
@@ -154,8 +171,16 @@ public final class StarMapRenderer {
                 continue;
             }
             Location o = graph.get(other);
-            parts.add("->" + (o == null ? String.valueOf(other.id()) : o.name())
-                    + "(" + l.travelTicks() + "天,油" + l.cost().stripTrailingZeros().toPlainString() + ")");
+            if (o == null || hidden(state, other)) {
+                continue;
+            }
+            if (state.knowledgeOf(other) == KnowledgeState.DETECTED) {
+                parts.add("->未知信号#" + other.id());
+            } else {
+                parts.add("->" + o.name()
+                        + "(" + l.travelTicks() + "天,油"
+                        + l.cost().stripTrailingZeros().toPlainString() + ")");
+            }
         }
         return parts.isEmpty() ? "（无）" : String.join("  ", parts);
     }

@@ -51,6 +51,14 @@ public final class LocationGraph {
         return nodes.get(id);
     }
 
+    /** 新增地点（船坞交付新舰船时用）。 */
+    public void add(Location location) {
+        if (nodes.containsKey(location.id())) {
+            throw new IllegalArgumentException("地点已存在，无法新增: " + location.id());
+        }
+        nodes.put(location.id(), location);
+    }
+
     /** 替换某地点（库存阶段更新账本视图时用）。 */
     public void replace(Location location) {
         if (!nodes.containsKey(location.id())) {

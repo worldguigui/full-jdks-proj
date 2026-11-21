@@ -38,6 +38,9 @@ public final class FactionSystemImpl implements FactionSystem {
     /** 单次采购下限。 */
     private static final BigDecimal MIN_LOT = BigDecimal.ONE;
 
+    /** 关系漂移周期（天）。 */
+    private static final int RELATION_PERIOD = 7;
+
     @Override
     public void onTick(WorldState state, TickContext ctx) {
         for (Faction f : state.factions().values()) {
@@ -45,6 +48,56 @@ public final class FactionSystemImpl implements FactionSystem {
                 continue;
             }
             procure(state, ctx, f);
+            offerCommission(state, ctx, f);
+        }
+        CommissionService.failExpired(state, ctx);
+        driftRelations(state, ctx);
+    }
+
+    /** 优先货物短缺且没有待接委托时，发布采购委托（交付到势力中心）。 */
+    private void offerCommission(WorldState state, TickContext ctx, Faction f) {
+        BigDecimal current = state.goods(f.seat(), f.priorityGood());
+        if (current.compareTo(f.stockTarget()) >= 0) {
+            return;
+        }
+        for (fc.world.Commission c : state.commissions().values()) {
+            if (c.faction().equals(f.id()) && c.status() == fc.world.Commission.Status.OFFERED) {
+                return;
+            }
+        }
+        BigDecimal amount = f.stockTarget().subtract(current).min(new BigDecimal("20"))
+                .max(new BigDecimal("2"));
+        String id = state.nextCommissionId();
+        BigDecimal reward = amount.multiply(f.tradeUnitPrice())
+                .multiply(new BigDecimal("2")).add(new BigDecimal("50"))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        fc.world.Commission commission = new fc.world.Commission(
+                id, f.id(), f.priorityGood(), amount, f.seat(),
+                state.now().plusDays(10), reward);
+        state.addCommission(commission);
+        ctx.events().enqueue(new GameEvent.CommissionOffered(
+                state.now(), f.seat(), id, f.id(), f.priorityGood(), amount,
+                f.seat(), commission.deadline(), reward));
+        ctx.report(f.name() + " 发布委托 " + id + "："
+                + amount.stripTrailingZeros().toPlainString() + " "
+                + f.priorityGood().id());
+    }
+
+    /** 势力间关系每 7 天确定性漂移 ±1（FACTIONS 流）。 */
+    private void driftRelations(WorldState state, TickContext ctx) {
+        if (Math.floorMod(state.now().day(), RELATION_PERIOD) != 0) {
+            return;
+        }
+        var rng = ctx.rng().stream(fc.sim.rng.RngStreams.FACTIONS);
+        for (String key : new java.util.TreeSet<>(state.relations().snapshot().keySet())) {
+            String[] pair = key.split(":");
+            Ids.FactionId a = new Ids.FactionId(Long.parseLong(pair[0]));
+            Ids.FactionId b = new Ids.FactionId(Long.parseLong(pair[1]));
+            if (state.faction(a) == null || state.faction(b) == null) {
+                continue;
+            }
+            int delta = rng.nextBoolean() ? 1 : -1;
+            state.relations().adjust(a, b, delta);
         }
     }
 

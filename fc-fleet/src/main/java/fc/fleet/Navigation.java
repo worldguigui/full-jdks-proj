@@ -29,6 +29,16 @@ public final class Navigation {
         public Route {
             links = List.copyOf(links);
         }
+
+        /** 航线天数修饰：按倍率缩短，最低 1 天；燃料成本不变。 */
+        public Route withTickFactor(BigDecimal factor) {
+            if (factor == null || factor.signum() <= 0 || totalTicks <= 0) {
+                return this;
+            }
+            int scaled = Math.max(1, BigDecimal.valueOf(totalTicks).multiply(factor)
+                    .setScale(0, java.math.RoundingMode.HALF_UP).intValue());
+            return new Route(links, scaled, totalCost);
+        }
     }
 
     /** 相邻边。 */

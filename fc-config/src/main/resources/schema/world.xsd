@@ -62,6 +62,18 @@
                                     <xs:attribute name="level" type="xs:int" use="optional"/>
                                     <xs:attribute name="owner" type="xs:string" use="optional"/>
                                     <xs:attribute name="population" type="xs:int" use="optional"/>
+                                    <xs:attribute name="facilityKind" type="xs:string" use="optional"/>
+                                    <xs:attribute name="workers" type="xs:int" use="optional"/>
+                                    <xs:attribute name="knowledge" use="optional">
+                                        <xs:simpleType>
+                                            <xs:restriction base="xs:string">
+                                                <xs:enumeration value="UNKNOWN"/>
+                                                <xs:enumeration value="DETECTED"/>
+                                                <xs:enumeration value="SURVEYED"/>
+                                                <xs:enumeration value="CHARTED"/>
+                                            </xs:restriction>
+                                        </xs:simpleType>
+                                    </xs:attribute>
                                 </xs:complexType>
                             </xs:element>
                         </xs:sequence>
@@ -115,6 +127,25 @@
                                     <xs:attribute name="id" type="xs:long" use="required"/>
                                     <xs:attribute name="name" type="xs:string" use="required"/>
                                     <xs:attribute name="at" type="xs:long" use="required"/>
+                                    <xs:attribute name="type" type="xs:string" use="optional"/>
+                                    <xs:attribute name="hull" type="xs:int" use="optional"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <xs:element name="shipTypes" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="shipType" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:attribute name="id" type="xs:string" use="required"/>
+                                    <xs:attribute name="name" type="xs:string" use="required"/>
+                                    <xs:attribute name="cargo" type="xs:decimal" use="required"/>
+                                    <xs:attribute name="crew" type="xs:int" use="required"/>
+                                    <xs:attribute name="hull" type="xs:int" use="required"/>
+                                    <xs:attribute name="risk" type="xs:double" use="optional"/>
                                 </xs:complexType>
                             </xs:element>
                         </xs:sequence>
@@ -137,7 +168,7 @@
                                             </xs:restriction>
                                         </xs:simpleType>
                                     </xs:attribute>
-                                    <xs:attribute name="at" type="xs:long" use="required"/>
+                                    <xs:attribute name="at" type="xs:string" use="required"/>
                                     <xs:attribute name="trait" use="optional">
                                         <xs:simpleType>
                                             <xs:restriction base="xs:string">
@@ -149,6 +180,12 @@
                                         </xs:simpleType>
                                     </xs:attribute>
                                     <xs:attribute name="skill" type="xs:int" use="optional"/>
+                                    <xs:attribute name="pilot" type="xs:int" use="optional"/>
+                                    <xs:attribute name="engineering" type="xs:int" use="optional"/>
+                                    <xs:attribute name="research" type="xs:int" use="optional"/>
+                                    <xs:attribute name="medical" type="xs:int" use="optional"/>
+                                    <xs:attribute name="trade" type="xs:int" use="optional"/>
+                                    <xs:attribute name="exploration" type="xs:int" use="optional"/>
                                 </xs:complexType>
                             </xs:element>
                         </xs:sequence>
@@ -231,6 +268,32 @@
                                     <xs:attribute name="name" type="xs:string" use="required"/>
                                     <xs:attribute name="ticks" type="xs:int" use="required"/>
                                     <xs:attribute name="at" type="xs:long" use="required"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <xs:element name="events" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="event" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:attribute name="id" type="xs:string" use="required"/>
+                                    <xs:attribute name="kind" use="required">
+                                        <xs:simpleType>
+                                            <xs:restriction base="xs:string">
+                                                <xs:enumeration value="ION_STORM"/>
+                                                <xs:enumeration value="PIRACY"/>
+                                            </xs:restriction>
+                                        </xs:simpleType>
+                                    </xs:attribute>
+                                    <xs:attribute name="probability" type="xs:double" use="required"/>
+                                    <xs:attribute name="weatherFactor" type="xs:double" use="optional"/>
+                                    <xs:attribute name="minSeverity" type="xs:int" use="optional"/>
+                                    <xs:attribute name="maxSeverity" type="xs:int" use="optional"/>
+                                    <xs:attribute name="maxDepth" type="xs:int" use="optional"/>
+                                    <xs:attribute name="maxImpacts" type="xs:int" use="optional"/>
                                 </xs:complexType>
                             </xs:element>
                         </xs:sequence>

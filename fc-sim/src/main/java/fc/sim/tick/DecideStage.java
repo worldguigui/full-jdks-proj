@@ -4,6 +4,7 @@ import fc.sim.rng.RngStreams;
 import fc.world.Agent;
 import fc.world.Assignment;
 import fc.world.GameEvent;
+import fc.world.SkillSet;
 import fc.world.WorldState;
 
 /**
@@ -80,10 +81,24 @@ public final class DecideStage implements TickStage {
                 }
             }
 
-            // 4) 默认：工作（技能随长期工作缓慢成长）
-            a.assign(Assignment.WORKING);
-            if (RngStreams.chance(rng, 0.05)) {
-                a.gainSkill(1);
+            // 4) 专业指派（科研/测绘/维修）由指令设置，决策阶段保留；
+            //    其余主体默认回到工作。
+            Assignment sticky = a.assignment();
+            boolean professional = sticky == Assignment.RESEARCH
+                    || sticky == Assignment.SURVEYING || sticky == Assignment.REPAIRING;
+            if (!professional) {
+                a.assign(Assignment.WORKING);
+                sticky = Assignment.WORKING;
+            }
+
+            // 技能随长期工作缓慢成长：每 30 个工作日结算一次，10% 概率提升相关维度。
+            if (a.recordWorkday() && RngStreams.chance(rng, 0.10)) {
+                switch (sticky) {
+                    case RESEARCH -> a.gainSkill(SkillSet.Skill.RESEARCH, 1);
+                    case SURVEYING -> a.gainSkill(SkillSet.Skill.EXPLORATION, 1);
+                    case REPAIRING -> a.gainSkill(SkillSet.Skill.ENGINEERING, 1);
+                    default -> a.gainSkill(1);
+                }
             }
         }
     }

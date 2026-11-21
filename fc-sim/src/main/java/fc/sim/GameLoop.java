@@ -48,7 +48,7 @@ public final class GameLoop {
             throw new IllegalArgumentException("next 天数不得为负: " + days);
         }
         for (long i = 0; i < days; i++) {
-            if (state.hasPendingDecision()) {
+            if (state.hasPendingDecision() || state.ending() != null) {
                 break;
             }
             pipeline.tick(state);

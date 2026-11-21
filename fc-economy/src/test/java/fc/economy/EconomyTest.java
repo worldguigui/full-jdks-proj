@@ -352,6 +352,8 @@ public final class EconomyTest {
 
         TickContext c = ctx();
         WorkStage work = new WorkStage(prod);
+        // 技能 3 的工人每日贡献 0.90 个工日，2 工日的配方需要 3 天完成。
+        work.apply(st, c);
         work.apply(st, c);
         work.apply(st, c);
 

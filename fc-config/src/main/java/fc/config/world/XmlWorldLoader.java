@@ -141,9 +141,20 @@ public final class XmlWorldLoader {
             if (population < 0) {
                 throw new ConfigException("地点 " + id + " 的 population 不得为负");
             }
+            String facilityKind = e.hasAttribute("facilityKind") ? attr(e, "facilityKind") : null;
+            int workers = e.hasAttribute("workers") ? Integer.parseInt(attr(e, "workers")) : 0;
+            if (workers < 0) {
+                throw new ConfigException("地点 " + id + " 的 workers 不得为负");
+            }
+            String knowledge = e.hasAttribute("knowledge") ? attr(e, "knowledge") : null;
+            if (knowledge != null && !Set.of("UNKNOWN", "DETECTED", "SURVEYED", "CHARTED")
+                    .contains(knowledge)) {
+                throw new ConfigException("地点 " + id + " 的 knowledge 非法: " + knowledge);
+            }
             locations.add(new WorldDefinition.LocationDef(
                     id, kind, attr(e, "name"), parent, readStock(e), credits,
-                    readProduction(e), level, owner, population, readUpgrades(e)));
+                    readProduction(e), level, owner, population, readUpgrades(e),
+                    facilityKind, workers, knowledge));
         }
         if (locations.isEmpty()) {
             throw new ConfigException("世界配置至少需要一个地点");
@@ -185,8 +196,34 @@ public final class XmlWorldLoader {
             links.add(new WorldDefinition.LinkDef(from, to, kind, ticks, risk, cost));
         }
 
+        // 船型表（M4）：货舱、铺位、耐久与基础风险
+        List<WorldDefinition.ShipTypeDef> shipTypes = new ArrayList<>();
+        Set<String> shipTypeIds = new LinkedHashSet<>();
+        for (Element e : children(child(root, "shipTypes"), "shipType")) {
+            String typeId = attr(e, "id");
+            if (!shipTypeIds.add(typeId)) {
+                throw new ConfigException("船型 id 重复: " + typeId);
+            }
+            BigDecimal cargo = new BigDecimal(attr(e, "cargo"));
+            int crew = Integer.parseInt(attr(e, "crew"));
+            int hull = Integer.parseInt(attr(e, "hull"));
+            double risk = e.hasAttribute("risk") ? Double.parseDouble(attr(e, "risk")) : 0.0;
+            if (cargo.signum() <= 0) {
+                throw new ConfigException("船型 " + typeId + " 的货舱必须 > 0");
+            }
+            if (crew < 0 || hull <= 0) {
+                throw new ConfigException("船型 " + typeId + " 的 crew/hull 非法");
+            }
+            if (!Double.isFinite(risk) || risk < 0 || risk > 1) {
+                throw new ConfigException("船型 " + typeId + " 的 risk 必须在 0..1");
+            }
+            shipTypes.add(new WorldDefinition.ShipTypeDef(
+                    typeId, attr(e, "name"), cargo, crew, hull, risk));
+        }
+
         List<WorldDefinition.ShipDef> ships = new ArrayList<>();
         Set<Long> shipIds = new LinkedHashSet<>();
+        Map<Long, String> shipLocations = new LinkedHashMap<>();
         for (Element e : children(child(root, "ships"), "ship")) {
             long id = Long.parseLong(attr(e, "id"));
             if (!shipIds.add(id)) {
@@ -202,7 +239,17 @@ public final class XmlWorldLoader {
                 throw new ConfigException("舰船 " + id + " 的地点 id " + locationId
                         + " 与静态地点冲突（规则：地点 id = 舰船 id + 100000）");
             }
-            ships.add(new WorldDefinition.ShipDef(id, attr(e, "name"), at, readCargo(e)));
+            String type = e.hasAttribute("type") ? attr(e, "type") : null;
+            if (type != null && !shipTypeIds.contains(type)) {
+                throw new ConfigException("舰船 " + id + " 的船型不存在: " + type);
+            }
+            int hull = e.hasAttribute("hull") ? Integer.parseInt(attr(e, "hull")) : 0;
+            if (hull < 0) {
+                throw new ConfigException("舰船 " + id + " 的 hull 不得为负");
+            }
+            ships.add(new WorldDefinition.ShipDef(id, attr(e, "name"), at, readCargo(e),
+                    type, hull));
+            shipLocations.put(locationId, type == null ? "freighter" : type);
         }
 
         List<WorldDefinition.AgentDef> agents = new ArrayList<>();
@@ -217,19 +264,22 @@ public final class XmlWorldLoader {
                 throw new ConfigException("主体 " + id + " 的 role 非法: " + role
                         + "（可选 " + AGENT_ROLES + "）");
             }
-            long at = Long.parseLong(attr(e, "at"));
-            if (!ids.contains(at)) {
-                throw new ConfigException("主体 " + id + " 的所在地点不存在: " + at);
-            }
+            long at = resolveAgentLocation(attr(e, "at"), ids, shipIds);
             String trait = e.hasAttribute("trait") ? attr(e, "trait") : "STOIC";
             if (!AGENT_TRAITS.contains(trait)) {
                 throw new ConfigException("主体 " + id + " 的 trait 非法: " + trait);
             }
-            int skill = e.hasAttribute("skill") ? Integer.parseInt(attr(e, "skill")) : 3;
-            if (skill < 0 || skill > 10) {
-                throw new ConfigException("主体 " + id + " 的 skill 必须在 0..10");
-            }
-            agents.add(new WorldDefinition.AgentDef(id, attr(e, "name"), role, at, trait, skill));
+            int baseSkill = e.hasAttribute("skill") ? Integer.parseInt(attr(e, "skill")) : 3;
+            checkSkill(id, "skill", baseSkill);
+            int pilot = readSkill(e, "pilot", baseSkill, id);
+            int engineering = readSkill(e, "engineering", baseSkill, id);
+            int research = readSkill(e, "research", baseSkill, id);
+            int medical = readSkill(e, "medical", baseSkill, id);
+            int trade = readSkill(e, "trade", baseSkill, id);
+            int exploration = readSkill(e, "exploration", baseSkill, id);
+            agents.add(new WorldDefinition.AgentDef(id, attr(e, "name"), role, at, trait,
+                    new fc.world.SkillSet(pilot, engineering, research,
+                            medical, trade, exploration)));
         }
 
         // 势力
@@ -362,6 +412,40 @@ public final class XmlWorldLoader {
             recipes.add(new RecipeDef(rid, attr(e, "name"), ticks, at, inputs, outputs));
         }
 
+        // 事件规则（M4）：参数不再硬编码在 WorldEventStage
+        List<WorldDefinition.EventDef> events = new ArrayList<>();
+        Set<String> eventIds = new LinkedHashSet<>();
+        for (Element e : children(child(root, "events"), "event")) {
+            String eventId = attr(e, "id");
+            if (!eventIds.add(eventId)) {
+                throw new ConfigException("事件 id 重复: " + eventId);
+            }
+            String kind = attr(e, "kind");
+            if (!Set.of("ION_STORM", "PIRACY").contains(kind)) {
+                throw new ConfigException("事件 " + eventId + " 的 kind 非法: " + kind);
+            }
+            double probability = Double.parseDouble(attr(e, "probability"));
+            double weatherFactor = e.hasAttribute("weatherFactor")
+                    ? Double.parseDouble(attr(e, "weatherFactor")) : 0.0;
+            int minSeverity = e.hasAttribute("minSeverity")
+                    ? Integer.parseInt(attr(e, "minSeverity")) : 1;
+            int maxSeverity = e.hasAttribute("maxSeverity")
+                    ? Integer.parseInt(attr(e, "maxSeverity")) : 4;
+            int maxDepth = e.hasAttribute("maxDepth")
+                    ? Integer.parseInt(attr(e, "maxDepth")) : 3;
+            int maxImpacts = e.hasAttribute("maxImpacts")
+                    ? Integer.parseInt(attr(e, "maxImpacts")) : 8;
+            if (!Double.isFinite(probability) || probability < 0 || probability > 1
+                    || !Double.isFinite(weatherFactor) || weatherFactor < 0) {
+                throw new ConfigException("事件 " + eventId + " 的 probability/weatherFactor 非法");
+            }
+            if (minSeverity < 1 || maxSeverity < minSeverity || maxDepth < 0 || maxImpacts < 1) {
+                throw new ConfigException("事件 " + eventId + " 的强度/传播参数非法");
+            }
+            events.add(new WorldDefinition.EventDef(eventId, kind, probability, weatherFactor,
+                    minSeverity, maxSeverity, maxDepth, maxImpacts));
+        }
+
         BigDecimal credits = root.hasAttribute("playerCredits")
                 ? new BigDecimal(attr(root, "playerCredits")) : BigDecimal.ZERO;
         BigDecimal bankCapital = root.hasAttribute("bankCapital")
@@ -374,7 +458,52 @@ public final class XmlWorldLoader {
 
         return new WorldDefinition(name, epoch, locations, links, ships, agents, factions,
                 new WorldDefinition.EconomyDef(resources, recipes, credits, bankCapital, loanRate),
-                seed);
+                seed, shipTypes, events);
+    }
+
+    /** 解析主体所在地点：静态地点 id 或 {@code ship:<id>}（映射到 100000 + 舰船 id）。 */
+    private static long resolveAgentLocation(String raw, Set<Long> locationIds,
+                                             Set<Long> shipIds) {
+        if (raw.startsWith("ship:")) {
+            long shipId;
+            try {
+                shipId = Long.parseLong(raw.substring("ship:".length()));
+            } catch (NumberFormatException ex) {
+                throw new ConfigException("主体所在地点非法: " + raw);
+            }
+            if (!shipIds.contains(shipId)) {
+                throw new ConfigException("主体所在地点的舰船不存在: " + raw);
+            }
+            return shipId + 100_000L;
+        }
+        long at;
+        try {
+            at = Long.parseLong(raw);
+        } catch (NumberFormatException ex) {
+            throw new ConfigException("主体所在地点非法: " + raw);
+        }
+        if (!locationIds.contains(at)) {
+            if (at > 100_000L && shipIds.contains(at - 100_000L)) {
+                return at;
+            }
+            throw new ConfigException("主体 " + raw + " 的所在地点不存在");
+        }
+        return at;
+    }
+
+    private static int readSkill(Element e, String attr, int fallback, long agentId) {
+        if (!e.hasAttribute(attr)) {
+            return fallback;
+        }
+        int value = Integer.parseInt(attr(e, attr));
+        checkSkill(agentId, attr, value);
+        return value;
+    }
+
+    private static void checkSkill(long agentId, String name, int value) {
+        if (value < 0 || value > 10) {
+            throw new ConfigException("主体 " + agentId + " 的 " + name + " 必须在 0..10");
+        }
     }
 
     private static Schema loadSchema() throws Exception {

@@ -76,6 +76,14 @@ public final class ProductionSystemImpl implements ProductionSystem {
                     free.add(a.id());
                 }
             }
+            // 设施工位上限：已在制单元的工人也占用工位。
+            int capacity = state.workerCapacity(at);
+            if (capacity > 0) {
+                int remaining = Math.max(0, capacity - used.size());
+                if (free.size() > remaining) {
+                    free = new ArrayList<>(free.subList(0, remaining));
+                }
+            }
             if (free.isEmpty()) {
                 continue;
             }
@@ -106,7 +114,8 @@ public final class ProductionSystemImpl implements ProductionSystem {
                 }
                 used.addAll(workers);
                 state.putWorkUnit(key(r.id(), at),
-                        new WorkUnit(r.id(), 0, r.ticks(), workers, at));
+                        new WorkUnit(r.id(), BigDecimal.ZERO, r.ticks(), workers, at,
+                                fc.world.SkillSet.Skill.ENGINEERING));
             }
         }
     }
@@ -123,8 +132,11 @@ public final class ProductionSystemImpl implements ProductionSystem {
         }
         StringBuilder out = new StringBuilder();
         for (String name : new java.util.TreeSet<>(r.outputs().keySet())) {
-            BigDecimal amount = r.outputs().get(name);
-            state.produce(at, ResourceKind.goodsFromId(name), amount, "配方产出 " + r.id());
+            ResourceKind kind = ResourceKind.goodsFromId(name);
+            BigDecimal amount = r.outputs().get(name)
+                    .multiply(techMultiplier(state, kind))
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+            state.produce(at, kind, amount, "配方产出 " + r.id());
             if (out.length() > 0) {
                 out.append(' ');
             }
@@ -132,6 +144,15 @@ public final class ProductionSystemImpl implements ProductionSystem {
         }
         ctx.events().enqueue(new GameEvent.ProductionCompleted(
                 state.now(), at, r.name(), out.toString()));
+    }
+
+    /** 科技对产出的乘数（水培农业：农场食物产出 +25%）。 */
+    static BigDecimal techMultiplier(WorldState state, ResourceKind kind) {
+        BigDecimal factor = BigDecimal.ONE;
+        if (kind == ResourceKind.FOOD && state.hasTech("HYDROPONICS")) {
+            factor = factor.add(new BigDecimal("0.25"));
+        }
+        return factor;
     }
 
     private static boolean hasAll(WorldState state, Ids.LocationId at,

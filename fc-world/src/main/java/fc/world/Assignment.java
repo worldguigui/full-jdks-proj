@@ -13,5 +13,11 @@ public enum Assignment {
     /** 休息（恢复疲劳）。 */
     RESTING,
     /** 在途（随所在舰船航行）。 */
-    TRAVELING
+    TRAVELING,
+    /** 科研（在实验室推进研究项目）。 */
+    RESEARCH,
+    /** 测绘（随舰船对目标地点做勘测）。 */
+    SURVEYING,
+    /** 维修（修复舰船耐久）。 */
+    REPAIRING
 }

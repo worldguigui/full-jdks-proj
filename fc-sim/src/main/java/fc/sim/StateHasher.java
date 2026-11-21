@@ -69,7 +69,8 @@ public final class StateHasher {
                     .append(a.location().id()).append('|')
                     .append(a.needs().hunger()).append(',').append(a.needs().fatigue())
                     .append(',').append(a.needs().morale()).append('|')
-                    .append(a.assignment()).append('|').append(a.skill()).append('|')
+                    .append(a.assignment()).append('|').append(a.skills().display())
+                    .append('|').append(a.workdays()).append('|')
                     .append(a.isTraveling() ? ("T" + a.travelDestination().id()
                             + "@" + a.travelTicksRemaining()) : "-")
                     .append('|').append(a.lastAteDay()).append('|')
@@ -77,14 +78,110 @@ public final class StateHasher {
                     .append('\n');
         }
 
+        // 舰船状态（船型、耐久、在航风险与判定标记）。
+        for (fc.world.Location.Ship ship : state.graph().ships()) {
+            sb.append("ship=").append(ship.shipId().id()).append('|')
+                    .append(ship.shipType()).append('|').append(ship.hull())
+                    .append('/').append(ship.maxHull()).append('|')
+                    .append(plain(ship.cargoCapacity())).append('|')
+                    .append(ship.crewCapacity()).append('|')
+                    .append(ship.parent().id()).append('|')
+                    .append(ship.voyage() == null ? "-"
+                            : ship.voyage().from().id() + ">" + ship.voyage().to().id()
+                                    + "@" + ship.voyage().elapsedTicks() + "/"
+                                    + ship.voyage().totalTicks()
+                                    + "r" + ship.voyage().incidentChance()
+                                    + (ship.voyage().incidentResolved() ? "!" : "?"))
+                    .append('\n');
+        }
+
+        // 星图知识、归属与科技。
+        for (Map.Entry<Ids.LocationId, fc.world.KnowledgeState> e
+                : state.knowledge().entrySet()) {
+            sb.append("knowledge=").append(e.getKey().id()).append('=')
+                    .append(e.getValue()).append('\n');
+        }
+        for (Map.Entry<Ids.LocationId, Ids.FactionId> e
+                : state.locationOwners().entrySet()) {
+            sb.append("owner=").append(e.getKey().id()).append('=')
+                    .append(e.getValue().id()).append('\n');
+        }
+        for (String tech : state.techs()) {
+            sb.append("tech=").append(tech).append('\n');
+        }
+        for (Map.Entry<Ids.LocationId, String> e : state.researchJobs().entrySet()) {
+            sb.append("research=").append(e.getKey().id()).append('=')
+                    .append(e.getValue()).append('\n');
+        }
+        for (Map.Entry<Ids.LocationId, Integer> e : state.workerCapacities().entrySet()) {
+            sb.append("capacity=").append(e.getKey().id()).append('=')
+                    .append(e.getValue()).append('\n');
+        }
+        for (Map.Entry<Ids.LocationId, String> e : state.facilityKinds().entrySet()) {
+            sb.append("facility=").append(e.getKey().id()).append('=')
+                    .append(e.getValue()).append('\n');
+        }
+
+        // 测绘任务。
+        for (Map.Entry<Ids.LocationId, fc.world.SurveyTask> e : state.surveys().entrySet()) {
+            fc.world.SurveyTask t = e.getValue();
+            sb.append("survey=").append(e.getKey().id()).append('|')
+                    .append(t.ship().id()).append('|').append(plain(t.progress()))
+                    .append('/').append(t.totalDays()).append('\n');
+        }
+
+        // 条约、委托与船坞订单。
+        for (Map.Entry<Ids.FactionId, java.util.Set<fc.world.Treaty>> e
+                : state.treaties().entrySet()) {
+            sb.append("treaty=").append(e.getKey().id()).append('=');
+            e.getValue().stream().sorted().forEach(t -> sb.append(t).append(','));
+            sb.append('\n');
+        }
+        for (fc.world.Commission c : state.commissions().values()) {
+            sb.append("commission=").append(c.id()).append('|').append(c.status())
+                    .append('|').append(c.faction().id()).append('|').append(c.good().id())
+                    .append(':').append(plain(c.amount())).append('|')
+                    .append(c.destination().id()).append('|').append(c.deadline().day())
+                    .append('\n');
+        }
+        for (fc.world.ShipOrder o : state.shipOrders()) {
+            sb.append("order=").append(o.id()).append('|').append(o.status()).append('|')
+                    .append(o.shipType()).append('|').append(o.shipyard().id()).append('|')
+                    .append(o.remainingDays()).append('/').append(o.totalDays()).append('\n');
+        }
+
+        // 终局工程、结局、目标与补给发车计数。
+        for (String project : state.startedProjects()) {
+            sb.append("project=").append(project).append('|')
+                    .append(state.projectLocation(project) == null ? "-"
+                            : state.projectLocation(project).id()).append('|')
+                    .append(state.projectProgress(project)).append('/')
+                    .append(state.projectRequiredDays(project)).append('\n');
+        }
+        for (String project : state.completedProjects()) {
+            sb.append("project-done=").append(project).append('\n');
+        }
+        for (String goal : state.goalsReached()) {
+            sb.append("goal=").append(goal).append('\n');
+        }
+        for (Map.Entry<Long, WorldState.CargoSnapshot> e
+                : state.cargoHistory().entrySet()) {
+            sb.append("cargo=").append(e.getKey()).append('|')
+                    .append(plain(e.getValue().food())).append('|')
+                    .append(plain(e.getValue().fuel())).append('\n');
+        }
+        sb.append("ending=").append(state.ending() == null ? "-" : state.ending()).append('\n');
+        sb.append("dispatches=").append(state.supplyDispatches()).append('\n');
+
         List<Map.Entry<String, WorkUnit>> units = new ArrayList<>(state.workUnits().entrySet());
         units.sort(Map.Entry.comparingByKey());
         for (Map.Entry<String, WorkUnit> e : units) {
             WorkUnit u = e.getValue();
             sb.append("work=").append(e.getKey()).append('|')
-                    .append(u.recipeName()).append('|').append(u.progress())
+                    .append(u.recipeName()).append('|').append(plain(u.progress()))
                     .append('/').append(u.totalTicks()).append('|')
-                    .append(u.at() == null ? "-" : u.at().id()).append('|');
+                    .append(u.at() == null ? "-" : u.at().id()).append('|')
+                    .append(u.domain() == null ? "-" : u.domain()).append('|');
             u.workers().stream().sorted().forEach(id ->
                     sb.append(id.id()).append(','));
             sb.append('\n');

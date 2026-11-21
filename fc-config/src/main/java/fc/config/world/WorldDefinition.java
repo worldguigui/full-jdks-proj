@@ -19,7 +19,9 @@ public record WorldDefinition(
         List<AgentDef> agents,
         List<FactionDef> factions,
         EconomyDef economy,
-        long seed) {
+        long seed,
+        List<ShipTypeDef> shipTypes,
+        List<EventDef> events) {
 
     /** 默认世界种子（确定性随机的起点）。 */
     public static final long DEFAULT_SEED = 20261120L;
@@ -30,6 +32,16 @@ public record WorldDefinition(
         ships = List.copyOf(ships);
         agents = List.copyOf(agents);
         factions = List.copyOf(factions);
+        shipTypes = List.copyOf(shipTypes);
+        events = List.copyOf(events);
+    }
+
+    /** 兼容：M0–M3 的九字段构造（无船型表与事件规则）。 */
+    public WorldDefinition(String name, long epochDay, List<LocationDef> locations,
+                           List<LinkDef> links, List<ShipDef> ships, List<AgentDef> agents,
+                           List<FactionDef> factions, EconomyDef economy, long seed) {
+        this(name, epochDay, locations, links, ships, agents, factions, economy, seed,
+                List.of(), List.of());
     }
 
     /** 兼容：无主体/势力/经济、默认种子。 */
@@ -93,11 +105,23 @@ public record WorldDefinition(
             int colonyLevel,
             String owner,
             int population,
-            List<UpgradeDef> upgrades) {
+            List<UpgradeDef> upgrades,
+            String facilityKind,
+            int workerCapacity,
+            String initialKnowledge) {
 
         public LocationDef {
             stock = Map.copyOf(stock);
             upgrades = List.copyOf(upgrades);
+        }
+
+        /** 兼容：M3 的十一字段构造（无设施/知识扩展）。 */
+        public LocationDef(long id, String kind, String name, Long parentId,
+                           Map<String, BigDecimal> stock, BigDecimal credits,
+                           ProductionDef production, int colonyLevel, String owner,
+                           int population, List<UpgradeDef> upgrades) {
+            this(id, kind, name, parentId, stock, credits, production, colonyLevel,
+                    owner, population, upgrades, null, 0, null);
         }
 
         /** 兼容：无财政/殖民地扩展。 */
@@ -109,6 +133,10 @@ public record WorldDefinition(
 
         public boolean isColony() {
             return "Colony".equals(kind);
+        }
+
+        public boolean isFacility() {
+            return "Facility".equals(kind);
         }
     }
 
@@ -127,18 +155,57 @@ public record WorldDefinition(
     public record LinkDef(long from, long to, String kind, int ticks, double risk, BigDecimal cost) {
     }
 
-    /** 舰船定义：初始位置与货舱（含 fuel）。 */
-    public record ShipDef(long id, String name, long at, Map<String, BigDecimal> cargo) {
+    /** 舰船定义：初始位置、船型与货舱（含 fuel）。 */
+    public record ShipDef(long id, String name, long at, Map<String, BigDecimal> cargo,
+                          String type, int hull) {
         public ShipDef {
             cargo = Map.copyOf(cargo);
         }
+
+        /** 兼容：未配置船型（使用默认货船参数）。 */
+        public ShipDef(long id, String name, long at, Map<String, BigDecimal> cargo) {
+            this(id, name, at, cargo, null, 0);
+        }
+    }
+
+    /**
+     * 船型定义：货舱、铺位、耐久与基础风险。
+     *
+     * @param id             船型标识（scout/freighter/engineering/research/escort）
+     * @param cargoCapacity  货舱容量（所有货物合计）
+     * @param crewCapacity   船员铺位
+     * @param maxHull        最大耐久
+     * @param baseRiskFactor 基础风险系数（叠加到航线风险）
+     */
+    public record ShipTypeDef(String id, String name, BigDecimal cargoCapacity,
+                              int crewCapacity, int maxHull, double baseRiskFactor) {
+    }
+
+    /**
+     * 事件规则定义（M4 起事件参数由配置提供）。
+     *
+     * @param kind           ION_STORM / PIRACY
+     * @param probability    基础触发概率（0..1）
+     * @param weatherFactor  天气强度对概率的放大系数
+     * @param minSeverity    最小强度
+     * @param maxSeverity    最大强度
+     * @param maxDepth       传播最大跳数
+     * @param maxImpacts     传播最大地点数
+     */
+    public record EventDef(String id, String kind, double probability, double weatherFactor,
+                           int minSeverity, int maxSeverity, int maxDepth, int maxImpacts) {
     }
 
     /**
      * 主体定义（船员/居民/使者统一类型）。
      * role ∈ CREW / RESIDENT / ENVOY；trait ∈ DILIGENT / LAZY / STOIC / ANXIOUS。
      */
-    public record AgentDef(long id, String name, String role, long at, String trait, int skill) {
+    public record AgentDef(long id, String name, String role, long at, String trait,
+                           fc.world.SkillSet skills) {
+        /** 兼容：单一技能，六维同值。 */
+        public AgentDef(long id, String name, String role, long at, String trait, int skill) {
+            this(id, name, role, at, trait, fc.world.SkillSet.of(skill));
+        }
     }
 
     /**

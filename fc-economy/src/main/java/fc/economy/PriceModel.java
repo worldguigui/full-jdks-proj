@@ -24,8 +24,9 @@ public final class PriceModel {
     /** 玩家卖出折价。 */
     public static final BigDecimal SELL_DISCOUNT = new BigDecimal("0.95");
 
-    private static final double MIN_FACTOR = 0.3;
-    private static final double MAX_FACTOR = 5.0;
+    private static final BigDecimal MIN_FACTOR = new BigDecimal("0.3");
+    private static final BigDecimal MAX_FACTOR = new BigDecimal("5");
+    private static final java.math.MathContext MC = new java.math.MathContext(20);
 
     private PriceModel() {
     }
@@ -37,13 +38,77 @@ public final class PriceModel {
 
     /** 基准价（含事件价格冲击乘数）。 */
     public static BigDecimal basePrice(ResourceDef def, BigDecimal stock, BigDecimal shock) {
-        double target = def.targetStock().doubleValue();
-        double s = Math.max(1.0, stock.doubleValue());
-        double factor = Math.pow(target / s, def.elasticity());
-        factor = Math.max(MIN_FACTOR, Math.min(MAX_FACTOR, factor));
-        BigDecimal supply = def.basePrice().multiply(BigDecimal.valueOf(factor));
+        BigDecimal s = stock.max(BigDecimal.ONE);
+        BigDecimal ratio = def.targetStock().divide(s, 12, RoundingMode.HALF_UP);
+        BigDecimal factor = rationalPower(ratio, def.elasticity());
+        factor = factor.max(MIN_FACTOR).min(MAX_FACTOR);
+        BigDecimal supply = def.basePrice().multiply(factor);
         return supply.multiply(shock == null ? BigDecimal.ONE : shock)
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 精确分数幂：{@code base^(p/q)} = q 次根(base^p)。
+     *
+     * <p>指数先按其十进制表示化为既约分数（如 1.5 → 3/2），
+     * 先用 {@link BigDecimal#pow(int)} 求整数幂，再用牛顿迭代求 q 次根。
+     * 这样定价完全脱离 {@code double}，同库存同配置得到同一结果。</p>
+     */
+    public static BigDecimal rationalPower(BigDecimal base, double exponent) {
+        if (base.signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (exponent == 0.0) {
+            return BigDecimal.ONE;
+        }
+        BigDecimal e = BigDecimal.valueOf(exponent).stripTrailingZeros();
+        int scale = Math.max(0, e.scale());
+        java.math.BigInteger num = e.unscaledValue();
+        java.math.BigInteger den = java.math.BigInteger.TEN.pow(scale);
+        java.math.BigInteger gcd = num.gcd(den);
+        num = num.divide(gcd);
+        den = den.divide(gcd);
+
+        boolean negative = num.signum() < 0;
+        int p = num.abs().intValueExact();
+        int q = den.intValueExact();
+        BigDecimal powered;
+        if (p == 0) {
+            powered = BigDecimal.ONE;
+        } else if (q == 1) {
+            powered = base.pow(p);
+        } else {
+            powered = nthRoot(base.pow(p), q);
+        }
+        if (negative) {
+            powered = BigDecimal.ONE.divide(powered, 12, RoundingMode.HALF_UP);
+        }
+        return powered;
+    }
+
+    /** 牛顿迭代求 n 次根（正数）。 */
+    public static BigDecimal nthRoot(BigDecimal value, int n) {
+        if (n <= 1 || value.compareTo(BigDecimal.ONE) == 0) {
+            return value;
+        }
+        BigDecimal a = value;
+        // 初值：以 double 估计，可把迭代次数压到个位数；最终精度由迭代收敛决定。
+        BigDecimal x = BigDecimal.valueOf(Math.max(1e-9, Math.pow(a.doubleValue(), 1.0 / n)));
+        BigDecimal nDec = BigDecimal.valueOf(n);
+        for (int i = 0; i < 80; i++) {
+            BigDecimal xPow = x.pow(n - 1);
+            if (xPow.signum() == 0) {
+                break;
+            }
+            BigDecimal next = x.multiply(nDec.subtract(BigDecimal.ONE))
+                    .add(a.divide(xPow, MC)).divide(nDec, MC);
+            if (next.subtract(x).abs().compareTo(new BigDecimal("1e-18")) < 0) {
+                x = next;
+                break;
+            }
+            x = next;
+        }
+        return x.setScale(12, RoundingMode.HALF_UP);
     }
 
     /** 玩家买入价（无价格冲击）。 */

@@ -25,9 +25,9 @@
         <module>fc-cli</module>
         <module>fc-persist</module>
         <module>fc-extensions</module>
-        <module>fc-audit</module>
         <module>fc-testkit</module>
         <module>fc-runtime</module>
+        <module>fc-audit</module>
     </modules>
 
     <properties>

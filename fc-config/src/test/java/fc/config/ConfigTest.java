@@ -112,6 +112,70 @@ public final class ConfigTest {
     // ------------------------------------------------------------ 结构校验
 
     @FcTest
+    public void defaultWorldCarriesM4Configuration() {
+        WorldDefinition w = XmlWorldLoader.loadResource("world/default-world.xml");
+
+        assert w.shipTypes().size() == 5 : "船型数 " + w.shipTypes().size();
+        assert w.events().size() == 2 : "事件规则数 " + w.events().size();
+        for (WorldDefinition.ShipDef ship : w.ships()) {
+            assert ship.type() != null : "默认舰船应装配船型: " + ship.name();
+            assert w.shipTypes().stream().anyMatch(t -> t.id().equals(ship.type()))
+                    : "舰船船型未定义: " + ship.type();
+        }
+        long aboard = w.agents().stream().filter(a -> a.at() >= 100_000L).count();
+        assert aboard == 3 : "默认世界应有 3 名船员在舰上，实际 " + aboard;
+
+        java.util.Map<String, WorldDefinition.LocationDef> locs = new java.util.HashMap<>();
+        for (WorldDefinition.LocationDef loc : w.locations()) {
+            locs.put(loc.kind() + "#" + loc.id(), loc);
+        }
+        assert locs.values().stream().anyMatch(l -> "LAB".equals(l.facilityKind())
+                && l.workerCapacity() > 0) : "默认世界应有一个带工位的实验室";
+        assert locs.values().stream().anyMatch(l -> "SHIPYARD".equals(l.facilityKind())
+                && l.workerCapacity() > 0) : "默认世界应有一个带工位的船坞";
+        WorldDefinition.LocationDef lab = locs.values().stream()
+                .filter(l -> "LAB".equals(l.facilityKind())).findFirst().orElseThrow();
+        assert "UNKNOWN".equals(lab.initialKnowledge())
+                : "实验室初始应为未知信号，等待扫描发现";
+        assert locs.values().stream().allMatch(l -> l.workerCapacity() >= 0);
+
+        for (WorldDefinition.AgentDef agent : w.agents()) {
+            var s = agent.skills();
+            assert s.highest() > 0 : "主体技能不得全为 0: " + agent.name();
+        }
+        assert w.agents().stream().anyMatch(a -> a.skills().pilot() > a.skills().research())
+                : "船员应有侧重驾驶的技能";
+        assert w.agents().stream().anyMatch(a -> a.skills().trade() >= 7)
+                : "使者应有较高贸易技能";
+    }
+
+    @FcTest
+    public void shipTypeAndEventSemanticsAreEnforced() {
+        String badShipType = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <world name="t">
+                  <locations>
+                    <location id="1" kind="StarSystem" name="A"/>
+                  </locations>
+                  <links/>
+                  <ships><ship id="1" name="S" at="1" type="ghost"/></ships>
+                </world>
+                """;
+        expectInvalid(badShipType, "船型不存在");
+
+        String badEvent = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <world name="t">
+                  <locations><location id="1" kind="StarSystem" name="A"/></locations>
+                  <links/><ships/>
+                  <events><event id="x" kind="METEOR" probability="0.5"/></events>
+                </world>
+                """;
+        // XSD 枚举先于语义校验拒绝未知事件类型；只要给出可读错误即可。
+        expectInvalid(badEvent, null);
+    }
+
+    @FcTest
     public void malformedXmlIsRejected() {
         expectInvalid("<world name=\"t\"><locations/></world>", "校验失败");
     }
