@@ -18,6 +18,7 @@ import fc.history.jdbc.ChronicleDriver;
 import fc.history.jdbc.ChronicleSessions;
 import fc.history.query.ChronicleExport;
 import fc.history.query.ChronicleQuery;
+import fc.history.seal.EvidenceSeal;
 import fc.history.sign.EvidenceSignature;
 import fc.history.vault.ChronicleVault;
 import fc.science.ResearchService;
@@ -148,6 +149,10 @@ public final class Cli {
                     "按当前世界状态生成确定性 MIDI 配乐或 WAV"),
             new Cmd("vault", List.of("archive"), "vault [write|list|check|watch] [目录]",
                     "档案库：编年史快照镜像、索引校验与变更监视"),
+            new Cmd("seal", List.of(), "seal <文件> [输出]",
+                    "用本地 PKCS#12 证据密钥 AES-256-GCM 封存文件"),
+            new Cmd("unseal", List.of(), "unseal <封存文件> [输出]",
+                    "解封 .sealed 文件并写出明文"),
             new Cmd("sign", List.of(), "sign <文件> [输出]",
                     "用本地证据密钥做 XML Signature 签章"),
             new Cmd("verify", List.of(), "verify <证据文件>",
@@ -245,6 +250,8 @@ public final class Cli {
             case "atlas" -> doAtlas(tokens);
             case "music" -> doMusic(tokens);
             case "vault" -> doVault(tokens);
+            case "seal" -> doSeal(tokens);
+            case "unseal" -> doUnseal(tokens);
             case "sign" -> doSign(tokens);
             case "verify" -> doVerify(tokens);
             case "help" -> help();
@@ -486,6 +493,69 @@ public final class Cli {
                  | javax.sound.midi.InvalidMidiDataException e) {
             return "配乐失败：" + e.getMessage();
         }
+    }
+
+    /** 封存文件：PKCS#12 密钥库中的 AES-256 密钥 + GCM，失败不改动原文件。 */
+    private String doSeal(List<String> tokens) {
+        if (tokens.size() < 2) {
+            return "用法：seal <文件> [输出]";
+        }
+        Path input = Path.of(tokens.get(1));
+        Path output = tokens.size() >= 3 ? Path.of(tokens.get(2))
+                : Path.of(input.getFileName() + ".sealed");
+        char[] password = sealPassword();
+        try {
+            var store = EvidenceSeal.loadOrCreate(sealKeystore(), password);
+            var key = EvidenceSeal.evidenceKey(store, password);
+            var info = EvidenceSeal.sealFile(key, input, output);
+            return "已封存 → " + info.path() + "｜" + info.bytes()
+                    + " 字节｜AES-256-GCM｜密钥指纹 "
+                    + info.fingerprint().substring(0, 16) + "…";
+        } catch (IOException | IllegalArgumentException e) {
+            return "封存失败：" + e.getMessage();
+        } finally {
+            java.util.Arrays.fill(password, ' ');
+        }
+    }
+
+    /** 解封 .sealed 文件；默认输出去掉 .sealed 后缀。 */
+    private String doUnseal(List<String> tokens) {
+        if (tokens.size() < 2) {
+            return "用法：unseal <封存文件> [输出]";
+        }
+        Path input = Path.of(tokens.get(1));
+        String name = input.getFileName().toString();
+        Path output = tokens.size() >= 3 ? Path.of(tokens.get(2))
+                : Path.of(name.endsWith(".sealed")
+                        ? name.substring(0, name.length() - ".sealed".length())
+                        : name + ".open");
+        char[] password = sealPassword();
+        try {
+            var store = EvidenceSeal.load(sealKeystore(), password);
+            var key = EvidenceSeal.evidenceKey(store, password);
+            Path written = EvidenceSeal.openFile(key, input, output);
+            return "已解封 → " + written + "｜" + Files.size(written) + " 字节";
+        } catch (IOException | IllegalArgumentException e) {
+            return "解封失败：" + e.getMessage();
+        } finally {
+            java.util.Arrays.fill(password, ' ');
+        }
+    }
+
+    /** 本地封存密钥库路径（可用 -Dfc.seal.keystore 覆盖）。 */
+    private static Path sealKeystore() {
+        String configured = System.getProperty("fc.seal.keystore");
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured);
+        }
+        return Path.of(System.getProperty("user.home"), ".frontier-chronicle",
+                "evidence.p12");
+    }
+
+    /** 封存口令（可用 -Dfc.seal.password 覆盖默认演示口令）。 */
+    private static char[] sealPassword() {
+        String configured = System.getProperty("fc.seal.password", "frontier-chronicle");
+        return configured.toCharArray();
     }
 
     /** 用本地证据密钥签名任意导出文件（首次使用时自动生成 2048 位 RSA 密钥）。 */

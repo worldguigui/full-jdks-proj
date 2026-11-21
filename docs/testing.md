@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 18 个测试套件、180 个用例。
+当前共 19 个测试套件、187 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -41,7 +41,8 @@ mvn -B package
 | `fc-history` | `HistoryQueryTest` | 10 | 查询过滤/分页、CSV/XML/XSD/XSLT/ZIP、XXE 拒绝、JDBC 驱动与 DataSource |
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
 | `fc-history` | `ChronicleVaultTest` | 6 | 快照与索引、幂等写入、篡改/缺失检测、排他锁、WatchService、坏索引拒绝 |
-| `fc-runtime` | `RuntimeSmokeTest` | 12 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、签章、非法启动参数 |
+| `fc-history` | `EvidenceSealTest` | 6 | PKCS#12 往返、AES-GCM 封存/解封、错钥/篡改拒绝、输入过滤器、错误口令、参数校验 |
+| `fc-runtime` | `RuntimeSmokeTest` | 13 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、封存、签章、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
@@ -88,7 +89,7 @@ mvn -B package
 - 同种子、同命令序列保存后读档，`StateHasher` 必须一致；明文与加密路径分别验证。
 - 错误口令、篡改密文、损坏的校验和、未来格式版本必须被拒绝，且不替换当前会话。
 - 槽位名校验必须阻止路径穿越；`saves` 按字母序返回。
-- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`vault`、`sign`、`verify` 不进入重放日志。
+- `save`/`load`/`hash`、`query`、`export`、`atlas`、`music`、`vault`、`seal`、`unseal`、`sign`、`verify` 不进入重放日志。
 
 ### 编年史查询与导出
 
@@ -98,6 +99,13 @@ mvn -B package
 - XML 解析必须拒绝 DOCTYPE 与外部实体（XXE），样式表转换关闭外部访问。
 - 只读 JDBC 驱动必须支持 `DriverManager`、`DataSource`、`PreparedStatement`、`LIKE`、
   `COUNT(*)` 与结果集元数据，并拒绝写入/DDL；未绑定会话返回 `SQLException`。
+
+### 证据封存
+
+- 同一密钥封存/解封必须字节级还原；两次封存因随机 IV 不同而不相同。
+- 换用另一把密钥、篡改密文、口令错误、魔数不符必须失败，且不得输出任何明文。
+- 封存文件中的序列化流只能含白名单类型；其他对象必须被 `ObjectInputFilter` 拒绝。
+- 密钥库首次生成后重载，密钥指纹不变；错误口令在加载阶段即失败。
 
 ### 档案签章
 

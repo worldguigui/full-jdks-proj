@@ -5,6 +5,24 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.5.6 2026-11-21 阶段五 M11：证据封存与 PKCS#12 密钥库
+
+1. **密钥库**：`fc.history.seal.EvidenceSeal` 用 PKCS#12 保存单个 AES-256 `SecretKeyEntry`
+   （别名 `evidence`）；首次调用生成密钥并落盘，之后复用；POSIX 文件系统上权限收紧为属主读写。
+2. **封存**：`SealedObject` + `AES/GCM/NoPadding` 把文件封成 `.sealed` 包，带 `FCSEAL1` 魔数头；
+   同一明文两次封存因随机 IV 不同而产生不同密文；写出采用临时文件 + 原子替换。
+3. **反序列化安全**：读取时先校验魔数，再用 `ObjectInputFilter` 白名单（仅 `SealedObject`、
+   `String`、`byte[]`）解析，其他序列化类一律拒绝。
+4. **错误语义**：错误密钥、篡改密文、错误密钥库口令、缺失密钥库/别名、魔数不符、空负载
+   均被明确拒绝；口令数组用后清零，不被日志输出。
+5. **CLI**：新增 `seal <文件> [输出]` 与 `unseal <封存文件> [输出]`；默认密钥库
+   `~/.frontier-chronicle/evidence.p12`，可用 `-Dfc.seal.keystore` 与 `-Dfc.seal.password` 覆盖；
+   两个命令都不进入重放日志。
+6. **测试**：新增 `EvidenceSealTest` 6 个用例与运行时 1 个集成用例；当前共 19 个套件、
+   187 个用例通过；既有测试未删除、未跳过、未放宽。
+7. **审计基线**：类型 443/3836（11.5%）、包 65/176（36.9%）、模块 10/20、308 个 class、
+   Preview 违规 0。
+
 ## v0.5.5 2026-11-21 阶段五 M10：档案库镜像与并发安全
 
 1. **内容寻址快照**：`fc.history.vault.ChronicleVault` 把编年史写成

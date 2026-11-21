@@ -10,6 +10,7 @@ import fc.world.WorldState;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Comparator;
 
 /**
@@ -195,6 +196,54 @@ public final class RuntimeSmokeTest {
         assert session.commandHistory().stream()
                 .noneMatch(c -> c.startsWith("vault") || c.startsWith("archive"))
                 : "档案库命令不应进入重放日志";
+    }
+
+    @FcTest
+    public void sealAndUnsealEvidenceRoundTrip() throws Exception {
+        RuntimeSession session = boot();
+        Path dir = Files.createTempDirectory("fc-runtime-seal-");
+        String previousKeystore = System.getProperty("fc.seal.keystore");
+        String previousPassword = System.getProperty("fc.seal.password");
+        System.setProperty("fc.seal.keystore",
+                dir.resolve("keys/evidence.p12").toString());
+        System.setProperty("fc.seal.password", "runtime-seal-password");
+        try {
+            Path payload = dir.resolve("note.xml");
+            Files.writeString(payload, "<note>封存内容</note>",
+                    java.nio.charset.StandardCharsets.UTF_8);
+            Path sealed = dir.resolve("note.xml.sealed");
+            String sealedOut = session.execute("seal " + payload + " " + sealed);
+            assert sealedOut.contains("已封存") : sealedOut;
+            assert sealedOut.contains("AES-256-GCM") : sealedOut;
+            assert Files.exists(sealed);
+            assert !Arrays.equals(Files.readAllBytes(payload), Files.readAllBytes(sealed))
+                    : "封存文件不得等于明文";
+
+            Path opened = dir.resolve("note.opened.xml");
+            String openedOut = session.execute("unseal " + sealed + " " + opened);
+            assert openedOut.contains("已解封") : openedOut;
+            assert Files.readString(opened, java.nio.charset.StandardCharsets.UTF_8)
+                    .equals("<note>封存内容</note>");
+        } finally {
+            if (previousKeystore == null) {
+                System.clearProperty("fc.seal.keystore");
+            } else {
+                System.setProperty("fc.seal.keystore", previousKeystore);
+            }
+            if (previousPassword == null) {
+                System.clearProperty("fc.seal.password");
+            } else {
+                System.setProperty("fc.seal.password", previousPassword);
+            }
+            try (var walk = Files.walk(dir)) {
+                for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
+        }
+        assert session.commandHistory().stream()
+                .noneMatch(c -> c.startsWith("seal") || c.startsWith("unseal"))
+                : "封存命令不应进入重放日志";
     }
 
     @FcTest

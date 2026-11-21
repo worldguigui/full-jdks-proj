@@ -28,8 +28,8 @@ M5 不改变 M4 已确定的 Tick、RNG 与账本不变量；所有新增能力�
 事件实现细节固化进磁盘格式；世界规则变化时由格式版本显式拒绝，而不是静默读出半个世界。
 
 以下命令不进入重放日志：`save`、`load`、`saves`、`hash`、`help`、`quit`、`exit`；
-后续加入的 `query`、`export`、`atlas`（别名 `chart`）、`music`（别名 `soundtrack`）、`vault`（别名 `archive`）、`sign`、`verify` 同样排除
-（`export`/`atlas`/`music`/`vault`/`sign` 会写文件，`watch` 还会阻塞，读档时不得重复执行）。
+后续加入的 `query`、`export`、`atlas`（别名 `chart`）、`music`（别名 `soundtrack`）、`vault`（别名 `archive`）、`seal`、`unseal`、`sign`、`verify` 同样排除
+（`export`/`atlas`/`music`/`vault`/`seal`/`unseal`/`sign` 会写文件，`watch` 还会阻塞，读档时不得重复执行）。
 其余纯查询命令仍会记录，这是格式的既定语义。
 其余命令按输入顺序原样记录；纯查询命令虽不改变状态，但保留在日志中不影响重放结果，
 也便于复现当时的查看行为。`RuntimeSession.execute` 是唯一记录入口；直接调用
@@ -122,6 +122,7 @@ public interface FrontierMod {
 | PNG | `StarMapRenderer` | 确定性的圆形布局、按 sealed 地点类型着色、航线、舰船与标签；`ImageIO` 写出，兼容 headless |
 | 音频 | `SoundBank` / `Soundtrack` | 提示音合成；按世界状态确定性生成 MIDI 并可离线渲染 WAV；无音频设备时优雅降级 |
 | 档案库 | `ChronicleVault` | 内容寻址 ZIP 快照、锁保护的索引、SHA-256 校验、`WatchService` 变更监视 |
+| 封存 | `EvidenceSeal` | PKCS#12 密钥库、AES-256-GCM 封存、白名单反序列化、原子落盘 |
 
 启动参数：`--serve` 或 `--serve=<端口>` 启动状态端点；`png [路径]` 导出星图。
 

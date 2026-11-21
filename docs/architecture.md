@@ -152,6 +152,19 @@ CLI 只做薄封装：`query <SQL>` 绑定匿名会话后执行，`export <格�
 - CLI `vault [write|list|check|watch] [目录]`（别名 `archive`）会写文件或阻塞等待，
   因此与 `export`/`atlas`/`music` 一样排除在重放日志之外。
 
+### 3.8 证据封存
+
+`EvidenceSeal` 负责机密性：把文件封成只能由持有同一对称密钥的一方打开的 `.sealed` 包。
+
+- 密钥来自 PKCS#12 密钥库中的 AES-256 `SecretKeyEntry`（别名 `evidence`）；首次使用生成，
+  之后复用。密钥库口令由调用方提供，CLI 默认口令仅用于本地演示并可用系统属性覆盖。
+- 封存用 `SealedObject` + `AES/GCM/NoPadding`：GCM 同时保证机密性与完整性；随机 IV 使同一
+  明文的两次封存不同。文件前缀 `FCSEAL1` 用于快速拒绝非本程序产物。
+- 读取时先校验魔数，再以 `ObjectInputFilter` 白名单反序列化（仅 `SealedObject`、`String`、
+  `byte[]`），防止把任意序列化流当输入。
+- 文件写出走临时文件 + 原子替换；POSIX 文件系统上密钥库权限收紧为属主读写。
+- CLI `seal`/`unseal` 会读写文件，排除在重放日志之外。
+
 ## 4. 模块与依赖
 
 ```
@@ -172,7 +185,7 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 | `fc-colony` | 殖民地升级、补给线、实验室/船坞、终局工程 | 已实现 |
 | `fc-science` | 科技树、科研项目、效果叠加、勘察服务 | 已实现（M4） |
 | `fc-diplomacy` | 势力采购、声望与条约、委托、冲突结算、D0–D4 目标 | 已实现（M4） |
-| `fc-history` | 内存编年史、查询模型、CSV/XML/XSLT/XSD/ZIP 导出、只读 JDBC 驱动、XML 签章、档案库镜像 | 已实现（M5+） |
+| `fc-history` | 内存编年史、查询模型、导出、只读 JDBC 驱动、XML 签章、档案库镜像、PKCS#12 证据封存 | 已实现（M5+） |
 | `fc-cli` | 命令解析、星图、面板与报告 | 已实现 |
 | `fc-persist` | 存档仓库、偏好、本地化 | 已实现（M5） |
 | `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX、HTTP、音频 | 已实现（M5+） |
@@ -209,7 +222,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 11.0%、包 36.9%、模块 10/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 11.5%、包 36.9%、模块 10/20。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。
