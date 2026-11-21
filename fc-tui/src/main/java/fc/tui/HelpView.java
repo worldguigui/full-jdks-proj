@@ -22,7 +22,7 @@ public final class HelpView {
                 "列表：select <N|up|down>  inspect  back    推进：next <天数>",
                 Style.PANEL_MUTED);
         Draw.line(buffer, panel, row++,
-                "tui off 返回 CLI（从 CLI 内 tui on 启动时）；quit 结束游戏。",
+                "tui off 返回 CLI（从 CLI 内 tui on 启动时）；空行/refresh 同步其他窗口。",
                 Style.PANEL_MUTED);
         Draw.line(buffer, panel, row++, "以下为 CLI help 输出：", Style.PANEL_MUTED);
         row++;

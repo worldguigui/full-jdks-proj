@@ -121,7 +121,11 @@ public final class TuiApp implements AutoCloseable {
             return false;
         }
         String line = rawLine.strip();
-        if (line.isEmpty()) {
+        if (line.isEmpty() || "refresh".equalsIgnoreCase(line)) {
+            // 多窗口模式下其他窗口可能刚执行过命令：空行/refresh 主动重读世界。
+            refresh();
+            status = "已刷新（同步其他窗口）";
+            renderer.reset();
             return running;
         }
         String lower = line.toLowerCase(Locale.ROOT);

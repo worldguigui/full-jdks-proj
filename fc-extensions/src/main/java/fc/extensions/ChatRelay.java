@@ -360,6 +360,8 @@ public final class ChatRelay implements AutoCloseable {
             case "HIST" -> sendHistory(session, argument);
             case "PING" -> session.write("PONG " + messageCount());
             case "QUIT" -> {
+                // 先把成员从在线表移除，再回 BYE：客户端读到 BYE 后 roster 必定已更新。
+                leave(session, true);
                 session.write("BYE");
                 session.close();
             }
@@ -495,6 +497,7 @@ public final class ChatRelay implements AutoCloseable {
         if (member == null) {
             return;
         }
+        session.member = null;
         sessions.remove(member.id());
         members.remove(member.id());
         nickIndex.remove(member.nick().toLowerCase(Locale.ROOT), member.id());

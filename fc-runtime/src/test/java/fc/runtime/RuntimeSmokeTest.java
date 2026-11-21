@@ -19,9 +19,9 @@ import java.util.Comparator;
 public final class RuntimeSmokeTest {
 
     public static void main(String[] args) {
-        if (!TestRunner.report(TestRunner.run(RuntimeSmokeTest.class))) {
-            System.exit(1);
-        }
+        boolean passed = TestRunner.report(TestRunner.run(RuntimeSmokeTest.class));
+        // 测试会启动聊天室/RMI/JMX 等外围线程；显式退出避免非守护线程拖住测试 JVM。
+        System.exit(passed ? 0 : 1);
     }
 
     private static RuntimeSession boot() {

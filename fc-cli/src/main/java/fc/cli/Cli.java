@@ -1192,6 +1192,13 @@ public final class Cli {
                             }
                         }
                         client.send("QUIT");
+                        // 等待服务端完成离开并从 roster 移除，再关闭连接。
+                        for (int i = 0; i < 4; i++) {
+                            String line = client.readLine();
+                            if (line == null || "BYE".equals(line)) {
+                                break;
+                            }
+                        }
                         yield "已发送 → " + (echoed == null ? text : echoed);
                     }
                 }
