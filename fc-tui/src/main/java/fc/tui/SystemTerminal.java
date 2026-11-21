@@ -19,7 +19,9 @@ public final class SystemTerminal implements Terminal {
     private final PrintStream output;
     private final boolean unicode;
     private final boolean color;
-    private TerminalSize cached;
+    private volatile TerminalSize cached;
+    private volatile Runnable sizeListener;
+    private SizeWatcher sizeWatcher;
 
     public SystemTerminal() {
         this(new PrintStream(new FileOutputStream(FileDescriptor.out), true,
@@ -38,11 +40,44 @@ public final class SystemTerminal implements Terminal {
         return cached;
     }
 
-    /** 重新探测尺寸；仅读取环境覆盖，避免每次输入都启动子进程。 */
+    /**
+     * 注册尺寸变化回调，并启动后台探测。TUI 在构造时把回调接到脏标记，
+     * 窗口放大/缩小后最多 2 秒自动重排，不需要重启或手动 refresh。
+     */
+    public void setSizeListener(Runnable listener) {
+        this.sizeListener = listener;
+        if (listener == null) {
+            if (sizeWatcher != null) {
+                sizeWatcher.stop();
+                sizeWatcher = null;
+            }
+            return;
+        }
+        if (sizeWatcher == null) {
+            sizeWatcher = new SizeWatcher(this::size, TerminalSize::detectPlatform,
+                    size -> {
+                        cached = size;
+                        Runnable callback = sizeListener;
+                        if (callback != null) {
+                            callback.run();
+                        }
+                    }, SizeWatcher.DEFAULT_INTERVAL_MILLIS);
+        }
+    }
+
+    /**
+     * 立即读取显式环境覆盖；平台探测由后台 {@link SizeWatcher} 完成，
+     * 避免每个输入命令都同步启动 PowerShell/stty。
+     */
     public void refreshSize() {
         TerminalSize overridden = TerminalSize.fromEnvironment();
-        if (overridden != null) {
-            cached = overridden;
+        if (overridden == null || overridden.equals(cached)) {
+            return;
+        }
+        cached = overridden;
+        Runnable callback = sizeListener;
+        if (callback != null) {
+            callback.run();
         }
     }
 
@@ -60,10 +95,16 @@ public final class SystemTerminal implements Terminal {
     public void enter() {
         write(Ansi.ALT_SCREEN_ON + Ansi.CLEAR + Ansi.WRAP_OFF);
         flush();
+        if (sizeWatcher != null) {
+            sizeWatcher.start();
+        }
     }
 
     @Override
     public void exit() {
+        if (sizeWatcher != null) {
+            sizeWatcher.stop();
+        }
         write(Ansi.RESET + Ansi.CURSOR_SHOW + Ansi.WRAP_ON + Ansi.ALT_SCREEN_OFF);
         flush();
     }

@@ -16,12 +16,13 @@ public final class Draw {
         return rect.inset(1, 1);
     }
 
-    /** 在面板内写一行；自动按区域宽度裁剪。 */
+    /** 在面板内写一行；超宽时用 {@code ..} 收尾。 */
     public static void line(ScreenBuffer buffer, Rect area, int row, String text, Style style) {
         if (row < 0 || row >= area.height()) {
             return;
         }
-        buffer.putClipped(area.x(), area.y() + row, text, style, area.width());
+        buffer.putClipped(area.x(), area.y() + row,
+                TextWidth.truncate(text, area.width()), style, area.width());
     }
 
     /** 行首标签 + 值，值会被裁剪到剩余宽度。 */
@@ -33,8 +34,9 @@ public final class Draw {
         String left = TextWidth.padRight(label, Math.min(12, area.width()));
         buffer.putClipped(area.x(), area.y() + row, left, labelStyle, area.width());
         int used = Math.min(12, area.width());
-        buffer.putClipped(area.x() + used, area.y() + row, value, valueStyle,
-                Math.max(0, area.width() - used));
+        int remaining = Math.max(0, area.width() - used);
+        buffer.putClipped(area.x() + used, area.y() + row,
+                TextWidth.truncate(value, remaining), valueStyle, remaining);
     }
 
     /** 可选中列表行：选中时整行反显。 */
@@ -49,8 +51,29 @@ public final class Draw {
             buffer.putClipped(area.x(), y, TextWidth.padRight(text, area.width()),
                     Style.SELECTED, area.width());
         } else {
-            buffer.putClipped(area.x(), y, text, normal, area.width());
+            buffer.putClipped(area.x(), y, TextWidth.truncate(text, area.width()),
+                    normal, area.width());
         }
+    }
+
+    /** 面板标题用的可见范围，如 {@code "  1-20/57"}；无需滚动时为空。 */
+    public static String range(int first, int visible, int total) {
+        if (total <= 0 || visible <= 0) {
+            return "";
+        }
+        int start = Math.max(0, Math.min(first, total - 1));
+        int end = Math.min(total, start + visible);
+        return "  " + (start + 1) + "-" + end + "/" + total;
+    }
+
+    /** 取一段行窗口，越界自动裁剪。 */
+    public static List<String> slice(List<String> lines, int first, int count) {
+        if (lines == null || lines.isEmpty() || count <= 0) {
+            return List.of();
+        }
+        int start = Math.max(0, Math.min(first, lines.size()));
+        int end = Math.min(lines.size(), start + count);
+        return lines.subList(start, end);
     }
 
     /** 按显示宽度换行；保留原有空行。 */

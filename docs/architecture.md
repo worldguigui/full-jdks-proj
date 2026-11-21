@@ -305,8 +305,8 @@ Mod 或导出器）用标准 flavor 协议交换货单，而不是互相引用�
 ### 3.17 星际远征指挥终端（fc-tui）与双窗口模式
 
 `fc-tui` 是独立客户端模块，不依赖 `fc-cli`/`fc-runtime`，只依赖 `fc-world`
-与 `fc-history`。TUI 是 CLI 的可视化层：命令仍由 CLI 语义执行，完整输出不进入
-TUI 画布。
+与 `fc-history`。TUI 是 CLI 的可视化层：命令仍由 CLI 语义执行；长输出进入可滚动
+页面，独立 CLI 窗口仍保留完整终端输出。
 
 - **两种启动方式**：
   - `--tui`：单窗口 TUI，命令栏输入 CLI 命令，底部一行显示最后反馈；
@@ -322,9 +322,16 @@ TUI 画布。
   以 UTF-8 读写，避免本地代码页导致中文乱码；其他平台打印可直接运行的手工命令；
   `FC_CONSOLE_NO_WINDOW=1` 用于测试/排障。
 - **TUI 页面命令**：`map`/`ships`/`colonies`/`research`/`market`/`log`/`status`/
-  `decisions`/`goals`/`help` 直接复用 CLI 命令名；任一窗口执行后，宿主通知
-  TUI 刷新快照并切换到对应可视化页面。主窗口 `tui on` 与双窗口 TUI 使用
-  宿主通知 + 100 ms 后台刷新，其他 CLI 窗口的命令会自动反映到 TUI。
+  `decisions`/`goals`/`help` 直接复用 CLI 命令名；`output` 是 TUI 局部页，
+  展示本轮命令的完整输出。任一窗口执行页面命令后，宿主通知 TUI 刷新快照并
+  切换视图。主窗口 `tui on` 与双窗口 TUI 使用宿主通知 + 100 ms 后台刷新，
+  其他 CLI 窗口的命令会自动反映到 TUI。
+- **滚动与长内容**：文本页、详情弹窗和报告面板有独立滚动偏移；`scroll up`
+  /`scroll down [N]`/`scroll top`/`scroll bottom`/`page up`/`page down`
+  完整单词命令（行模式输入，不依赖方向键）。标题显示 `1-20/57` 范围；
+  列表页 `select` 自动把选中项滚入视口，`inspect` 详情可继续滚动。
+  `help`/`goals`/`market`/`research` 报告与 `output` 页按面板宽度换行；
+  表格单元格超宽用 `..` 收尾，完整值进入详情或 `output`。
 - **渲染内核**：`TextWidth` 处理 CJK/emoji/组合字符宽度；`ScreenBuffer` 是字符 +
   样式双缓冲（宽字符占两列、控制字符清洗）；`DiffRenderer` 只输出变化单元格，
   首帧/尺寸变化清屏，绘制期间关闭自动换行；`CharSet` 提供 Unicode/ASCII 降级，
@@ -332,6 +339,8 @@ TUI 画布。
 - **终端适配**：`Terminal` 抽象输出侧；`SystemTerminal` 使用备用屏幕、UTF-8、
   真彩 SGR，并探测行列（`FC_TUI_COLS/ROWS` 覆盖；Windows 优先 PowerShell
   `WindowSize`，其次 `mode con`；Unix 用 `stty size`；默认 100×30）。
+  进入 TUI 后 `SizeWatcher` 守护线程每 2 秒后台探测尺寸，变化时置脏并重排；
+  不需要重启或手动 `refresh`。`FC_TUI_COLS/ROWS` 仍在每次输入后立即生效。
   Java SE 21 无跨平台 Raw Mode，本版输入为行模式。输入必须使用阻塞
   `readLine()`，不能用 `InputStream.available()`/`Reader.ready()` 轮询：
   Windows 控制台在回车前可能始终返回 0，轮询会导致 TUI 完全收不到命令。

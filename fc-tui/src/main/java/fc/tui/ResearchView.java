@@ -8,14 +8,33 @@ public final class ResearchView {
     private ResearchView() {
     }
 
-    public static void render(ScreenBuffer buffer, Rect body, Snapshot snapshot, CharSet chars) {
+    /** 科研状态面板的可滚动内容。 */
+    public static List<String> reportLines(String reportText, Rect body) {
+        Rect right = body.splitColumns(Math.max(36, body.width() / 2))[1];
+        Rect reportPanel = right.splitRows(
+                Math.max(8, right.height() * 60 / 100))[1];
+        return Draw.wrap(reportText, Math.max(1, reportPanel.inset(1, 1).width()));
+    }
+
+    /** 科研状态面板内部可视行数。 */
+    public static int reportVisibleRows(Rect body) {
+        Rect right = body.splitColumns(Math.max(36, body.width() / 2))[1];
+        Rect reportPanel = right.splitRows(
+                Math.max(8, right.height() * 60 / 100))[1];
+        return Math.max(1, reportPanel.inset(1, 1).height());
+    }
+
+    public static void render(ScreenBuffer buffer, Rect body, Snapshot snapshot, int scroll,
+                              CharSet chars) {
         Rect[] columns = body.splitColumns(Math.max(36, body.width() / 2));
         Rect tech = Draw.panel(buffer, columns[0], "[04] 科技树 / RESEARCH", chars);
         Rect right = columns[1];
         Rect jobs = Draw.panel(buffer, right.splitRows(Math.max(8, right.height() * 60 / 100))[0],
                 "进行中的项目", chars);
+        List<String> reportText = reportLines(snapshot.researchReport(), body);
         Rect report = Draw.panel(buffer,
-                right.splitRows(Math.max(8, right.height() * 60 / 100))[1], "科研状态", chars);
+                right.splitRows(Math.max(8, right.height() * 60 / 100))[1],
+                "科研状态" + Draw.range(scroll, reportVisibleRows(body), reportText.size()), chars);
 
         Draw.line(buffer, tech, 0, "已解锁 " + snapshot.techs().size() + " 项科技",
                 Style.PANEL_ACCENT);
@@ -46,9 +65,9 @@ public final class ResearchView {
             }
         }
 
-        List<String> lines = Draw.wrap(snapshot.researchReport(), report.width());
-        for (int i = 0; i < lines.size() && i < report.height(); i++) {
-            Draw.line(buffer, report, i, lines.get(i), Style.PANEL_MUTED);
+        List<String> window = Draw.slice(reportText, scroll, report.height());
+        for (int i = 0; i < window.size(); i++) {
+            Draw.line(buffer, report, i, window.get(i), Style.PANEL_MUTED);
         }
     }
 }

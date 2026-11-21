@@ -19,8 +19,9 @@ import java.util.logging.Logger;
  * <p>渲染走 {@link ScreenBuffer} + {@link DiffRenderer}；页面只读 {@link Snapshot}；
  * 所有世界推进/操作都通过 {@link TuiGame#execute(String)} 进入游戏应用层。
  * 页面命令直接复用 CLI 命令名（map/ships/colonies/research/market/log/status/
- * decisions/help）：执行后切到对应可视化页面。双窗口模式下本窗口与独立 CLI
- * 窗口都可提交命令，二者共享同一个权威世界；最后反馈显示在状态行。
+ * decisions/goals/help）；output 是本地输出页。执行后切到对应可视化页面，
+ * 长内容可用 scroll/page 命令滚动。双窗口模式下本窗口与独立 CLI 窗口都可
+ * 提交命令，二者共享同一个权威世界；最后反馈显示在状态行。
  * 界面刷新与游戏时间分离，渲染从不推进 Tick。</p>
  *
  * <p>输入采用标准输入阻塞逐行读取：Windows 控制台的
@@ -37,7 +38,7 @@ public final class TuiApp implements AutoCloseable {
 
     /** 页面标识。 */
     public enum Page {
-        BRIDGE, MAP, FLEET, COLONY, RESEARCH, TRADE, INTEL, GOALS, HELP
+        BRIDGE, MAP, FLEET, COLONY, RESEARCH, TRADE, INTEL, GOALS, HELP, OUTPUT
     }
 
     private final TuiGame game;
@@ -49,6 +50,8 @@ public final class TuiApp implements AutoCloseable {
     private Snapshot snapshot;
     private Page page = Page.BRIDGE;
     private int selection;
+    private int scroll;
+    private int detailScroll;
     private boolean detail;
     private volatile boolean running = true;
     private String status = "READY";
@@ -67,6 +70,10 @@ public final class TuiApp implements AutoCloseable {
         this.chars = terminal.unicode() ? CharSet.unicodeChars() : CharSet.asciiChars();
         this.renderer = new DiffRenderer(terminal.color());
         this.snapshot = game.snapshot();
+        if (terminal instanceof SystemTerminal system) {
+            // 尺寸探测在后台线程执行；变化时只置脏，由渲染循环重建布局。
+            system.setSizeListener(() -> dirty = true);
+        }
     }
 
     /** 交互式运行，直到输入 EOF 或 quit。 */
@@ -269,6 +276,15 @@ public final class TuiApp implements AutoCloseable {
             status = "已在 TUI 中";
             return running;
         }
+        if ("output".equals(lower)) {
+            openOutput();
+            renderer.reset();
+            return running;
+        }
+        if (handleScrollCommand(line)) {
+            renderer.reset();
+            return running;
+        }
         switch (lower) {
             case "quit", "exit" -> {
                 running = false;
@@ -314,6 +330,8 @@ public final class TuiApp implements AutoCloseable {
             }
         }
         selection = 0;
+        scroll = 0;
+        detailScroll = 0;
         detail = false;
     }
 
@@ -335,6 +353,8 @@ public final class TuiApp implements AutoCloseable {
         }
         if (PAGE_COMMANDS.contains(head)) {
             selection = 0;
+            scroll = 0;
+            detailScroll = 0;
             detail = false;
         }
         dirty = true;
@@ -418,6 +438,8 @@ public final class TuiApp implements AutoCloseable {
     private void switchPage(Page next) {
         page = next;
         selection = 0;
+        scroll = 0;
+        detailScroll = 0;
         detail = false;
         status = switch (next) {
             case BRIDGE -> "舰桥态势总览";
@@ -429,12 +451,14 @@ public final class TuiApp implements AutoCloseable {
             case INTEL -> "情报中心";
             case GOALS -> "目标与胜利路线";
             case HELP -> "帮助";
+            case OUTPUT -> "命令输出";
         };
     }
 
     private void back() {
         if (detail) {
             detail = false;
+            detailScroll = 0;
         } else if (page != Page.BRIDGE) {
             switchPage(Page.BRIDGE);
         }
@@ -466,15 +490,217 @@ public final class TuiApp implements AutoCloseable {
                 return;
             }
         }
+        if (detail) {
+            detailScroll = 0;
+        }
+        ensureSelectionVisible();
         status = "选中 " + (selection + 1) + "/" + count;
     }
 
     private void openDetail() {
         if (selectableCount() > 0) {
             detail = true;
+            detailScroll = 0;
         } else {
             status = "当前页面没有可查看的详情";
         }
+    }
+
+    /** 打开命令输出页，并定位到末尾；长输出可用 scroll/page 命令回看。 */
+    private void openOutput() {
+        page = Page.OUTPUT;
+        selection = 0;
+        detail = false;
+        detailScroll = 0;
+        scroll = 0;
+        clampScroll();
+        scroll = maxScroll();
+        status = totalRows() == 0 ? "暂无命令输出" : scrollStatus();
+    }
+
+    /**
+     * scroll up|down [N] / scroll top|bottom / page up|down [N]。
+     * 详情打开时滚动详情，否则滚动当前页；列表页的选中项由 select 自动带入视口。
+     */
+    private boolean handleScrollCommand(String line) {
+        String[] parts = line.strip().split("\\s+");
+        String head = parts[0].toLowerCase(Locale.ROOT);
+        if (!"scroll".equals(head) && !"page".equals(head)) {
+            return false;
+        }
+        int total = detail ? detailTotalRows() : totalRows();
+        int visible = detail ? detailVisibleRows() : visibleRows();
+        if (total <= 0 || visible <= 0) {
+            status = "当前页面没有可滚动内容（用 select/inspect 查看列表详情）";
+            return true;
+        }
+        String action = parts.length > 1 ? parts[1].toLowerCase(Locale.ROOT) : "";
+        int amount = 1;
+        if (parts.length > 2) {
+            try {
+                amount = Integer.parseInt(parts[2]);
+            } catch (NumberFormatException e) {
+                status = "滚动数量必须是正整数：" + parts[2];
+                return true;
+            }
+            if (amount <= 0) {
+                status = "滚动数量必须是正整数：" + parts[2];
+                return true;
+            }
+        }
+        int step = "page".equals(head) ? visible : 1;
+        int current = detail ? detailScroll : scroll;
+        int max = Math.max(0, total - visible);
+        int next = switch (action) {
+            case "up" -> current - step * amount;
+            case "down" -> current + step * amount;
+            case "top" -> 0;
+            case "bottom" -> max;
+            default -> Integer.MIN_VALUE;
+        };
+        if (next == Integer.MIN_VALUE) {
+            status = "用法：scroll up|down [N] | scroll top|bottom | page up|down [N]";
+            return true;
+        }
+        next = Math.max(0, Math.min(max, next));
+        if (detail) {
+            detailScroll = next;
+        } else {
+            scroll = next;
+        }
+        status = scrollStatus();
+        return true;
+    }
+
+    private String scrollStatus() {
+        int total = detail ? detailTotalRows() : totalRows();
+        int visible = detail ? detailVisibleRows() : visibleRows();
+        if (total <= 0) {
+            return "没有可显示内容";
+        }
+        int first = detail ? detailScroll : scroll;
+        int end = Math.min(total, first + Math.max(1, visible));
+        return (detail ? "详情 " : "视图 ") + (first + 1) + "-" + end + "/" + total;
+    }
+
+    /** 让列表选中项始终落在当前视口内。 */
+    private void ensureSelectionVisible() {
+        if (!(page == Page.FLEET || page == Page.COLONY || page == Page.INTEL)) {
+            return;
+        }
+        int total = totalRows();
+        int rows = listRows();
+        if (total <= 0 || rows <= 0) {
+            scroll = 0;
+            return;
+        }
+        scroll = Math.max(0, Math.min(scroll, Math.max(0, total - rows)));
+        if (selection < scroll) {
+            scroll = selection;
+        } else if (selection >= scroll + rows) {
+            scroll = Math.max(0, selection - rows + 1);
+        }
+    }
+
+    private void clampScroll() {
+        if (detail) {
+            detailScroll = Math.max(0, Math.min(detailScroll, detailMaxScroll()));
+        }
+        scroll = Math.max(0, Math.min(scroll, maxScroll()));
+    }
+
+    private Rect bodyRect() {
+        TerminalSize size = terminal.size();
+        int top = 3;
+        int bottom = size.rows() - 6;
+        return new Rect(1, top, Math.max(0, size.columns() - 2),
+                Math.max(0, bottom - top));
+    }
+
+    private int textWidth() {
+        return Math.max(1, bodyRect().width() - 2);
+    }
+
+    /** 整页文本面板的内部可视行数。 */
+    private int textRows() {
+        return Math.max(1, bodyRect().height() - 2);
+    }
+
+    /** 列表面板：内部高度减去表头行。 */
+    private int listRows() {
+        return Math.max(1, bodyRect().height() - 3);
+    }
+
+    private int totalRows() {
+        return switch (page) {
+            case FLEET -> snapshot.ships().size();
+            case COLONY -> snapshot.colonies().size();
+            case INTEL -> snapshot.events().size();
+            case HELP -> HelpView.contentLines(helpLines, textWidth()).size();
+            case GOALS -> Draw.wrap(snapshot.goalsReport(), textWidth()).size();
+            case OUTPUT -> outputLines(textWidth()).size();
+            case RESEARCH -> ResearchView.reportLines(
+                    snapshot.researchReport(), bodyRect()).size();
+            case TRADE -> TradeView.reportLines(
+                    snapshot.marketReport(), bodyRect()).size();
+            default -> 0;
+        };
+    }
+
+    private int visibleRows() {
+        return switch (page) {
+            case FLEET, COLONY, INTEL -> listRows();
+            case HELP, GOALS, OUTPUT -> textRows();
+            case RESEARCH -> ResearchView.reportVisibleRows(bodyRect());
+            case TRADE -> TradeView.reportVisibleRows(bodyRect());
+            default -> 0;
+        };
+    }
+
+    private int maxScroll() {
+        int total = totalRows();
+        int visible = visibleRows();
+        return total <= 0 || visible <= 0 ? 0 : Math.max(0, total - visible);
+    }
+
+    private List<String> outputLines(int width) {
+        List<String> lines = new ArrayList<>();
+        for (String line : log) {
+            lines.addAll(Draw.wrap(line, width));
+        }
+        return lines;
+    }
+
+    /** 详情弹窗区域；尺寸不足时返回 null。 */
+    private Rect detailBox() {
+        Rect body = bodyRect();
+        if (body.width() < 20 || body.height() < 6) {
+            return null;
+        }
+        int width = Math.min(body.width() - 4, Math.max(24, body.width() * 3 / 4));
+        int height = Math.min(body.height() - 2, 14);
+        int x = body.x() + (body.width() - width) / 2;
+        int y = body.y() + (body.height() - height) / 2;
+        return new Rect(x, y, width, height);
+    }
+
+    private Rect detailInner() {
+        Rect box = detailBox();
+        return box == null ? null : box.inset(2, 2);
+    }
+
+    private int detailTotalRows() {
+        Rect inner = detailInner();
+        return inner == null ? 0 : Draw.wrap(detailText(), inner.width()).size();
+    }
+
+    private int detailVisibleRows() {
+        Rect inner = detailInner();
+        return inner == null ? 1 : Math.max(1, inner.height() - 1);
+    }
+
+    private int detailMaxScroll() {
+        return Math.max(0, detailTotalRows() - detailVisibleRows());
     }
 
     private String executeCommand(String command) {
@@ -504,6 +730,8 @@ public final class TuiApp implements AutoCloseable {
     private void blockedNotice() {
         page = Page.INTEL;
         selection = 0;
+        scroll = 0;
+        detailScroll = 0;
         detail = false;
         appendLog("! 时间推进被 " + snapshot.decisions().size()
                 + " 项待决事项阻塞（这是世界规则，不是故障）");
@@ -534,9 +762,12 @@ public final class TuiApp implements AutoCloseable {
             if (count <= 0) {
                 selection = 0;
                 detail = false;
+                detailScroll = 0;
             } else {
                 selection = Math.max(0, Math.min(count - 1, selection));
             }
+            ensureSelectionVisible();
+            clampScroll();
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, "快照构建失败", e);
             appendLog("快照构建失败：" + e.getMessage());
@@ -578,17 +809,19 @@ public final class TuiApp implements AutoCloseable {
             switch (page) {
                 case BRIDGE -> BridgeView.render(buffer, body, snapshot, chars);
                 case MAP -> MapView.render(buffer, body, snapshot, selection, chars);
-                case FLEET -> FleetView.render(buffer, body, snapshot, selection, chars);
-                case COLONY -> ColonyView.render(buffer, body, snapshot, selection, chars);
-                case RESEARCH -> ResearchView.render(buffer, body, snapshot, chars);
-                case TRADE -> TradeView.render(buffer, body, snapshot, chars);
-                case INTEL -> IntelView.render(buffer, body, snapshot, selection, chars);
-                case GOALS -> GoalsView.render(buffer, body, snapshot, chars);
-                case HELP -> HelpView.render(buffer, body, helpLines, chars);
+                case FLEET -> FleetView.render(buffer, body, snapshot, selection, scroll, chars);
+                case COLONY -> ColonyView.render(buffer, body, snapshot, selection, scroll, chars);
+                case RESEARCH -> ResearchView.render(buffer, body, snapshot, scroll, chars);
+                case TRADE -> TradeView.render(buffer, body, snapshot, scroll, chars);
+                case INTEL -> IntelView.render(buffer, body, snapshot, selection, scroll, chars);
+                case GOALS -> GoalsView.render(buffer, body, snapshot, scroll, chars);
+                case HELP -> HelpView.render(buffer, body, helpLines, scroll, chars);
+                case OUTPUT -> OutputView.render(buffer, body,
+                        outputLines(textWidth()), scroll, chars);
             }
         }
         if (detail) {
-            drawDetail(buffer, body);
+            drawDetail(buffer);
         }
         drawOrganization(buffer, width, height - 5);
         drawLog(buffer, width, height - 4);
@@ -662,8 +895,9 @@ public final class TuiApp implements AutoCloseable {
         if (y < 0 || y >= buffer.height()) {
             return;
         }
-        String keys = "页面 map ships colonies research market log status decisions goals help | "
-                + "列表 select N/up/down inspect back | next N | quit";
+        String keys = "页面 map ships colonies research market log status decisions goals help output | "
+                + "列表 select N/up/down inspect back | 滚动 scroll up/down/top/bottom page up/down | "
+                + "next N | quit";
         buffer.putClipped(1, y, TextWidth.truncate(keys, Math.max(0, width - 2)),
                 Style.MUTED, Math.max(0, width - 2));
     }
@@ -681,23 +915,24 @@ public final class TuiApp implements AutoCloseable {
         buffer.put(width - 1, bottom, chars.doubleBottomRight(), Style.ACCENT);
     }
 
-    private void drawDetail(ScreenBuffer buffer, Rect body) {
-        if (body.width() < 20 || body.height() < 6) {
+    private void drawDetail(ScreenBuffer buffer) {
+        Rect rect = detailBox();
+        if (rect == null) {
             return;
         }
-        int width = Math.min(body.width() - 4, Math.max(24, body.width() * 3 / 4));
-        int height = Math.min(body.height() - 2, 14);
-        int x = body.x() + (body.width() - width) / 2;
-        int y = body.y() + (body.height() - height) / 2;
-        Rect rect = new Rect(x, y, width, height);
         buffer.fill(rect, Style.PANEL);
         buffer.box(rect, "DETAIL / 详情", Style.ACCENT, Style.PANEL_ACCENT, chars);
         Rect inner = rect.inset(2, 2);
         List<String> lines = Draw.wrap(detailText(), inner.width());
-        for (int i = 0; i < lines.size() && i < inner.height() - 1; i++) {
-            Draw.line(buffer, inner, i, lines.get(i), Style.PANEL);
+        int visible = Math.max(1, inner.height() - 1);
+        int first = Math.max(0, Math.min(detailScroll, Math.max(0, lines.size() - visible)));
+        List<String> window = Draw.slice(lines, first, visible);
+        for (int i = 0; i < window.size(); i++) {
+            Draw.line(buffer, inner, i, window.get(i), Style.PANEL);
         }
-        Draw.line(buffer, inner, inner.height() - 1, "back 关闭", Style.PANEL_MUTED);
+        String hint = "back 关闭  scroll up/down"
+                + Draw.range(first, visible, lines.size());
+        Draw.line(buffer, inner, inner.height() - 1, hint, Style.PANEL_MUTED);
     }
 
     private String detailText() {

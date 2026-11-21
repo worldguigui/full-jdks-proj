@@ -21,9 +21,11 @@ import java.io.PipedReader;
 import java.io.PipedWriter;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** 终端渲染、宽度、差分刷新、页面切换、命令桥接与尺寸变化。 */
 public final class TuiEngineTest {
@@ -37,19 +39,26 @@ public final class TuiEngineTest {
     // ---- 测试夹具 ----
 
     private static WorldState world() {
+        return world(1);
+    }
+
+    private static WorldState world(int shipCount) {
         Ids.LocationId system = new Ids.LocationId(1);
         Ids.LocationId planet = new Ids.LocationId(2);
         Ids.LocationId colonyId = new Ids.LocationId(3);
-        Ids.LocationId shipId = new Ids.LocationId(4);
         Map<Ids.LocationId, Location> nodes = new LinkedHashMap<>();
         nodes.put(system, new Location.StarSystem(system, Stock.empty(), "晨曦"));
         nodes.put(planet, new Location.Planet(planet, Stock.empty(), "新伊甸"));
         nodes.put(colonyId, new Location.Colony(colonyId, Stock.empty(), "先驱前哨"));
-        Location.Ship ship = new Location.Ship(shipId, "先驱号",
-                new Ids.ShipId(100), system,
-                Stock.of(Map.of(ResourceKind.FUEL, new BigDecimal("40"))),
-                new Location.VoyageProgress(system, planet, 1, 3, Stardate.EPOCH));
-        nodes.put(shipId, ship);
+        for (int i = 0; i < shipCount; i++) {
+            Ids.LocationId shipId = new Ids.LocationId(4 + i);
+            String name = shipCount == 1 ? "先驱号" : String.format("SHIP-%02d", i + 1);
+            Location.Ship ship = new Location.Ship(shipId, name,
+                    new Ids.ShipId(100 + i), system,
+                    Stock.of(Map.of(ResourceKind.FUEL, new BigDecimal("40"))),
+                    new Location.VoyageProgress(system, planet, 1, 3, Stardate.EPOCH));
+            nodes.put(shipId, ship);
+        }
         LocationGraph graph = new LocationGraph(nodes, List.of(
                 new Link.WarpRoute(system, planet, 3, 0.1, new BigDecimal("5")),
                 new Link.WarpRoute(planet, colonyId, 2, 0.0, new BigDecimal("2"))));
@@ -69,6 +78,16 @@ public final class TuiEngineTest {
         return state;
     }
 
+    private static WorldState worldWithRichStock() {
+        WorldState state = world();
+        Map<ResourceKind, BigDecimal> stock = new EnumMap<>(ResourceKind.class);
+        for (ResourceKind kind : ResourceKind.GOODS) {
+            stock.put(kind, new BigDecimal("10"));
+        }
+        state.setStock(new Ids.LocationId(1), Stock.of(stock), "test");
+        return state;
+    }
+
     private static WorldState worldWithDecision() {
         WorldState state = world();
         state.raiseDecision("风暴抉择", "离子风暴要求你决定是否援助殖民地",
@@ -85,6 +104,7 @@ public final class TuiEngineTest {
         final WorldState state;
         final List<String> commands = new ArrayList<>();
         boolean fail;
+        String helpOutput = "已执行 help";
 
         FakeGame() {
             this(world());
@@ -105,7 +125,7 @@ public final class TuiEngineTest {
                 throw new IllegalStateException("模拟故障");
             }
             commands.add(command);
-            return "已执行 " + command;
+            return command.equals("help") ? helpOutput : "已执行 " + command;
         }
 
         @Override
@@ -508,6 +528,96 @@ public final class TuiEngineTest {
         assert app.running();
         assert app.status().contains("命令失败") : app.status();
         assert text(app.frame()).contains("模拟故障") : app.status();
+    }
+
+    @FcTest
+    public void helpPageScrollsThroughFullOutput() {
+        FakeGame game = new FakeGame();
+        StringBuilder longHelp = new StringBuilder();
+        for (int i = 0; i < 80; i++) {
+            longHelp.append(String.format("HELP-%02d 这是一条很长的帮助文本", i)).append('\n');
+        }
+        game.helpOutput = longHelp.toString();
+        TuiApp app = new TuiApp(game, new FakeTerminal(new TerminalSize(100, 30), true));
+
+        assert app.handle("help");
+        String top = text(app.frame());
+        assert top.contains("HELP-00") : top;
+        assert !top.contains("HELP-60") : "80 行帮助不应一次全部显示";
+
+        assert app.handle("scroll bottom");
+        String bottom = text(app.frame());
+        assert bottom.contains("HELP-79") : bottom;
+        assert !bottom.contains("HELP-00") : bottom;
+
+        assert app.handle("scroll top");
+        assert text(app.frame()).contains("HELP-00");
+    }
+
+    @FcTest
+    public void fleetSelectionScrollsIntoView() {
+        FakeGame game = new FakeGame(world(30));
+        TuiApp app = new TuiApp(game, new FakeTerminal(new TerminalSize(100, 30), true));
+        assert app.handle("ships");
+        assert app.handle("select 25");
+
+        String frame = text(app.frame());
+        assert frame.contains("SHIP-25") : frame;
+        assert !frame.contains("SHIP-01") : "选中第 25 艘后视口应自动下移：" + frame;
+    }
+
+    @FcTest
+    public void detailPopupScrollsToTheBottom() {
+        FakeGame game = new FakeGame(worldWithRichStock());
+        TuiApp app = new TuiApp(game, new FakeTerminal(new TerminalSize(100, 30), true));
+        assert app.handle("map");
+        assert app.handle("inspect");
+        String before = text(app.frame());
+        assert before.contains("DETAIL / 详情") : before;
+        assert before.contains("scroll up/down") : before;
+
+        assert app.handle("scroll bottom");
+        String after = text(app.frame());
+        assert !after.equals(before) : "详情滚动后画面应变化";
+        assert after.contains("DETAIL / 详情") : after;
+    }
+
+    @FcTest
+    public void outputPageShowsCompleteCommandHistory() {
+        FakeGame game = new FakeGame();
+        TuiApp app = new TuiApp(game, new FakeTerminal(new TerminalSize(110, 32), true));
+        app.handle("ships");
+        app.handle("next 2");
+        assert app.handle("output");
+        assert app.page() == TuiApp.Page.OUTPUT;
+        assert !game.commands.contains("output") : "output 是 TUI 局部页，不应提交给世界";
+
+        String frame = text(app.frame());
+        assert frame.contains("命令输出") : frame;
+        assert frame.contains("> ships") : frame;
+        assert frame.contains("已执行 next 2") : frame;
+    }
+
+    @FcTest
+    public void sizeWatcherReportsOnlyChanges() throws Exception {
+        AtomicReference<TerminalSize> current =
+                new AtomicReference<>(new TerminalSize(100, 30));
+        AtomicReference<TerminalSize> probed =
+                new AtomicReference<>(new TerminalSize(100, 30));
+        AtomicReference<TerminalSize> changed = new AtomicReference<>();
+        try (SizeWatcher watcher = new SizeWatcher(current::get, probed::get,
+                next -> {
+                    current.set(next);
+                    changed.set(next);
+                }, 20)) {
+            watcher.start();
+            Thread.sleep(80);
+            assert changed.get() == null : "尺寸未变化时不应回调";
+
+            probed.set(new TerminalSize(120, 40));
+            await(() -> changed.get() != null, "尺寸变化未回调");
+            assert changed.get().equals(new TerminalSize(120, 40)) : changed.get();
+        }
     }
 
     @FcTest

@@ -14,9 +14,13 @@ public final class IntelView {
     }
 
     public static void render(ScreenBuffer buffer, Rect body, Snapshot snapshot, int selected,
-                              CharSet chars) {
+                              int scroll, CharSet chars) {
+        int rows = Math.max(1, body.height() - 3);
+        List<Snapshot.EventRow> newest = newestFirst(snapshot);
+        int first = Math.max(0, Math.min(scroll, Math.max(0, newest.size() - rows)));
         Rect[] columns = body.splitColumns(Math.max(44, body.width() * 62 / 100));
-        Rect events = Draw.panel(buffer, columns[0], "[06] 情报中心 / INTELLIGENCE", chars);
+        Rect events = Draw.panel(buffer, columns[0],
+                "[06] 情报中心 / INTELLIGENCE" + Draw.range(first, rows, newest.size()), chars);
         Rect right = columns[1];
         Rect[] split = right.splitRows(Math.max(10, right.height() * 62 / 100));
         Rect factions = Draw.panel(buffer, split[0], "势力关系", chars);
@@ -25,13 +29,14 @@ public final class IntelView {
         Draw.line(buffer, events, 0,
                 TextWidth.padRight("日", 5) + TextWidth.padRight("类别", 10) + "摘要",
                 Style.PANEL_MUTED);
-        List<Snapshot.EventRow> newest = newestFirst(snapshot);
-        for (int i = 0; i < newest.size() && i + 1 < events.height(); i++) {
+        for (int i = first; i < newest.size() && i - first + 1 < events.height(); i++) {
             Snapshot.EventRow event = newest.get(i);
             boolean chosen = i == clamp(selected, newest.size());
-            String row = TextWidth.padRight("D" + event.day(), 5)
-                    + TextWidth.padRight(event.category(), 10) + event.summary();
-            Draw.row(buffer, events, i + 1, row, chosen, Style.PANEL, chars);
+            String prefix = TextWidth.padRight("D" + event.day(), 5)
+                    + TextWidth.padRight(event.category(), 10);
+            String summary = TextWidth.truncate(event.summary(),
+                    Math.max(0, events.width() - TextWidth.width(prefix)));
+            Draw.row(buffer, events, i - first + 1, prefix + summary, chosen, Style.PANEL, chars);
         }
         if (newest.isEmpty()) {
             Draw.line(buffer, events, 1, "编年史暂无事件。", Style.PANEL_MUTED);

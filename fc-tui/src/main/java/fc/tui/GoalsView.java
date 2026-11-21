@@ -8,16 +8,23 @@ public final class GoalsView {
     private GoalsView() {
     }
 
-    public static void render(ScreenBuffer buffer, Rect body, Snapshot snapshot, CharSet chars) {
-        Rect panel = Draw.panel(buffer, body, "目标与胜利路线 / GOALS", chars);
-        List<String> lines = Draw.wrap(snapshot.goalsReport(), panel.width());
+    public static void render(ScreenBuffer buffer, Rect body, Snapshot snapshot, int scroll,
+                              CharSet chars) {
+        int width = Math.max(1, body.width() - 2);
+        List<String> lines = Draw.wrap(snapshot.goalsReport(), width);
+        Rect panel = Draw.panel(buffer, body,
+                "目标与胜利路线 / GOALS"
+                        + Draw.range(scroll, Math.max(1, body.height() - 2), lines.size()),
+                chars);
         if (lines.isEmpty()) {
             Draw.line(buffer, panel, 0, "目标数据不可用。", Style.PANEL_MUTED);
             return;
         }
-        for (int i = 0; i < lines.size() && i < panel.height(); i++) {
-            Draw.line(buffer, panel, i, lines.get(i),
-                    lines.get(i).contains("★") ? Style.PANEL_WARN : Style.PANEL);
+        List<String> window = Draw.slice(lines, scroll, panel.height());
+        for (int i = 0; i < window.size(); i++) {
+            String line = window.get(i);
+            Draw.line(buffer, panel, i, line,
+                    line.contains("★") ? Style.PANEL_WARN : Style.PANEL);
         }
     }
 }

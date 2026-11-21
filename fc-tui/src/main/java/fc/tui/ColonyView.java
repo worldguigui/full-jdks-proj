@@ -13,9 +13,13 @@ public final class ColonyView {
     }
 
     public static void render(ScreenBuffer buffer, Rect body, Snapshot snapshot, int selected,
-                              CharSet chars) {
+                              int scroll, CharSet chars) {
+        int rows = Math.max(1, body.height() - 3);
+        List<Snapshot.ColonyView> all = snapshot.colonies();
+        int first = Math.max(0, Math.min(scroll, Math.max(0, all.size() - rows)));
         Rect[] columns = body.splitColumns(Math.max(44, body.width() * 64 / 100));
-        Rect list = Draw.panel(buffer, columns[0], "[03] 殖民地 / COLONY", chars);
+        Rect list = Draw.panel(buffer, columns[0],
+                "[03] 殖民地 / COLONY" + Draw.range(first, rows, all.size()), chars);
         Rect side = Draw.panel(buffer, columns[1], "[SELECTED] 殖民地详情", chars);
 
         List<Snapshot.ColonyView> colonies = snapshot.colonies();
@@ -28,14 +32,14 @@ public final class ColonyView {
                 TextWidth.padRight("名称", 16) + TextWidth.padRight("等级", 8)
                         + TextWidth.padRight("人口", 8) + "归属",
                 Style.PANEL_MUTED);
-        for (int i = 0; i < colonies.size() && i + 1 < list.height(); i++) {
+        for (int i = first; i < colonies.size() && i - first + 1 < list.height(); i++) {
             Snapshot.ColonyView colony = colonies.get(i);
             boolean chosen = i == clamp(selected, colonies.size());
             String row = TextWidth.padRight(colony.name(), 16)
                     + TextWidth.padRight(colony.level() + " 级", 8)
                     + TextWidth.padRight(Integer.toString(colony.population()), 8)
                     + (colony.playerOwned() ? "玩家" : "势力");
-            Draw.row(buffer, list, i + 1, row, chosen, Style.PANEL, chars);
+            Draw.row(buffer, list, i - first + 1, row, chosen, Style.PANEL, chars);
         }
 
         Snapshot.ColonyView colony = colonies.get(clamp(selected, colonies.size()));

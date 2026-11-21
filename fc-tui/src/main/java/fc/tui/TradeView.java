@@ -12,10 +12,28 @@ public final class TradeView {
     private TradeView() {
     }
 
-    public static void render(ScreenBuffer buffer, Rect body, Snapshot snapshot, CharSet chars) {
+    /** 市场报告面板的可滚动内容。 */
+    public static List<String> reportLines(String report, Rect body) {
+        Rect marketPanel = body.splitRows(
+                Math.max(5, Math.min(9, body.height() / 3)))[1];
+        Rect meta = marketPanel.inset(1, 1);
+        return Draw.wrap(report, Math.max(1, meta.width()));
+    }
+
+    /** 市场报告面板内部可视行数。 */
+    public static int reportVisibleRows(Rect body) {
+        Rect marketPanel = body.splitRows(
+                Math.max(5, Math.min(9, body.height() / 3)))[1];
+        return Math.max(1, marketPanel.inset(1, 1).height());
+    }
+
+    public static void render(ScreenBuffer buffer, Rect body, Snapshot snapshot, int scroll,
+                              CharSet chars) {
         Rect[] rows = body.splitRows(Math.max(5, Math.min(9, body.height() / 3)));
         Rect stock = Draw.panel(buffer, rows[0], "[05] 组织库存 / TRADE", chars);
-        Rect market = Draw.panel(buffer, rows[1], "市场行情", chars);
+        List<String> report = reportLines(snapshot.marketReport(), body);
+        Rect market = Draw.panel(buffer, rows[1],
+                "市场行情" + Draw.range(scroll, reportVisibleRows(body), report.size()), chars);
 
         Draw.line(buffer, stock, 0, "信用点 " + snapshot.credits(), Style.PANEL_ACCENT);
         int row = 1;
@@ -41,9 +59,9 @@ public final class TradeView {
                 "market <舰船> 查看报价；trade buy/sell <货物> <数量>",
                 Style.PANEL_MUTED);
 
-        List<String> lines = Draw.wrap(snapshot.marketReport(), market.width());
-        for (int i = 0; i < lines.size() && i < market.height(); i++) {
-            Draw.line(buffer, market, i, lines.get(i), Style.PANEL_MUTED);
+        List<String> window = Draw.slice(report, scroll, market.height());
+        for (int i = 0; i < window.size(); i++) {
+            Draw.line(buffer, market, i, window.get(i), Style.PANEL_MUTED);
         }
     }
 }

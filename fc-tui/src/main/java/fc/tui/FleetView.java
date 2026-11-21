@@ -13,9 +13,13 @@ public final class FleetView {
     }
 
     public static void render(ScreenBuffer buffer, Rect body, Snapshot snapshot, int selected,
-                              CharSet chars) {
+                              int scroll, CharSet chars) {
+        int rows = Math.max(1, body.height() - 3);
+        List<Snapshot.ShipView> all = snapshot.ships();
+        int first = Math.max(0, Math.min(scroll, Math.max(0, all.size() - rows)));
         Rect[] columns = body.splitColumns(Math.max(44, body.width() * 64 / 100));
-        Rect list = Draw.panel(buffer, columns[0], "[02] 舰队状态 / FLEET", chars);
+        Rect list = Draw.panel(buffer, columns[0],
+                "[02] 舰队状态 / FLEET" + Draw.range(first, rows, all.size()), chars);
         Rect side = Draw.panel(buffer, columns[1], "[SELECTED] 舰船详情", chars);
 
         List<Snapshot.ShipView> ships = snapshot.ships();
@@ -28,7 +32,7 @@ public final class FleetView {
                 TextWidth.padRight("舰船", 12) + TextWidth.padRight("类型", 10)
                         + TextWidth.padRight("耐久", 14) + "状态",
                 Style.PANEL_MUTED);
-        for (int i = 0; i < ships.size() && i + 1 < list.height(); i++) {
+        for (int i = first; i < ships.size() && i - first + 1 < list.height(); i++) {
             Snapshot.ShipView ship = ships.get(i);
             boolean chosen = i == clamp(selected, ships.size());
             String row = TextWidth.padRight(ship.name(), 12)
@@ -36,7 +40,7 @@ public final class FleetView {
                     + TextWidth.padRight(ship.hull() + "/" + ship.maxHull()
                             + " " + Draw.percent(ship.hull(), ship.maxHull()) + "%", 14)
                     + ship.voyage();
-            Draw.row(buffer, list, i + 1, row, chosen, Style.PANEL, chars);
+            Draw.row(buffer, list, i - first + 1, row, chosen, Style.PANEL, chars);
         }
 
         Snapshot.ShipView ship = ships.get(clamp(selected, ships.size()));
@@ -55,7 +59,7 @@ public final class FleetView {
                 Style.PANEL_MUTED, Style.PANEL);
         Draw.kv(buffer, side, row++, "航程", ship.voyage(), Style.PANEL_MUTED, Style.PANEL);
         if (row + 1 < side.height()) {
-            Draw.line(buffer, side, row + 1, "[J/K] 选择  [I] 详情",
+            Draw.line(buffer, side, row + 1, "select up/down 切换  inspect 详情",
                     Style.PANEL_MUTED);
         }
     }
