@@ -5,6 +5,37 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.8.0 2026-11-21 阶段五 M17：JMX 通知、动态目录、监视器与真实时间心跳
+
+1. **遥测主动通知**：`GameTelemetry` 改为继承 `NotificationBroadcasterSupport` 并实现
+   `NotificationEmitter`；`StateHash` 变化广播 `AttributeChangeNotification`
+   （old/new 值完整），命令计数变化广播 `fc.telemetry.command`，`userData` 携带
+   `commandCount` 与 `day`；`getNotificationInfo` 声明两类通知，支持按类型过滤。
+2. **动态 MBean 目录**：新增 `FrontierCatalog`（`fc.telemetry:type=Catalog`），
+   以 `MBeanInfo`/`MBeanAttributeInfo`/`MBeanOperationInfo` 自描述 3 个只读属性；
+   `snapshot` 返回 OpenType `GameSnapshot` 的 `CompositeData`，`find` 按 JMX 域枚举
+   MBean 名称。`Main` 启动时与遥测一起注册并随退出注销。
+3. **阈值监视器**：新增 `TelemetryMonitor`，注册 `GaugeMonitor`
+   （`fc.telemetry:type=Gauge`），100 ms 采样观测 `Ships`/`CommandCount` 等整型属性，
+   越过高/低阈值即广播 `jmx.monitor.gauge.high/low`；阈值类型与属性类型一致。
+4. **真实时间心跳**：新增 `Heartbeat`，注册 `Timer` MBean
+   （`fc.telemetry:type=Heartbeat`）按秒广播 `fc.heartbeat`；内部监听器统计触发次数，
+   游戏 Tick 与真实时间严格分离，心跳不改变世界状态。
+5. **直接 RMI 连接器与目录查询**：`RemoteJmx` 改为直接实例化 `RMIConnectorServer` 并写入
+   标准套接字工厂属性，新增 `directConnect`（`RMIConnector`）；
+   `allBeans`/`publishedBeans` 用 `QueryExp`（字符串 `Query.match("?*")`）枚举与
+   筛选已发布状态的 MBean。
+6. **CLI**：`jmx` 扩展为 `start|status|stop|beans|heartbeat [秒|stop|status]`；
+   `jmx beans` 展示 fc 域 MBean 与已发布集合，`jmx heartbeat` 管理真实时间心跳，
+   `jmx stop` 统一清理端点与心跳。命令仍不进入重放日志。
+7. **测试**：新增 `TelemetryMBeansTest` 5 个用例，`RemoteJmxTest` 增加直接 RMI 客户端用例，
+   运行时 JMX 用例扩展目录/心跳检查；当前共 26 个套件、232 个用例通过；
+   既有测试未删除、未跳过、未放宽。
+8. **审计基线**：类型 568/3836（14.8%）、包 80/176（45.5%）、模块 14/20、348 个 class、
+   Preview 违规 0；`java.management` 42/195（21.5%）、`java.management.rmi` 2/9，
+   新增 `javax.management.monitor`、`javax.management.timer`、
+   `javax.management.openmbean`、`javax.management.remote.rmi` 包覆盖。
+
 ## v0.7.0 2026-11-21 阶段五 M16：Frontier Script 脚本引擎
 
 1. **自研 javax.script 引擎**：JDK 21 不带脚本引擎，新增 `fc.extensions.FcScriptEngine`

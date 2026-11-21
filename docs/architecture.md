@@ -170,14 +170,17 @@ CLI 只做薄封装：`query <SQL>` 绑定匿名会话后执行，`export <格�
 `RemoteJmx` 把平台 `MBeanServer` 通过本机 RMI 注册表暴露给 `jconsole` 等标准 JMX 客户端。
 
 - 注册表与连接器分别使用自建的 `RMIServerSocketFactory` / `RMIClientSocketFactory`，
-  两端都固定 `InetAddress.getLoopbackAddress()`；不依赖 `java.rmi.server.hostname`，
-  也不做跨机暴露。认证边界由操作系统本地账户承担。
+  两端都固定 `InetAddress.getLoopbackAddress()`；连接器直接实例化
+  `RMIConnectorServer` 并写入其标准套接字工厂属性，不依赖 provider 查找，也不依赖
+  `java.rmi.server.hostname`，不做跨机暴露。认证边界由操作系统本地账户承担。
 - `Server` 是 `AutoCloseable`：`close()` 停止连接器并注销注册表，可重复调用；启动中途失败
-  会清理已创建的资源。
+  会清理已创建的资源。客户端可用通用 `JMXConnectorFactory`，也可用
+  `directConnect`（`RMIConnector`）。
 - `snapshot` 读取 `fc.telemetry:type=Game` 的八个属性；`setAttributes` 返回实际写入的属性，
-  只读 MBean 得到空列表。
-- CLI `jmx [start [端口]|status|stop]`（`jmx <端口>` 等价启动）会创建网络端点，排除在重放日志之外，
-  退出时由 `closeJmx()` 统一清理。
+  只读 MBean 得到空列表。`allBeans`/`publishedBeans` 用 `QueryExp`（字符串 `match`）
+  枚举与筛选 fc 域 MBean。
+- CLI `jmx [start [端口]|status|stop|beans|heartbeat …]`（`jmx <端口>` 等价启动）会创建网络端点，
+  排除在重放日志之外，退出时由 `closeJmx()` 统一清理。
 
 ### 3.10 回环聊天室中继
 
@@ -245,6 +248,25 @@ JDK 21 不附带脚本引擎。`FcScriptEngine` 是 `javax.script` 的自研实�
   规则过滤后写入存档；`script` 本身不记录。读档只重放展开后的命令，
   不依赖脚本文件仍然存在。
 
+### 3.14 JMX 通知、监视器与真实时间心跳
+
+JMX 端点不只是属性快照：遥测 MBean 主动广播，监视器与定时器把「阈值」和「真实时间」
+变成可订阅的事件。全部能力仍只在本机回环端点内可用。
+
+- `GameTelemetry` 继承 `NotificationBroadcasterSupport` 并实现 `NotificationEmitter`：
+  `StateHash` 变化发出 `AttributeChangeNotification`（类型 `jmx.attribute.change`），
+  命令计数变化发出 `fc.telemetry.command`（`userData` 含命令数与游戏日）；
+  `getNotificationInfo` 声明两类通知。
+- `FrontierCatalog`（`fc.telemetry:type=Catalog`）是 `DynamicMBean`，用
+  `MBeanInfo`/`MBeanAttributeInfo`/`MBeanOperationInfo` 自描述；`snapshot` 返回
+  `CompositeData`（OpenType `GameSnapshot`），`find` 按 JMX 域枚举名称。
+- `TelemetryMonitor` 注册 `GaugeMonitor`（`fc.telemetry:type=Gauge`），采样间隔 100 ms，
+  阈值类型与被观测属性一致；越过阈值即广播 `jmx.monitor.gauge.high/low`，无需轮询。
+- `Heartbeat` 注册 `Timer` MBean（`fc.telemetry:type=Heartbeat`），按秒广播
+  `fc.heartbeat`；游戏时间（Tick）与真实时间严格分离，心跳不改变世界状态。
+- CLI `jmx beans` 用 `QueryExp` 在服务端筛选已发布状态的 MBean；`jmx heartbeat [秒|stop|status]`
+  管理真实时间心跳。两者与 `jmx` 一样不进入重放日志。
+
 ## 4. 模块与依赖
 
 ```
@@ -268,7 +290,7 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 | `fc-history` | 内存编年史、查询模型、导出、只读 JDBC 驱动、XML 签章、档案库镜像、PKCS#12 证据封存 | 已实现（M5+） |
 | `fc-cli` | 命令解析、星图、面板与报告 | 已实现 |
 | `fc-persist` | 存档仓库、偏好、本地化 | 已实现（M5） |
-| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册与回环远程管理、聊天室中继、fc:// 命名上下文、TLS 与证书信任、Frontier Script、HTTP、音频 | 已实现（M5+） |
+| `fc-extensions` | Mod SPI/装载器、运行时编译、宏、PNG、星图工坊、配乐工坊、JMX 注册/回环远程管理/通知与监视器、真实时间心跳、聊天室中继、fc:// 命名上下文、TLS 与证书信任、Frontier Script、HTTP、音频 | 已实现（M5+） |
 | `fc-runtime` | 装配、REPL、存档/读档、PNG、Mod 装载、遥测与状态端点、单文件 jar | 已实现 |
 | `fc-testkit` | 注解 + 反射的零依赖测试框架 | 已实现 |
 | `fc-audit` | API 覆盖审计（classfile 常量池 → 证据） | 已实现（M5） |
@@ -284,7 +306,8 @@ fc-audit 扫描全部模块的 target/classes（反应堆末尾）
 3. 以配置参数构造 `Economy` 与生产、科研、市场、势力、殖民地、冲突、目标各领域系统，注入 `TickPipeline.m4`；
 4. 创建 `GameLoop`、`Cli`、`EventBus`，打印启动横幅；
 5. 扫描工作目录 `mods/` 装载扩展（单个失败只告警）；
-6. 注册 JMX `fc.telemetry:type=Game`；若给出 `--serve[=端口]`，在回环地址启动只读状态端点；
+6. 注册 JMX `fc.telemetry:type=Game` 与动态目录 `fc.telemetry:type=Catalog`；若给出
+   `--serve[=端口]`，在回环地址启动只读状态端点；
 7. 进入 REPL；`save`/`load`/`saves`/`png` 由运行时拦截，其余命令交给 `Cli`。
 
 存档/读档复用同一 `assemble` 路径：读档时按存档中的世界来源重新装配，再按序重放命令并核验哈希。所有世界数据来自配置，核心代码不硬编码地点、舰船、货物或配方。`RuntimeSession` 与 REPL 分离，使集成测试可以复用完全相同的装配路径。
@@ -302,7 +325,7 @@ M4 规格（`docs/specs/m4-science-diplomacy-and-exploration.md`）已对此前�
 5. **Mod 安全模型**：已有 API 版本与代码签名校验，但没有权限沙箱、依赖解析与远程仓库。
 6. **联机与多人**：没有网络传输协议、权威服务器或并发状态合并；`--serve` 只是只读回环端点。
 7. **内容生成与人物史**：程序化生成地点、招聘新主体、人物关系网、战术战斗与人员死亡仍在范围之外。
-8. **覆盖率目标**：当前审计为类型 14.1%、包 43.2%、模块 13/20。后续按 `docs/phase3/data/api-mapping.csv`
+8. **覆盖率目标**：当前审计为类型 14.8%、包 45.5%、模块 14/20。后续按 `docs/phase3/data/api-mapping.csv`
    以真实功能为载体扩张，不设数字硬阈值，也不允许无意义 API 调用。
 
 上述条目的处置必须遵循同一流程：先写规格，再实现与测试，最后生成审计证据并本地提交。

@@ -207,6 +207,14 @@ public final class RuntimeSmokeTest {
             assert started.contains("service:jmx:rmi") : started;
             String status = session.execute("jmx status");
             assert status.contains("JMX 运行中") : status;
+            String beans = session.execute("jmx beans");
+            assert beans.contains("JMX 目录") : beans;
+            assert beans.contains("fc 域 MBean 0 个") : beans;
+            String heartbeat = session.execute("jmx heartbeat 60");
+            assert heartbeat.contains("心跳已启动") : heartbeat;
+            assert session.execute("jmx heartbeat status").contains("每 60 秒")
+                    : "心跳状态应报告周期";
+            assert session.execute("jmx heartbeat stop").contains("心跳已停止");
             assert session.execute("jmx stop").contains("已停止") : "应停止端点";
             assert session.execute("jmx status").contains("未启动") : "停止后应报告未启动";
         } finally {

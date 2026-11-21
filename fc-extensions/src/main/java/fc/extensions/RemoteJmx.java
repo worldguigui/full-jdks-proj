@@ -9,12 +9,15 @@ import javax.management.MBeanException;
 import javax.management.MBeanServer;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
+import javax.management.Query;
+import javax.management.QueryExp;
 import javax.management.ReflectionException;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXConnectorServer;
-import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
+import javax.management.remote.rmi.RMIConnector;
+import javax.management.remote.rmi.RMIConnectorServer;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetAddress;
@@ -30,6 +33,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * 回环 JMX 管理端点：把平台 {@link MBeanServer} 暴露到本机 RMI 注册表。
@@ -126,14 +131,17 @@ public final class RemoteJmx {
         JMXConnectorServer connector = null;
         try {
             Map<String, Object> environment = new HashMap<>();
+            // 直接实例化 RMI 连接器（而非经工厂反射选择 provider），同时写入
+            // RMI 提供者的标准属性键，确保 stub 与注册表都只使用回环套接字工厂。
             environment.put(RMIClientSocketFactory.class.getName(), client);
             environment.put(RMIServerSocketFactory.class.getName(), server);
+            environment.put(RMIConnectorServer.RMI_CLIENT_SOCKET_FACTORY_ATTRIBUTE, client);
+            environment.put(RMIConnectorServer.RMI_SERVER_SOCKET_FACTORY_ATTRIBUTE, server);
             JMXServiceURL url = new JMXServiceURL(
                     "service:jmx:rmi:///jndi/rmi://127.0.0.1:" + port + "/" + CONNECTOR_NAME);
             MBeanServer platform = java.lang.management.ManagementFactory
                     .getPlatformMBeanServer();
-            connector = JMXConnectorServerFactory.newJMXConnectorServer(url, environment,
-                    platform);
+            connector = new RMIConnectorServer(url, environment, platform);
             connector.start();
             return new Server(port, url, connector, registry);
         } catch (IOException | RuntimeException e) {
@@ -153,12 +161,58 @@ public final class RemoteJmx {
         }
     }
 
-    /** 连接一个本机管理端点。 */
+    /** 连接一个本机管理端点（通用 JMX 工厂，按 URL 协议选择 provider）。 */
     public static JMXConnector connect(JMXServiceURL url) throws IOException {
         if (url == null) {
             throw new IllegalArgumentException("url 不能为空");
         }
         return JMXConnectorFactory.connect(url);
+    }
+
+    /** 直接使用 RMI 连接器客户端连接本机端点，绕开工厂查找。 */
+    public static JMXConnector directConnect(JMXServiceURL url) throws IOException {
+        if (url == null) {
+            throw new IllegalArgumentException("url 不能为空");
+        }
+        JMXConnector connector = new RMIConnector(url, null);
+        connector.connect();
+        return connector;
+    }
+
+    /**
+     * 枚举 JMX 域模式下的全部 MBean 名称（按规范名排序）。
+     *
+     * @param domain 域或域通配模式，如 {@code fc}、{@code fc.*}
+     */
+    public static Set<ObjectName> allBeans(MBeanServerConnection connection, String domain)
+            throws IOException {
+        if (connection == null || domain == null || domain.isBlank()
+                || domain.contains(":")) {
+            throw new IllegalArgumentException("连接与域不能为空，域不含冒号：" + domain);
+        }
+        try {
+            return new TreeSet<>(connection.queryNames(new ObjectName(domain + ":*"), null));
+        } catch (javax.management.MalformedObjectNameException e) {
+            throw new IOException("JMX 域不合法：" + domain, e);
+        }
+    }
+
+    /**
+     * 用 {@link QueryExp} 在服务端筛选已发布状态的遥测 MBean：
+     * {@code StateHash} 属性存在且非空。没有该属性的 MBean 不求值命中。
+     */
+    public static Set<ObjectName> publishedBeans(MBeanServerConnection connection)
+            throws IOException {
+        if (connection == null) {
+            throw new IllegalArgumentException("connection 不能为空");
+        }
+        try {
+            // Query.match 是字符串模式匹配；Query.gt 只做数值比较，不适用于哈希。
+            QueryExp published = Query.match(Query.attr("StateHash"), Query.value("?*"));
+            return new TreeSet<>(connection.queryNames(new ObjectName("fc.*:*"), published));
+        } catch (javax.management.MalformedObjectNameException e) {
+            throw new IOException("遥测查询模式不合法", e);
+        }
     }
 
     /** 读取 {@code fc.telemetry:type=Game} 的只读快照；MBean 未注册时抛 IOException。 */

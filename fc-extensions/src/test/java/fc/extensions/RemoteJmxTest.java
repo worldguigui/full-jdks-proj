@@ -133,4 +133,19 @@ public final class RemoteJmxTest {
             }
         }
     }
+
+    @FcTest
+    public void directRmiConnectorReadsTelemetry() throws Exception {
+        GameTelemetry telemetry = GameTelemetry.register();
+        telemetry.update(5, "星历 5", "rmi-hash", 16, 3, "700", "", 4);
+        try (RemoteJmx.Server server = RemoteJmx.start();
+             JMXConnector connector = RemoteJmx.directConnect(server.url())) {
+            Map<String, Object> snapshot =
+                    RemoteJmx.snapshot(connector.getMBeanServerConnection());
+            assert ((Number) snapshot.get("Day")).longValue() == 5 : snapshot;
+            assert "rmi-hash".equals(snapshot.get("StateHash")) : snapshot;
+        } finally {
+            telemetry.close();
+        }
+    }
 }

@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 25 个测试套件、226 个用例。
+当前共 26 个测试套件、232 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -42,14 +42,15 @@ mvn -B package
 | `fc-history` | `EvidenceSignatureTest` | 5 | RSA 签章与验签、篡改/错钥拒绝、密钥 DER 往返、指纹稳定 |
 | `fc-history` | `ChronicleVaultTest` | 6 | 快照与索引、幂等写入、篡改/缺失检测、排他锁、WatchService、坏索引拒绝 |
 | `fc-history` | `EvidenceSealTest` | 6 | PKCS#12 往返、AES-GCM 封存/解封、错钥/篡改拒绝、输入过滤器、错误口令、参数校验 |
-| `fc-runtime` | `RuntimeSmokeTest` | 18 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、封存、签章、非法启动参数 |
+| `fc-runtime` | `RuntimeSmokeTest` | 18 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、配乐、档案库、封存、签章、JMX 目录与心跳、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
 | `fc-extensions` | `ExtensionsTest` | 9 | 内存编译、Mod 装载与签名要求、宏、PNG、JMX、HTTP、音频、描述符 |
 | `fc-extensions` | `MapAtlasTest` | 6 | PNG/JPEG 元数据、逐像素确定性、滤镜、缩略图、区域读取、参数校验 |
 | `fc-extensions` | `SoundtrackTest` | 5 | 同种子同曲、SMF 往返、WAV 解码、音色/元数据/控制器、参数校验与设备探测 |
-| `fc-extensions` | `RemoteJmxTest` | 5 | 回环 RMI 连接、多客户端、只读属性、停止后拒绝连接、端口与缺失遥测 |
+| `fc-extensions` | `RemoteJmxTest` | 6 | 回环 RMI 连接、直接 RMI 客户端、多客户端、只读属性、停止后拒绝连接、端口与缺失遥测 |
+| `fc-extensions` | `TelemetryMBeansTest` | 5 | 属性变化/命令通知与过滤、动态 MBean 快照、GaugeMonitor 阈值通知、Timer 心跳、QueryExp 目录筛选 |
 | `fc-extensions` | `ChatRelayTest` | 6 | 加入与广播、成员表与历史、RMI 控制面、非法输入、离开广播、关闭与端口校验 |
 | `fc-extensions` | `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` | `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |
@@ -135,6 +136,23 @@ mvn -B package
 - 只读 MBean 的属性写入按 JMX 语义返回空列表，原值不变；不得使用异常或忽略错误来伪装成功。
 - `stop` 必须停止连接器并注销注册表，之后连接被拒绝；重复 `close()` 幂等。
 - 端口越界在启动前拒绝；`jmx` 命令不进入重放日志。
+
+### JMX 通知、动态 MBean 与心跳
+
+- `GameTelemetry` 必须实现 `NotificationEmitter`：`StateHash` 变化广播
+  `AttributeChangeNotification`（old/new 值正确），命令计数变化广播
+  `fc.telemetry.command`，`userData` 含 `commandCount` 与 `day`；计数未变化不得重复广播，
+  按类型过滤必须生效。
+- `FrontierCatalog` 是 `DynamicMBean`：`getMBeanInfo` 自描述 3 个只读属性与 2 个操作；
+  `snapshot` 返回 `CompositeData`，`find` 按域枚举；属性写入必须抛 `AttributeNotFoundException`，
+  `getAttributes` 跳过缺失项。
+- `GaugeMonitor` 观测 `Ships`：越过 high 阈值必须发出 `jmx.monitor.gauge.high`，
+  `derivedGauge` 反映当前值；阈值类型必须与被观测属性一致（整型属性用整型阈值）。
+- `Heartbeat` 由 `Timer` MBean 驱动，`fc.heartbeat` 通知按周期送达；`beats()` 由内部
+  监听器计数（`getNbOccurences` 是配置次数，不是已发送次数），`close()` 后 Timer 注销。
+- `QueryExp` 用字符串 `Query.match`（`?*`）筛选 `StateHash` 非空的 MBean；
+  数值 `Query.gt` 不得用于字符串属性。
+- `jmx beans` 与 `jmx heartbeat` 不进入重放日志；心跳只消耗真实时间，不推进游戏 Tick。
 
 ### fc:// 命名上下文
 

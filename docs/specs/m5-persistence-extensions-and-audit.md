@@ -117,8 +117,11 @@ public interface FrontierMod {
 
 | 能力 | 实现 | 行为 |
 |---|---|---|
-| JMX | `GameTelemetry` / `GameTelemetryMBean` | 平台 MBeanServer 注册 `fc.telemetry:type=Game`，暴露星历、哈希、地点/舰船数、信用点、终局、命令数；每次命令后刷新 |
-| 回环 JMX | `RemoteJmx` | 本机 RMI 注册表 + 平台 MBeanServer，只监听回环；`start/status/stop` 生命周期可关闭、可重复关闭，只读属性写入按 JMX 语义返回空列表 |
+| JMX | `GameTelemetry` / `GameTelemetryMBean` | 平台 MBeanServer 注册 `fc.telemetry:type=Game`，暴露星历、哈希、地点/舰船数、信用点、终局、命令数；每次命令后刷新；实现 `NotificationEmitter`，状态哈希变化广播属性变更、命令计数变化广播 `fc.telemetry.command` |
+| 动态目录 | `FrontierCatalog` | `DynamicMBean` 自描述属性/操作；`snapshot` 返回 `CompositeData`，`find` 按域枚举 |
+| 监视器 | `TelemetryMonitor` | 注册 `GaugeMonitor`，按阈值广播 `jmx.monitor.gauge.high/low`，100 ms 采样 |
+| 心跳 | `Heartbeat` | `Timer` MBean 按真实时间广播 `fc.heartbeat`；内部监听器统计触发次数，不推进 Tick |
+| 回环 JMX | `RemoteJmx` | 本机 RMI 注册表 + `RMIConnectorServer`，只监听回环；`start/status/stop/beans` 与 `QueryExp` 筛选；只读属性写入按 JMX 语义返回空列表 |
 | 聊天室中继 | `ChatRelay` | 回环 TCP 行协议（NICK/MSG/WHO/HIST/PING/QUIT）+ 虚拟线程；RMI 控制面 `fc-chat-control` 暴露成员表与广播 |
 | 脚本 | `FcScriptEngine` / `FcScriptEngineFactory` | 自研 `javax.script` 引擎（ServiceLoader 注册）：`set`/`echo`/`repeat`、变量替换、预编译；脚本展开的命令逐条进入重放日志 |
 | 信任 | `TrustAuthority` / `SecureChannel` / `CertificateChains` | 自签根与中间 CA、叶子证书签发、PKIX 链构建/校验、PKCS#12 密钥库；聊天中继可启用 TLS 双向认证 |
@@ -194,7 +197,8 @@ java -cp fc-audit/target/classes fc.audit.AuditMain --out docs/audit
 | 套件 | 用例 | 覆盖 |
 |---|---:|---|
 | `fc-persist` `PersistUnitTest` | 6 | 负载往返、未来版本拒绝、口令与篡改、英文/中文资源包、偏好持久化与删除、档案名校验 |
-| `fc-extensions` `RemoteJmxTest` | 5 | 回环连接与遥测读取、多客户端、只读属性、停止后拒绝连接、端口校验与缺失遥测 |
+| `fc-extensions` `RemoteJmxTest` | 6 | 回环连接与遥测读取、直接 RMI 客户端、多客户端、只读属性、停止后拒绝连接、端口校验与缺失遥测 |
+| `fc-extensions` `TelemetryMBeansTest` | 5 | 属性/命令通知与过滤、动态 MBean 快照、GaugeMonitor 阈值通知、Timer 心跳、QueryExp 目录筛选 |
 | `fc-extensions` `FcNamingTest` | 6 | 绑定/查找/枚举、相对与绝对名、Reference/ObjectFactory、错误名、链接与事件、隔离与关闭 |
 | `fc-extensions` `TrustAuthorityTest` | 6 | 自签根与 CA 约束、叶子签发/用途/SAN、中间链构建、过期/异根拒绝、参数校验、密钥库往返 |
 | `fc-extensions` `TlsChatTest` | 5 | 双向 TLS 握手与匿名拒绝、TLS 消息面、密钥库文件装配、明文拒绝、关闭释放 |

@@ -1,5 +1,6 @@
 package fc.runtime;
 
+import fc.extensions.FrontierCatalog;
 import fc.extensions.GameTelemetry;
 import fc.extensions.ModLoader;
 import fc.extensions.StarMapRenderer;
@@ -33,6 +34,7 @@ public final class Main {
         List<ModLoader.LoadedMod> mods = new ArrayList<>();
         AtomicReference<RuntimeSession> session = new AtomicReference<>();
         GameTelemetry telemetry = null;
+        FrontierCatalog catalog = null;
         StatusServer status = null;
         try {
             session.set(RuntimeSession.create(args));
@@ -40,6 +42,7 @@ public final class Main {
 
             loadMods(mods);
             telemetry = registerTelemetry();
+            catalog = registerCatalog();
             status = startStatusServer(args, session);
 
             repl(session, telemetry);
@@ -52,6 +55,9 @@ public final class Main {
         } finally {
             if (status != null) {
                 status.close();
+            }
+            if (catalog != null) {
+                catalog.close();
             }
             if (telemetry != null) {
                 telemetry.close();
@@ -88,6 +94,18 @@ public final class Main {
             return telemetry;
         } catch (javax.management.JMException | RuntimeException e) {
             System.err.println("JMX 遥测不可用（已降级）：" + e.getMessage());
+            return null;
+        }
+    }
+
+    /** 注册动态 MBean 遥测目录；不可用时降级。 */
+    private static FrontierCatalog registerCatalog() {
+        try {
+            FrontierCatalog catalog = FrontierCatalog.register();
+            System.out.println("JMX 遥测目录：" + FrontierCatalog.OBJECT_NAME);
+            return catalog;
+        } catch (javax.management.JMException | RuntimeException e) {
+            System.err.println("JMX 遥测目录不可用（已降级）：" + e.getMessage());
             return null;
         }
     }

@@ -13,6 +13,7 @@ import fc.extensions.CertificateChains;
 import fc.extensions.ChatRelay;
 import fc.extensions.FcNaming;
 import fc.extensions.FcScriptEngine;
+import fc.extensions.Heartbeat;
 import fc.extensions.MapAtlas;
 import fc.extensions.RemoteJmx;
 import fc.extensions.SecureChannel;
@@ -161,8 +162,9 @@ public final class Cli {
                     "星图工坊：带图例/罗盘/缩略图的 PNG/JPEG 制图"),
             new Cmd("music", List.of("soundtrack"), "music [mid|wav] [路径]",
                     "按当前世界状态生成确定性 MIDI 配乐或 WAV"),
-            new Cmd("jmx", List.of(), "jmx [start [端口]|status|stop]",
-                    "回环 JMX 管理端点（jconsole 可连接，仅本机）"),
+            new Cmd("jmx", List.of(),
+                    "jmx [start [端口]|status|stop|beans|heartbeat [秒|stop|status]]",
+                    "回环 JMX 端点：目录查询、真实时间心跳与 jconsole 接入（仅本机）"),
             new Cmd("chat", List.of(), "chat open [端口]|say <昵称> <文本>|history [条数]|roster|close",
                     "本机聊天室中继：TCP 消息面 + RMI 控制面（仅回环）"),
             new Cmd("res", List.of(), "res [list [scope]|locate <fc:...>|register <fc:...> <类型> <端点>|unregister <fc:...>|services]",
@@ -195,6 +197,7 @@ public final class Cli {
     private final GoalService goals;
     private final Supplier<TickContext> tickContexts;
     private RemoteJmx.Server jmx;
+    private Heartbeat heartbeat;
     private ChatRelay chat;
     private SSLContext chatClient;
     private FcNaming naming;
@@ -546,17 +549,19 @@ public final class Cli {
         }
     }
 
-    /** 回环 JMX 端点：启动、查看与停止；不进入重放日志。 */
+    /** 回环 JMX 端点：启动、查看、目录查询、心跳与停止；不进入重放日志。 */
     private String doJmx(List<String> tokens) {
         String action = tokens.size() >= 2 ? tokens.get(1).toLowerCase(java.util.Locale.ROOT)
                 : "start";
         Integer inlinePort = null;
-        if (!action.equals("start") && !action.equals("status") && !action.equals("stop")) {
+        if (!action.equals("start") && !action.equals("status") && !action.equals("stop")
+                && !action.equals("beans") && !action.equals("heartbeat")) {
             try {
                 inlinePort = Integer.valueOf(tokens.get(1));
                 action = "start";
             } catch (NumberFormatException e) {
-                return "用法：jmx [start [端口]|status|stop]";
+                return "用法：jmx [start [端口]|status|stop|beans|"
+                        + "heartbeat [秒|stop|status]]";
             }
         }
         try {
@@ -582,6 +587,9 @@ public final class Cli {
                     if (jmx == null || !jmx.isRunning()) {
                         yield "JMX 端点未启动（jmx [端口] 启动）";
                     }
+                    String beats = heartbeat == null ? "未启动"
+                            : "每 " + heartbeat.seconds() + " 秒，已发送 "
+                                    + heartbeat.beats() + " 次";
                     try (var connector = RemoteJmx.connect(jmx.url())) {
                         var connection = connector.getMBeanServerConnection();
                         try {
@@ -589,13 +597,17 @@ public final class Cli {
                             yield "JMX 运行中 → " + jmx.url() + "\n  日 "
                                     + snapshot.get("Day") + "｜舰船 " + snapshot.get("Ships")
                                     + "｜信用点 " + snapshot.get("Credits")
-                                    + "｜哈希 " + snapshot.get("StateHash");
+                                    + "｜哈希 " + snapshot.get("StateHash")
+                                    + "\n  心跳 " + beats;
                         } catch (IOException noTelemetry) {
                             yield "JMX 运行中 → " + jmx.url() + "｜MBean "
-                                    + connection.getMBeanCount() + " 个（未注册游戏遥测）";
+                                    + connection.getMBeanCount() + " 个（未注册游戏遥测）"
+                                    + "\n  心跳 " + beats;
                         }
                     }
                 }
+                case "beans" -> jmxBeans();
+                case "heartbeat" -> doHeartbeat(tokens);
                 case "stop" -> {
                     if (jmx == null) {
                         yield "JMX 端点未启动";
@@ -603,14 +615,83 @@ public final class Cli {
                     closeJmx();
                     yield "JMX 端点已停止";
                 }
-                default -> "用法：jmx [start [端口]|status|stop]";
+                default -> "用法：jmx [start [端口]|status|stop|beans|"
+                        + "heartbeat [秒|stop|status]]";
             };
         } catch (IOException | IllegalArgumentException e) {
             return "JMX 操作失败：" + e.getMessage();
         }
     }
 
+    /** 列出 fc 域的 MBean；用 QueryExp 在服务端筛出已发布状态的遥测。 */
+    private String jmxBeans() throws IOException {
+        if (jmx == null || !jmx.isRunning()) {
+            return "JMX 端点未启动（先 jmx start）";
+        }
+        try (var connector = RemoteJmx.connect(jmx.url())) {
+            var connection = connector.getMBeanServerConnection();
+            var all = RemoteJmx.allBeans(connection, "fc.*");
+            var published = RemoteJmx.publishedBeans(connection);
+            StringBuilder sb = new StringBuilder("JMX 目录 → fc 域 MBean " + all.size()
+                    + " 个，已发布状态 " + published.size() + " 个");
+            for (var bean : all) {
+                sb.append("\n  ").append(bean.getCanonicalName())
+                        .append(published.contains(bean) ? "  ● 已发布" : "");
+            }
+            if (all.isEmpty()) {
+                sb.append("\n  （进程内尚无 fc 遥测；Main 启动时会注册 Game 与 Catalog）");
+            }
+            return sb.toString();
+        }
+    }
+
+    /** 真实时间心跳：Timer MBean 周期广播，不推进游戏时间。 */
+    private String doHeartbeat(List<String> tokens) {
+        if (jmx == null || !jmx.isRunning()) {
+            return "JMX 端点未启动（先 jmx start）";
+        }
+        String arg = tokens.size() >= 3
+                ? tokens.get(2).toLowerCase(java.util.Locale.ROOT) : "";
+        if ("stop".equals(arg)) {
+            if (heartbeat == null) {
+                return "心跳未启动";
+            }
+            stopHeartbeat();
+            return "心跳已停止";
+        }
+        if ("status".equals(arg)) {
+            return heartbeat == null ? "心跳未启动（jmx heartbeat [秒] 启动）"
+                    : "心跳每 " + heartbeat.seconds() + " 秒 → "
+                            + Heartbeat.OBJECT_NAME + "，已发送 " + heartbeat.beats()
+                            + " 次（" + Heartbeat.TYPE + "）";
+        }
+        int seconds = 30;
+        if (!arg.isEmpty()) {
+            try {
+                seconds = Integer.parseInt(arg);
+            } catch (NumberFormatException e) {
+                return "心跳周期必须是整数秒：" + arg;
+            }
+        }
+        stopHeartbeat();
+        try {
+            heartbeat = Heartbeat.start(seconds);
+            return "心跳已启动 → 每 " + seconds + " 秒广播 " + Heartbeat.TYPE
+                    + "（" + Heartbeat.OBJECT_NAME + "）";
+        } catch (javax.management.JMException | IllegalArgumentException e) {
+            return "心跳启动失败：" + e.getMessage();
+        }
+    }
+
+    private void stopHeartbeat() {
+        if (heartbeat != null) {
+            heartbeat.close();
+            heartbeat = null;
+        }
+    }
+
     private void closeJmx() {
+        stopHeartbeat();
         if (jmx != null) {
             unbindService("fc:service/jmx");
             jmx.close();
