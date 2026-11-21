@@ -201,7 +201,7 @@ public final class RuntimeSession {
         String name = command.split("\\s+", 2)[0].toLowerCase(java.util.Locale.ROOT);
         return switch (name) {
             case "save", "load", "saves", "hash", "help", "quit", "exit",
-                    "query", "export" -> false;
+                    "query", "export", "atlas", "chart" -> false;
             default -> true;
         };
     }

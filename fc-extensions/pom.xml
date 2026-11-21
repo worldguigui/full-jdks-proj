@@ -55,6 +55,24 @@
                             </arguments>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>run-atlas-tests</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <classpathScope>test</classpathScope>
+                            <arguments>
+                                <argument>-ea</argument>
+                                <argument>-Djava.awt.headless=true</argument>
+                                <argument>-classpath</argument>
+                                <classpath/>
+                                <argument>fc.extensions.MapAtlasTest</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>

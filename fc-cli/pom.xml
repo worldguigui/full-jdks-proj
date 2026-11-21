@@ -53,5 +53,9 @@
             <groupId>fc</groupId>
             <artifactId>fc-config</artifactId>
         </dependency>
+        <dependency>
+            <groupId>fc</groupId>
+            <artifactId>fc-extensions</artifactId>
+        </dependency>
     </dependencies>
 </project>

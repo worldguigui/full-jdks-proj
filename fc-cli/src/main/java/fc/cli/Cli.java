@@ -9,6 +9,7 @@ import fc.diplomacy.DiplomacyService;
 import fc.diplomacy.GoalService;
 import fc.economy.LoanService;
 import fc.economy.TradeService;
+import fc.extensions.MapAtlas;
 import fc.fleet.CrewService;
 import fc.fleet.MaintenanceService;
 import fc.fleet.VoyageService;
@@ -138,6 +139,8 @@ public final class Cli {
                     "只读 SQL 查询编年史（SELECT ... FROM chronicle）"),
             new Cmd("export", List.of(), "export <csv|xml|html|zip> [路径]",
                     "导出编年史（默认 chronicle.<格式>）"),
+            new Cmd("atlas", List.of("chart"), "atlas [png|jpeg] [路径]",
+                    "星图工坊：带图例/罗盘/缩略图的 PNG/JPEG 制图"),
             new Cmd("status", List.of(), "status",
                     "世界概况：时间、地点数、舰船数、事件数"),
             new Cmd("help", List.of(), "help",
@@ -228,6 +231,7 @@ public final class Cli {
             case "log" -> doChronicle(tokens);
             case "query" -> doQuery(tokens);
             case "export" -> doExport(tokens);
+            case "atlas" -> doAtlas(tokens);
             case "help" -> help();
             case "quit" -> "bye";
             default -> "未知命令: " + tokens.get(0) + "（输入 help 查看全部 " + COMMANDS.size() + " 条命令）";
@@ -360,6 +364,28 @@ public final class Cli {
             return "已导出 " + chronicle.all().size() + " 条事件 → " + output;
         } catch (IOException e) {
             return "导出失败：" + e.getMessage();
+        }
+    }
+
+    /** 星图工坊：把当前世界渲染成出版级 PNG/JPEG。 */
+    private String doAtlas(List<String> tokens) {
+        String format = tokens.size() >= 2 ? tokens.get(1).toLowerCase(java.util.Locale.ROOT)
+                : "png";
+        if (format.equals("jpg")) {
+            format = "jpeg";
+        }
+        if (!format.equals("png") && !format.equals("jpeg")) {
+            return "未知制图格式：" + tokens.get(1) + "（可用 png/jpeg）";
+        }
+        String extension = format.equals("jpeg") ? "jpg" : "png";
+        Path output = tokens.size() >= 3 ? Path.of(tokens.get(2))
+                : Path.of("atlas." + extension);
+        try {
+            Path written = MapAtlas.render(loop.state().graph(), output, format,
+                    MapAtlas.AtlasOptions.defaults());
+            return "星图已生成 → " + written + "（" + format + "，含图例/罗盘/缩略图）";
+        } catch (IOException | IllegalArgumentException e) {
+            return "制图失败：" + e.getMessage();
         }
     }
 

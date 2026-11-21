@@ -124,6 +124,27 @@ public final class RuntimeSmokeTest {
     }
 
     @FcTest
+    public void atlasCommandWritesImageAndStaysOutOfReplayLog() throws Exception {
+        RuntimeSession session = boot();
+        Path dir = Files.createTempDirectory("fc-runtime-atlas-");
+        try {
+            String out = session.execute("atlas png " + dir.resolve("atlas.png"));
+            assert out.contains("已生成") : out;
+            Path png = dir.resolve("atlas.png");
+            assert Files.exists(png);
+            assert Files.size(png) > 5000 : Files.size(png);
+        } finally {
+            try (var walk = Files.walk(dir)) {
+                for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
+        }
+        assert session.commandHistory().stream().noneMatch(c -> c.startsWith("atlas"))
+                : "制图不应进入重放日志";
+    }
+
+    @FcTest
     public void missingWorldArgumentIsRejected() {
         try {
             RuntimeSession.create(new String[] {"--world"});

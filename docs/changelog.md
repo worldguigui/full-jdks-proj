@@ -5,6 +5,25 @@
 
 v0.0.1–v0.3.0 的完整记录仍在 README「版本变更迭代」一节，不在本文件重复。
 
+## v0.5.2 2026-11-21 阶段五 M7：星图工坊与出版级制图
+
+1. **制图管线**：`fc.extensions.MapAtlas` 在无头环境绘制出版级星图：渐变星野、
+   `ConvolveOp` 模糊星云、`RescaleOp` 亮度、曲线航线（`QuadCurve2D`/`CubicCurve2D`）、
+   多形状节点（星形 `Path2D`、`Ellipse2D`、`RoundRectangle2D`、`Rectangle2D`、`Polygon`、`QuadCurve2D`）、
+   罗盘、比例尺、图例面板（`Area` 差分描边）与 `AffineTransformOp` 缩略内嵌图。
+2. **排版**：`GlyphVector.getOutline` 渐变标题、`AttributedString`+`TextAttribute.TRACKING`
+   副标题、`TextLayout` 绘制、`FontMetrics` 定位与标签底衬。
+3. **多格式与元数据**：PNG（tEXt）与 JPEG（COM）写出，`ImageWriter`/`ImageWriteParam`
+   控制质量；`readTextMetadata` 读回；`ImageReadParam.setSourceRegion` 读取局部；
+   JPEG 前用 `ColorConvertOp` 转 sRGB。
+4. **图像工具**：锐化/模糊/亮度/缩略图/区域读取/sRGB 转换均为公开静态方法，有独立测试。
+5. **CLI**：新增 `atlas [png|jpeg] [路径]`（别名 `chart`），默认输出 `atlas.png`；
+   与 `query`/`export` 一样不进入重放日志。
+6. **测试**：新增 `MapAtlasTest` 6 个用例与运行时 1 个集成用例；当前共 15 个套件、
+   161 个用例通过；既有测试未删除、未跳过、未放宽。
+7. **审计基线**：类型 350/3836（9.1%）、包 57/176（32.4%）、模块 9/20、293 个 class、
+   Preview 违规 0。
+
 ## v0.5.1 2026-11-21 阶段五 M6：编年史查询、导出与只读 SQL
 
 1. **事件投影**：`fc.history.query.EventView` 把 sealed `GameEvent` 投影为稳定字段

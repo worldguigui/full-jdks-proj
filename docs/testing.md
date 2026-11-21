@@ -27,7 +27,7 @@ mvn -B package
 
 ## 测试套件
 
-当前共 14 个测试套件、154 个用例。
+当前共 15 个测试套件、161 个用例。
 
 | 模块 | 测试主类 | 用例 | 覆盖 |
 |---|---|---:|---|
@@ -39,11 +39,12 @@ mvn -B package
 | `fc-colony` | `ColonyTest` | 11 | 升级、人口与消费、运输在途、补给线间隔/跳过/取消 |
 | `fc-economy` | `EconomyTest` | 20 | 定价、交易守恒与部分成交、配方生产、工人独占、工资、利息、税率与精度 |
 | `fc-history` | `HistoryQueryTest` | 10 | 查询过滤/分页、CSV/XML/XSD/XSLT/ZIP、XXE 拒绝、JDBC 驱动与 DataSource |
-| `fc-runtime` | `RuntimeSmokeTest` | 8 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、非法启动参数 |
+| `fc-runtime` | `RuntimeSmokeTest` | 9 | 默认世界启动、命令响应、账本一致、同种子哈希、查询导出、制图、非法启动参数 |
 | `fc-runtime` | `M4GameplayTest` | 9 | 扫描/勘察、科研解锁、维修、借贷、船坞、外交与委托、星门终局 |
 | `fc-runtime` | `PersistenceTest` | 6 | 明文重放同哈希、加密口令、损坏拒绝、槽位、查询不入日志、缺失槽位 |
 | `fc-persist` | `PersistUnitTest` | 6 | 负载往返、版本拒绝、口令与篡改、双语资源包、偏好、档案名校验 |
 | `fc-extensions` | `ExtensionsTest` | 9 | 内存编译、Mod 装载与签名要求、宏、PNG、JMX、HTTP、音频、描述符 |
+| `fc-extensions` | `MapAtlasTest` | 6 | PNG/JPEG 元数据、逐像素确定性、滤镜、缩略图、区域读取、参数校验 |
 | `fc-audit` | `AuditTest` | 5 | CSV、基准分母与 Preview、classfile 类型提取、报告证据、预览标记 |
 
 `fc-science`、`fc-diplomacy`、`fc-colony` 等领域模块的玩法链由 `fc-runtime.M4GameplayTest`
@@ -101,6 +102,8 @@ mvn -B package
 - Mod 装载必须校验 id、语义化版本、API 版本与重复 id；开启签名要求时拒绝未签名 JAR。
 - 宏必须拒绝缺失参数与含换行的参数；PNG 输出必须确定性（同输入同字节）。
 - JMX、HTTP 与音频在缺少设备/端口时优雅降级，不使启动失败。
+- 星图工坊必须逐像素确定；PNG tEXt 与 JPEG COM 元数据可读回；滤镜确实改变像素；
+  缩略图与区域读取返回请求的尺寸；参数越界与未知格式被拒绝。
 
 ### 审计
 
